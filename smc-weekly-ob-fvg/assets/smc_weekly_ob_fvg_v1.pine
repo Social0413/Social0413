@@ -3,7 +3,7 @@ indicator("CODEX SMC Weekly OB FVG v1", overlay=true, max_boxes_count=500, max_l
 
 htf = input.timeframe("W", "High timeframe")
 useWicks = input.bool(true, "Use full candle wick for OB range")
-maxZones = input.int(80, "Maximum zones per type", minval=10, maxval=160)
+maxZones = input.int(40, "Maximum zones per type", minval=10, maxval=120)
 structureLookback = input.int(8, "OB structure lookback", minval=3, maxval=30)
 obSearchBack = input.int(8, "OB candle searchback", minval=1, maxval=30)
 minFvgPct = input.float(3.0, "Minimum FVG size (%)", minval=0.0, step=0.25)
@@ -12,8 +12,6 @@ showFvg = input.bool(true, "Show weekly FVG")
 showMidline = input.bool(true, "Show zone midpoint")
 show365Range = input.bool(true, "Show recent 365-day high/low")
 stableReplayExtend = input.bool(true, "Stable replay extension")
-showZoneText = input.bool(false, "Show OB/FVG text")
-showDebug = input.bool(true, "Show debug label")
 
 bullObColor = input.color(color.new(color.lime, 90), "Bullish OB fill")
 bullObBorder = input.color(color.new(color.lime, 20), "Bullish OB border")
@@ -59,7 +57,6 @@ var line rangeHighLine = na
 var line rangeLowLine = na
 var label rangeHighLabel = na
 var label rangeLowLabel = na
-var label debugLabel = na
 var int completedWeeks = 0
 var int[] weekTimes = array.new_int()
 var float[] weekOpens = array.new_float()
@@ -88,8 +85,7 @@ addOb(_dir, _leftTime, _top, _bottom) =>
     _fill = _dir == 1 ? bullObColor : bearObColor
     _border = _dir == 1 ? bullObBorder : bearObBorder
     _extend = stableReplayExtend ? extend.right : extend.none
-    _text = showZoneText ? "OB" : ""
-    _box = box.new(_leftTime, _top, time, _bottom, xloc=xloc.bar_time, extend=_extend, bgcolor=_fill, border_color=_border, text=_text, text_color=_border, text_size=size.tiny)
+    _box = box.new(_leftTime, _top, time, _bottom, xloc=xloc.bar_time, extend=_extend, bgcolor=_fill, border_color=_border, text="OB", text_color=_border, text_size=size.tiny)
     _line = line.new(_leftTime, _mid, time, _mid, xloc=xloc.bar_time, extend=_extend, color=showMidline ? midColor : color.new(midColor, 100), style=line.style_dashed, width=1)
     array.push(obBoxes, _box)
     array.push(obMidLines, _line)
@@ -103,8 +99,7 @@ addFvg(_dir, _leftTime, _top, _bottom) =>
     _fill = _dir == 1 ? bullFvgColor : bearFvgColor
     _border = _dir == 1 ? color.new(color.teal, 45) : color.new(color.maroon, 45)
     _extend = stableReplayExtend ? extend.right : extend.none
-    _text = showZoneText ? "FVG" : ""
-    _box = box.new(_leftTime, _top, time, _bottom, xloc=xloc.bar_time, extend=_extend, bgcolor=_fill, border_color=_border, text=_text, text_color=_border, text_size=size.tiny)
+    _box = box.new(_leftTime, _top, time, _bottom, xloc=xloc.bar_time, extend=_extend, bgcolor=_fill, border_color=_border, text="FVG", text_color=_border, text_size=size.tiny)
     _line = line.new(_leftTime, _mid, time, _mid, xloc=xloc.bar_time, extend=_extend, color=showMidline ? midColor : color.new(midColor, 100), style=line.style_dotted, width=1)
     array.push(fvgBoxes, _box)
     array.push(fvgMidLines, _line)
@@ -270,11 +265,3 @@ if barstate.islast and show365Range
         rangeLowLine := line.new(loTime365, lo365, loTime365 + barMs, lo365, xloc=xloc.bar_time, extend=extend.right, color=rangeLowColor, width=2)
         rangeHighLabel := label.new(time + barMs, hi365, "365D High", xloc=xloc.bar_time, style=label.style_label_left, textcolor=color.black, color=rangeHighColor, size=size.small)
         rangeLowLabel := label.new(time + barMs, lo365, "365D Low", xloc=xloc.bar_time, style=label.style_label_left, textcolor=color.black, color=rangeLowColor, size=size.small)
-
-if barstate.islast and showDebug
-    label.delete(debugLabel)
-    debugText = "CODEX SMC debug\ncompleted weeks: " + str.tostring(completedWeeks) + "\nOB boxes: " + str.tostring(array.size(obBoxes)) + " active " + str.tostring(array.size(obActive)) + "\nFVG boxes: " + str.tostring(array.size(fvgBoxes)) + " active " + str.tostring(array.size(fvgActive)) + "\nweek key: " + str.tostring(weekKey) + "\nlast bar: " + str.tostring(time)
-    debugLabel := label.new(time, high, debugText, xloc=xloc.bar_time, style=label.style_label_down, color=color.new(color.orange, 0), textcolor=color.black, size=size.small)
-
-if barstate.islast and not showDebug
-    label.delete(debugLabel)
