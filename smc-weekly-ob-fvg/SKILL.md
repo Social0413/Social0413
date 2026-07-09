@@ -18,16 +18,15 @@ Build Pine Script indicators for SMC analysis on TradingView. Version 1 focuses 
   - Bullish FVG: week 3 low is above week 1 high.
   - Bearish FVG: week 3 high is below week 1 low.
   - Only keep FVG zones whose gap size is at least 3% of the gap midpoint price by default.
-- Detect weekly OB with a sensitive displacement rule so zones appear reliably during testing:
-  - Bullish OB: a completed weekly candle closes above the previous bearish weekly candle high; use that previous bearish candle as the OB.
-  - Bearish OB: a completed weekly candle closes below the previous bullish weekly candle low; use that previous bullish candle as the OB.
+- Detect weekly OB with a structure-break rule:
+  - Bullish OB: a completed weekly close breaks above the recent weekly structure high; search backward for the nearest bearish weekly candle and use it as the OB.
+  - Bearish OB: a completed weekly close breaks below the recent weekly structure low; search backward for the nearest bullish weekly candle and use it as the OB.
 - Extend each valid OB to the right.
-- Stop extending a bullish OB when price breaks below its midpoint.
-- Stop extending a bearish OB when price breaks above its midpoint.
+- Keep midpoint invalidation optional with `Stop zones at midpoint break`. Default it off for replay stability; turn it on when strict invalidation is more important than replay visibility.
 - Extend each valid FVG to the right.
 - Stop extending a bullish FVG when price breaks below its midpoint.
 - Stop extending a bearish FVG when price breaks above its midpoint.
-- Default to TradingView native right extension for active OB/FVG zones in replay mode. Only stop extension when price breaks the midpoint. Use the `Stable replay extension` setting to keep drawings visible when stepping forward in replay.
+- Default to TradingView native right extension for active OB/FVG zones in replay mode. Use `Stable replay extension` and keep `Stop zones at midpoint break` off when stepping forward in replay causes drawings to disappear.
 - Keep more historical OB/FVG zones by default (`Maximum zones per type` defaults to 220) so old OB zones are not trimmed while old FVG zones remain.
 - Label zones simply as `OB` and `FVG`; direction is communicated by color.
 - Mark the highest high and lowest low from the most recent 365 daily candles with visible horizontal lines.

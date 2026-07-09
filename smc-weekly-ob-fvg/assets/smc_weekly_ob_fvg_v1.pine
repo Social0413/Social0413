@@ -4,12 +4,15 @@ indicator("CODEX SMC Weekly OB FVG v1", overlay=true, max_boxes_count=500, max_l
 htf = input.timeframe("W", "High timeframe")
 useWicks = input.bool(true, "Use full candle wick for OB range")
 maxZones = input.int(220, "Maximum zones per type", minval=10, maxval=240)
+structureLookback = input.int(8, "OB structure lookback", minval=3, maxval=30)
+obSearchBack = input.int(8, "OB candle searchback", minval=1, maxval=30)
 minFvgPct = input.float(3.0, "Minimum FVG size (%)", minval=0.0, step=0.25)
 showOb = input.bool(true, "Show weekly OB")
 showFvg = input.bool(true, "Show weekly FVG")
 showMidline = input.bool(true, "Show zone midpoint")
 show365Range = input.bool(true, "Show recent 365-day high/low")
 stableReplayExtend = input.bool(true, "Stable replay extension")
+stopAtMidpoint = input.bool(false, "Stop zones at midpoint break")
 showDebug = input.bool(false, "Show debug label")
 
 bullObColor = input.color(color.new(color.lime, 82), "Bullish OB fill")
@@ -58,6 +61,11 @@ var label rangeHighLabel = na
 var label rangeLowLabel = na
 var label debugLabel = na
 var int completedWeeks = 0
+var int[] weekTimes = array.new_int()
+var float[] weekOpens = array.new_float()
+var float[] weekHighs = array.new_float()
+var float[] weekLows = array.new_float()
+var float[] weekCloses = array.new_float()
 
 barMs = math.max(1, nz(time - time[1], 24 * 60 * 60 * 1000))
 
@@ -108,7 +116,7 @@ if array.size(obBoxes) > 0
         if array.get(obActive, i)
             dir = array.get(obDirs, i)
             mid = array.get(obMids, i)
-            broken = dir == 1 ? close < mid : close > mid
+            broken = stopAtMidpoint and (dir == 1 ? close < mid : close > mid)
             if broken
                 bx = array.get(obBoxes, i)
                 ln = array.get(obMidLines, i)
@@ -128,7 +136,7 @@ if array.size(fvgBoxes) > 0
         if array.get(fvgActive, i)
             dir = array.get(fvgDirs, i)
             mid = array.get(fvgMids, i)
-            broken = dir == 1 ? close < mid : close > mid
+            broken = stopAtMidpoint and (dir == 1 ? close < mid : close > mid)
             if broken
                 bx = array.get(fvgBoxes, i)
                 ln = array.get(fvgMidLines, i)
@@ -168,18 +176,50 @@ else if newWeek
     w1C := curC
     w1T := curT
 
+    array.push(weekTimes, curT)
+    array.push(weekOpens, curO)
+    array.push(weekHighs, curH)
+    array.push(weekLows, curL)
+    array.push(weekCloses, curC)
+    if array.size(weekTimes) > 320
+        array.shift(weekTimes)
+        array.shift(weekOpens)
+        array.shift(weekHighs)
+        array.shift(weekLows)
+        array.shift(weekCloses)
+
     ready = not na(w1C) and not na(w2C) and not na(w3H)
     if ready and showOb
-        bullishOb = w1C > w2H and w2C < w2O
-        bearishOb = w1C < w2L and w2C > w2O
+        lastIdx = array.size(weekTimes) - 1
+        enoughStructure = lastIdx > structureLookback
+        float recentHigh = na
+        float recentLow = na
+        if enoughStructure
+            for offset = 1 to structureLookback
+                idx = lastIdx - offset
+                h = array.get(weekHighs, idx)
+                l = array.get(weekLows, idx)
+                recentHigh := na(recentHigh) ? h : math.max(recentHigh, h)
+                recentLow := na(recentLow) ? l : math.min(recentLow, l)
+
+        bullishOb = enoughStructure and w1C > recentHigh
+        bearishOb = enoughStructure and w1C < recentLow
         if bullishOb
-            top = useWicks ? w2H : w2O
-            bottom = useWicks ? w2L : w2C
-            addOb(1, w2T, top, bottom)
+            for offset = 1 to obSearchBack
+                idx = lastIdx - offset
+                if idx >= 0 and array.get(weekCloses, idx) < array.get(weekOpens, idx)
+                    top = useWicks ? array.get(weekHighs, idx) : array.get(weekOpens, idx)
+                    bottom = useWicks ? array.get(weekLows, idx) : array.get(weekCloses, idx)
+                    addOb(1, array.get(weekTimes, idx), top, bottom)
+                    break
         if bearishOb
-            top = useWicks ? w2H : w2C
-            bottom = useWicks ? w2L : w2O
-            addOb(-1, w2T, top, bottom)
+            for offset = 1 to obSearchBack
+                idx = lastIdx - offset
+                if idx >= 0 and array.get(weekCloses, idx) > array.get(weekOpens, idx)
+                    top = useWicks ? array.get(weekHighs, idx) : array.get(weekCloses, idx)
+                    bottom = useWicks ? array.get(weekLows, idx) : array.get(weekOpens, idx)
+                    addOb(-1, array.get(weekTimes, idx), top, bottom)
+                    break
 
     if ready and showFvg
         bullTop = w1L
