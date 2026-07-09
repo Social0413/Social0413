@@ -58,6 +58,8 @@ var label rangeLowLabel = na
 var label debugLabel = na
 var int completedWeeks = 0
 
+barMs = math.max(1, nz(time - time[1], 24 * 60 * 60 * 1000))
+
 trimZones() =>
     while array.size(obBoxes) > maxZones
         box.delete(array.shift(obBoxes))
@@ -76,9 +78,8 @@ addOb(_dir, _leftTime, _top, _bottom) =>
     _mid = (_top + _bottom) / 2.0
     _fill = _dir == 1 ? bullObColor : bearObColor
     _border = _dir == 1 ? bullObBorder : bearObBorder
-    _label = _dir == 1 ? "W Bull OB" : "W Bear OB"
-    _box = box.new(_leftTime, _top, time, _bottom, xloc=xloc.bar_time, extend=extend.right, bgcolor=_fill, border_color=_border, text=_label, text_color=_border, text_size=size.tiny)
-    _line = line.new(_leftTime, _mid, time, _mid, xloc=xloc.bar_time, extend=extend.right, color=showMidline ? midColor : color.new(midColor, 100), style=line.style_dashed, width=1)
+    _box = box.new(_leftTime, _top, time, _bottom, xloc=xloc.bar_time, extend=extend.none, bgcolor=_fill, border_color=_border, text="OB", text_color=_border, text_size=size.tiny)
+    _line = line.new(_leftTime, _mid, time, _mid, xloc=xloc.bar_time, extend=extend.none, color=showMidline ? midColor : color.new(midColor, 100), style=line.style_dashed, width=1)
     array.push(obBoxes, _box)
     array.push(obMidLines, _line)
     array.push(obDirs, _dir)
@@ -90,9 +91,8 @@ addFvg(_dir, _leftTime, _top, _bottom) =>
     _mid = (_top + _bottom) / 2.0
     _fill = _dir == 1 ? bullFvgColor : bearFvgColor
     _border = _dir == 1 ? color.new(color.teal, 45) : color.new(color.maroon, 45)
-    _label = _dir == 1 ? "W Bull FVG" : "W Bear FVG"
-    _box = box.new(_leftTime, _top, time, _bottom, xloc=xloc.bar_time, extend=extend.right, bgcolor=_fill, border_color=_border, text=_label, text_color=_border, text_size=size.tiny)
-    _line = line.new(_leftTime, _mid, time, _mid, xloc=xloc.bar_time, extend=extend.right, color=showMidline ? midColor : color.new(midColor, 100), style=line.style_dotted, width=1)
+    _box = box.new(_leftTime, _top, time, _bottom, xloc=xloc.bar_time, extend=extend.none, bgcolor=_fill, border_color=_border, text="FVG", text_color=_border, text_size=size.tiny)
+    _line = line.new(_leftTime, _mid, time, _mid, xloc=xloc.bar_time, extend=extend.none, color=showMidline ? midColor : color.new(midColor, 100), style=line.style_dotted, width=1)
     array.push(fvgBoxes, _box)
     array.push(fvgMidLines, _line)
     array.push(fvgDirs, _dir)
@@ -109,11 +109,14 @@ if array.size(obBoxes) > 0
             if broken
                 bx = array.get(obBoxes, i)
                 ln = array.get(obMidLines, i)
-                box.set_extend(bx, extend.none)
                 box.set_right(bx, time)
-                line.set_extend(ln, extend.none)
                 line.set_x2(ln, time)
                 array.set(obActive, i, false)
+            else
+                bx = array.get(obBoxes, i)
+                ln = array.get(obMidLines, i)
+                box.set_right(bx, time + barMs)
+                line.set_x2(ln, time + barMs)
 
 if array.size(fvgBoxes) > 0
     for i = 0 to array.size(fvgBoxes) - 1
@@ -124,11 +127,14 @@ if array.size(fvgBoxes) > 0
             if broken
                 bx = array.get(fvgBoxes, i)
                 ln = array.get(fvgMidLines, i)
-                box.set_extend(bx, extend.none)
                 box.set_right(bx, time)
-                line.set_extend(ln, extend.none)
                 line.set_x2(ln, time)
                 array.set(fvgActive, i, false)
+            else
+                bx = array.get(fvgBoxes, i)
+                ln = array.get(fvgMidLines, i)
+                box.set_right(bx, time + barMs)
+                line.set_x2(ln, time + barMs)
 
 weekKey = time(htf)
 newWeek = ta.change(weekKey) != 0
@@ -176,9 +182,9 @@ else if newWeek
         bullPct = math.abs(bullTop - bullBottom) / ((bullTop + bullBottom) / 2.0) * 100.0
         bearPct = math.abs(bearTop - bearBottom) / ((bearTop + bearBottom) / 2.0) * 100.0
         if bullTop > bullBottom and bullPct >= minFvgPct
-            addFvg(1, w3T, bullTop, bullBottom)
+            addFvg(1, w1T, bullTop, bullBottom)
         if bearTop > bearBottom and bearPct >= minFvgPct
-            addFvg(-1, w3T, bearTop, bearBottom)
+            addFvg(-1, w1T, bearTop, bearBottom)
 
     curT := weekKey
     curO := open
@@ -211,10 +217,10 @@ if barstate.islast and show365Range
     label.delete(rangeHighLabel)
     label.delete(rangeLowLabel)
     if not na(hi365) and not na(lo365)
-        rangeHighLine := line.new(hiTime365, hi365, time, hi365, xloc=xloc.bar_time, extend=extend.right, color=rangeHighColor, width=2)
-        rangeLowLine := line.new(loTime365, lo365, time, lo365, xloc=xloc.bar_time, extend=extend.right, color=rangeLowColor, width=2)
-        rangeHighLabel := label.new(time, hi365, "365D High", xloc=xloc.bar_time, style=label.style_label_left, textcolor=color.black, color=rangeHighColor, size=size.small)
-        rangeLowLabel := label.new(time, lo365, "365D Low", xloc=xloc.bar_time, style=label.style_label_left, textcolor=color.black, color=rangeLowColor, size=size.small)
+        rangeHighLine := line.new(hiTime365, hi365, hiTime365 + barMs, hi365, xloc=xloc.bar_time, extend=extend.right, color=rangeHighColor, width=2)
+        rangeLowLine := line.new(loTime365, lo365, loTime365 + barMs, lo365, xloc=xloc.bar_time, extend=extend.right, color=rangeLowColor, width=2)
+        rangeHighLabel := label.new(time + barMs, hi365, "365D High", xloc=xloc.bar_time, style=label.style_label_left, textcolor=color.black, color=rangeHighColor, size=size.small)
+        rangeLowLabel := label.new(time + barMs, lo365, "365D Low", xloc=xloc.bar_time, style=label.style_label_left, textcolor=color.black, color=rangeLowColor, size=size.small)
 
 if barstate.islast and showDebug
     label.delete(debugLabel)

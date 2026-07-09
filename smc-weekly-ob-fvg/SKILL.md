@@ -27,8 +27,12 @@ Build Pine Script indicators for SMC analysis on TradingView. Version 1 focuses 
 - Extend each valid FVG to the right.
 - Stop extending a bullish FVG when price breaks below its midpoint.
 - Stop extending a bearish FVG when price breaks above its midpoint.
+- Update active OB/FVG right edges bar-by-bar instead of relying on infinite extension, so replay mode is less likely to flicker or lose drawings when stepping forward.
+- Label zones simply as `OB` and `FVG`; direction is communicated by color.
 - Mark the highest high and lowest low from the most recent 365 daily candles with visible horizontal lines.
 - Anchor each 365-day high/low line to the daily candle where that high/low happened, then extend it to the right until the level changes.
+- Draw 365-day high/low as horizontal rays from the anchor candle, not as a line from the anchor to the current bar.
+- Start FVG boxes from the confirming weekly candle rather than the earliest candle in the 3-candle pattern.
 - Build weekly candle history by aggregating the current chart bars into weekly candles. Avoid relying on weekly `request.security()` history for OB/FVG drawing, because those zones must remain visible when the user switches between weekly, daily, and intraday charts.
 - Include a `Show debug label` input. If the chart appears blank, enable it and inspect completed weekly candles, OB count, and FVG count before changing the detection rules.
 
