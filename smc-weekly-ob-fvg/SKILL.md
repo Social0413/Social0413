@@ -27,9 +27,8 @@ Build Pine Script indicators for SMC analysis on TradingView. Version 1 focuses 
 - Extend each valid FVG to the right.
 - Stop extending a bullish FVG when price breaks below its midpoint.
 - Stop extending a bearish FVG when price breaks above its midpoint.
-- Use `Replay safe mode` by default for bar replay. In this mode, keep zones extended and skip midpoint invalidation so the whole indicator does not disappear when stepping forward one day.
-- Turn `Replay safe mode` off only when strict midpoint invalidation is required.
-- Keep enough historical OB/FVG zones by default (`Maximum zones per type` defaults to 180) while reducing visual clutter.
+- Always stop OB/FVG zones at midpoint breaks; do not skip invalidation for replay mode.
+- Keep object count conservative by default (`Maximum zones per type` defaults to 80) because TradingView replay can stop drawing the whole indicator when object pressure is too high.
 - Keep `Show OB/FVG text` off by default to avoid overlapping labels. Direction is communicated by color.
 - Use more transparent fills by default because overlapping zones become visually brighter when they stack.
 - Mark the highest high and lowest low from the most recent 365 daily candles with visible horizontal lines.
@@ -37,7 +36,7 @@ Build Pine Script indicators for SMC analysis on TradingView. Version 1 focuses 
 - Draw 365-day high/low as horizontal rays from the anchor candle, not as a line from the anchor to the current bar.
 - Start FVG boxes from the confirming weekly candle rather than the earliest candle in the 3-candle pattern.
 - Build weekly candle history by aggregating the current chart bars into weekly candles. Avoid relying on weekly `request.security()` history for OB/FVG drawing, because those zones must remain visible when the user switches between weekly, daily, and intraday charts.
-- Include a `Show debug label` input. If the chart appears blank, enable it and inspect completed weekly candles, OB count, and FVG count before changing the detection rules.
+- Keep `Show debug label` on by default while diagnosing replay mode. If the entire indicator disappears after stepping forward, inspect whether the debug label also disappears; if it does, treat the issue as Pine runtime/object pressure rather than an OB/FVG rule problem.
 
 ## Version Control
 

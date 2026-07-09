@@ -3,7 +3,7 @@ indicator("CODEX SMC Weekly OB FVG v1", overlay=true, max_boxes_count=500, max_l
 
 htf = input.timeframe("W", "High timeframe")
 useWicks = input.bool(true, "Use full candle wick for OB range")
-maxZones = input.int(180, "Maximum zones per type", minval=10, maxval=240)
+maxZones = input.int(80, "Maximum zones per type", minval=10, maxval=160)
 structureLookback = input.int(8, "OB structure lookback", minval=3, maxval=30)
 obSearchBack = input.int(8, "OB candle searchback", minval=1, maxval=30)
 minFvgPct = input.float(3.0, "Minimum FVG size (%)", minval=0.0, step=0.25)
@@ -12,9 +12,8 @@ showFvg = input.bool(true, "Show weekly FVG")
 showMidline = input.bool(true, "Show zone midpoint")
 show365Range = input.bool(true, "Show recent 365-day high/low")
 stableReplayExtend = input.bool(true, "Stable replay extension")
-replaySafeMode = input.bool(true, "Replay safe mode")
 showZoneText = input.bool(false, "Show OB/FVG text")
-showDebug = input.bool(false, "Show debug label")
+showDebug = input.bool(true, "Show debug label")
 
 bullObColor = input.color(color.new(color.lime, 90), "Bullish OB fill")
 bullObBorder = input.color(color.new(color.lime, 20), "Bullish OB border")
@@ -116,7 +115,7 @@ addFvg(_dir, _leftTime, _top, _bottom) =>
 
 if array.size(obBoxes) > 0
     for i = 0 to array.size(obBoxes) - 1
-        if array.get(obActive, i) and not replaySafeMode
+        if array.get(obActive, i)
             dir = array.get(obDirs, i)
             mid = array.get(obMids, i)
             broken = dir == 1 ? close < mid : close > mid
@@ -136,7 +135,7 @@ if array.size(obBoxes) > 0
 
 if array.size(fvgBoxes) > 0
     for i = 0 to array.size(fvgBoxes) - 1
-        if array.get(fvgActive, i) and not replaySafeMode
+        if array.get(fvgActive, i)
             dir = array.get(fvgDirs, i)
             mid = array.get(fvgMids, i)
             broken = dir == 1 ? close < mid : close > mid
@@ -274,7 +273,7 @@ if barstate.islast and show365Range
 
 if barstate.islast and showDebug
     label.delete(debugLabel)
-    debugText = "CODEX SMC debug\ncompleted weeks: " + str.tostring(completedWeeks) + "\nOB boxes: " + str.tostring(array.size(obBoxes)) + "\nFVG boxes: " + str.tostring(array.size(fvgBoxes)) + "\ncurrent week key: " + str.tostring(weekKey) + "\nw1 close: " + str.tostring(w1C) + "\nw2 close: " + str.tostring(w2C)
+    debugText = "CODEX SMC debug\ncompleted weeks: " + str.tostring(completedWeeks) + "\nOB boxes: " + str.tostring(array.size(obBoxes)) + " active " + str.tostring(array.size(obActive)) + "\nFVG boxes: " + str.tostring(array.size(fvgBoxes)) + " active " + str.tostring(array.size(fvgActive)) + "\nweek key: " + str.tostring(weekKey) + "\nlast bar: " + str.tostring(time)
     debugLabel := label.new(time, high, debugText, xloc=xloc.bar_time, style=label.style_label_down, color=color.new(color.orange, 0), textcolor=color.black, size=size.small)
 
 if barstate.islast and not showDebug
