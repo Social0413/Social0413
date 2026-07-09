@@ -27,9 +27,11 @@ Build Pine Script indicators for SMC analysis on TradingView. Version 1 focuses 
 - Extend each valid FVG to the right.
 - Stop extending a bullish FVG when price breaks below its midpoint.
 - Stop extending a bearish FVG when price breaks above its midpoint.
-- If the entire indicator disappears while stepping forward in replay mode, treat it as a script/object recalculation problem, not as individual OB/FVG invalidation.
-- Keep more historical OB/FVG zones by default (`Maximum zones per type` defaults to 220) so old OB zones are not trimmed while old FVG zones remain.
-- Label zones simply as `OB` and `FVG`; direction is communicated by color.
+- Use `Replay safe mode` by default for bar replay. In this mode, keep zones extended and skip midpoint invalidation so the whole indicator does not disappear when stepping forward one day.
+- Turn `Replay safe mode` off only when strict midpoint invalidation is required.
+- Keep enough historical OB/FVG zones by default (`Maximum zones per type` defaults to 180) while reducing visual clutter.
+- Keep `Show OB/FVG text` off by default to avoid overlapping labels. Direction is communicated by color.
+- Use more transparent fills by default because overlapping zones become visually brighter when they stack.
 - Mark the highest high and lowest low from the most recent 365 daily candles with visible horizontal lines.
 - Anchor each 365-day high/low line to the daily candle where that high/low happened, then extend it to the right until the level changes.
 - Draw 365-day high/low as horizontal rays from the anchor candle, not as a line from the anchor to the current bar.
