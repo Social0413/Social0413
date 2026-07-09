@@ -48,6 +48,8 @@ var line[] obMidLines = array.new_line()
 var int[] obDirs = array.new_int()
 var float[] obMids = array.new_float()
 var bool[] obActive = array.new_bool()
+var int[] obSourceTimes = array.new_int()
+var int[] obSourceDirs = array.new_int()
 var box[] fvgBoxes = array.new_box()
 var line[] fvgMidLines = array.new_line()
 var int[] fvgDirs = array.new_int()
@@ -73,6 +75,8 @@ trimZones() =>
         array.shift(obDirs)
         array.shift(obMids)
         array.shift(obActive)
+        array.shift(obSourceTimes)
+        array.shift(obSourceDirs)
     while array.size(fvgBoxes) > maxZones
         box.delete(array.shift(fvgBoxes))
         line.delete(array.shift(fvgMidLines))
@@ -92,7 +96,17 @@ addOb(_dir, _leftTime, _top, _bottom) =>
     array.push(obDirs, _dir)
     array.push(obMids, _mid)
     array.push(obActive, true)
+    array.push(obSourceTimes, _leftTime)
+    array.push(obSourceDirs, _dir)
     trimZones()
+
+obExists(_dir, _sourceTime) =>
+    exists = false
+    if array.size(obSourceTimes) > 0
+        for i = 0 to array.size(obSourceTimes) - 1
+            if array.get(obSourceTimes, i) == _sourceTime and array.get(obSourceDirs, i) == _dir
+                exists := true
+    exists
 
 addFvg(_dir, _leftTime, _top, _bottom) =>
     _mid = (_top + _bottom) / 2.0
@@ -207,7 +221,9 @@ else if newWeek
                 if idx >= 0 and array.get(weekCloses, idx) < array.get(weekOpens, idx)
                     top = useWicks ? array.get(weekHighs, idx) : array.get(weekOpens, idx)
                     bottom = useWicks ? array.get(weekLows, idx) : array.get(weekCloses, idx)
-                    addOb(1, array.get(weekTimes, idx), top, bottom)
+                    sourceTime = array.get(weekTimes, idx)
+                    if not obExists(1, sourceTime)
+                        addOb(1, sourceTime, top, bottom)
                     break
         if bearishOb
             for offset = 1 to obSearchBack
@@ -215,7 +231,9 @@ else if newWeek
                 if idx >= 0 and array.get(weekCloses, idx) > array.get(weekOpens, idx)
                     top = useWicks ? array.get(weekHighs, idx) : array.get(weekCloses, idx)
                     bottom = useWicks ? array.get(weekLows, idx) : array.get(weekOpens, idx)
-                    addOb(-1, array.get(weekTimes, idx), top, bottom)
+                    sourceTime = array.get(weekTimes, idx)
+                    if not obExists(-1, sourceTime)
+                        addOb(-1, sourceTime, top, bottom)
                     break
 
     if ready and showFvg
@@ -246,7 +264,7 @@ if barstate.islast and show365Range
     float lo365 = na
     int hiTime365 = na
     int loTime365 = na
-    maxBack = math.min(bar_index, 5000)
+    maxBack = math.min(bar_index, 370)
     for i = 0 to maxBack
         if time[i] >= startTime
             if na(hi365) or high[i] > hi365
