@@ -3,12 +3,13 @@ indicator("CODEX SMC Weekly OB FVG v1", overlay=true, max_boxes_count=500, max_l
 
 htf = input.timeframe("W", "High timeframe")
 useWicks = input.bool(true, "Use full candle wick for OB range")
-maxZones = input.int(80, "Maximum active zones", minval=10, maxval=200)
+maxZones = input.int(220, "Maximum zones per type", minval=10, maxval=240)
 minFvgPct = input.float(3.0, "Minimum FVG size (%)", minval=0.0, step=0.25)
 showOb = input.bool(true, "Show weekly OB")
 showFvg = input.bool(true, "Show weekly FVG")
 showMidline = input.bool(true, "Show zone midpoint")
 show365Range = input.bool(true, "Show recent 365-day high/low")
+stableReplayExtend = input.bool(true, "Stable replay extension")
 showDebug = input.bool(false, "Show debug label")
 
 bullObColor = input.color(color.new(color.lime, 82), "Bullish OB fill")
@@ -78,8 +79,9 @@ addOb(_dir, _leftTime, _top, _bottom) =>
     _mid = (_top + _bottom) / 2.0
     _fill = _dir == 1 ? bullObColor : bearObColor
     _border = _dir == 1 ? bullObBorder : bearObBorder
-    _box = box.new(_leftTime, _top, time, _bottom, xloc=xloc.bar_time, extend=extend.none, bgcolor=_fill, border_color=_border, text="OB", text_color=_border, text_size=size.tiny)
-    _line = line.new(_leftTime, _mid, time, _mid, xloc=xloc.bar_time, extend=extend.none, color=showMidline ? midColor : color.new(midColor, 100), style=line.style_dashed, width=1)
+    _extend = stableReplayExtend ? extend.right : extend.none
+    _box = box.new(_leftTime, _top, time, _bottom, xloc=xloc.bar_time, extend=_extend, bgcolor=_fill, border_color=_border, text="OB", text_color=_border, text_size=size.tiny)
+    _line = line.new(_leftTime, _mid, time, _mid, xloc=xloc.bar_time, extend=_extend, color=showMidline ? midColor : color.new(midColor, 100), style=line.style_dashed, width=1)
     array.push(obBoxes, _box)
     array.push(obMidLines, _line)
     array.push(obDirs, _dir)
@@ -91,8 +93,9 @@ addFvg(_dir, _leftTime, _top, _bottom) =>
     _mid = (_top + _bottom) / 2.0
     _fill = _dir == 1 ? bullFvgColor : bearFvgColor
     _border = _dir == 1 ? color.new(color.teal, 45) : color.new(color.maroon, 45)
-    _box = box.new(_leftTime, _top, time, _bottom, xloc=xloc.bar_time, extend=extend.none, bgcolor=_fill, border_color=_border, text="FVG", text_color=_border, text_size=size.tiny)
-    _line = line.new(_leftTime, _mid, time, _mid, xloc=xloc.bar_time, extend=extend.none, color=showMidline ? midColor : color.new(midColor, 100), style=line.style_dotted, width=1)
+    _extend = stableReplayExtend ? extend.right : extend.none
+    _box = box.new(_leftTime, _top, time, _bottom, xloc=xloc.bar_time, extend=_extend, bgcolor=_fill, border_color=_border, text="FVG", text_color=_border, text_size=size.tiny)
+    _line = line.new(_leftTime, _mid, time, _mid, xloc=xloc.bar_time, extend=_extend, color=showMidline ? midColor : color.new(midColor, 100), style=line.style_dotted, width=1)
     array.push(fvgBoxes, _box)
     array.push(fvgMidLines, _line)
     array.push(fvgDirs, _dir)
@@ -109,10 +112,12 @@ if array.size(obBoxes) > 0
             if broken
                 bx = array.get(obBoxes, i)
                 ln = array.get(obMidLines, i)
+                box.set_extend(bx, extend.none)
                 box.set_right(bx, time)
+                line.set_extend(ln, extend.none)
                 line.set_x2(ln, time)
                 array.set(obActive, i, false)
-            else
+            else if not stableReplayExtend
                 bx = array.get(obBoxes, i)
                 ln = array.get(obMidLines, i)
                 box.set_right(bx, time + barMs)
@@ -127,10 +132,12 @@ if array.size(fvgBoxes) > 0
             if broken
                 bx = array.get(fvgBoxes, i)
                 ln = array.get(fvgMidLines, i)
+                box.set_extend(bx, extend.none)
                 box.set_right(bx, time)
+                line.set_extend(ln, extend.none)
                 line.set_x2(ln, time)
                 array.set(fvgActive, i, false)
-            else
+            else if not stableReplayExtend
                 bx = array.get(fvgBoxes, i)
                 ln = array.get(fvgMidLines, i)
                 box.set_right(bx, time + barMs)
