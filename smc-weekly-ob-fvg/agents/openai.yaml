@@ -1,0 +1,4 @@
+interface:
+  display_name: "SMC Weekly OB FVG"
+  short_description: "Draw weekly OB and FVG zones for SMC analysis."
+  default_prompt: "Use $smc-weekly-ob-fvg to create the first SMC weekly OB/FVG indicator version."

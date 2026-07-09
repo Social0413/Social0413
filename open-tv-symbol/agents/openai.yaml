@@ -1,0 +1,4 @@
+interface:
+  display_name: "Open TV Symbol"
+  short_description: "Open TradingView to a symbol and timeframe."
+  default_prompt: "Use $open-tv-symbol to open ETH H4 in TradingView."

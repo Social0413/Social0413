@@ -1,0 +1,4 @@
+interface:
+  display_name: "OPEN_TV"
+  short_description: "Open the local TradingView desktop app."
+  default_prompt: "Use $open-tv to open my TradingView desktop app."

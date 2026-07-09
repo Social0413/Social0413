@@ -1,0 +1,225 @@
+//@version=5
+indicator("CODEX SMC Weekly OB FVG v1", overlay=true, max_boxes_count=500, max_lines_count=500, max_labels_count=200)
+
+htf = input.timeframe("W", "High timeframe")
+useWicks = input.bool(true, "Use full candle wick for OB range")
+maxZones = input.int(80, "Maximum active zones", minval=10, maxval=200)
+minFvgPct = input.float(3.0, "Minimum FVG size (%)", minval=0.0, step=0.25)
+showOb = input.bool(true, "Show weekly OB")
+showFvg = input.bool(true, "Show weekly FVG")
+showMidline = input.bool(true, "Show zone midpoint")
+show365Range = input.bool(true, "Show recent 365-day high/low")
+showDebug = input.bool(false, "Show debug label")
+
+bullObColor = input.color(color.new(color.lime, 82), "Bullish OB fill")
+bullObBorder = input.color(color.new(color.lime, 20), "Bullish OB border")
+bearObColor = input.color(color.new(color.red, 82), "Bearish OB fill")
+bearObBorder = input.color(color.new(color.red, 20), "Bearish OB border")
+bullFvgColor = input.color(color.new(color.teal, 88), "Bullish FVG fill")
+bearFvgColor = input.color(color.new(color.maroon, 88), "Bearish FVG fill")
+midColor = input.color(color.new(color.white, 15), "Zone midpoint color")
+rangeHighColor = input.color(color.new(color.yellow, 0), "365-day high color")
+rangeLowColor = input.color(color.new(color.aqua, 0), "365-day low color")
+
+var float curO = na
+var float curH = na
+var float curL = na
+var float curC = na
+var int curT = na
+
+var float w1O = na
+var float w1H = na
+var float w1L = na
+var float w1C = na
+var int w1T = na
+var float w2O = na
+var float w2H = na
+var float w2L = na
+var float w2C = na
+var int w2T = na
+var float w3H = na
+var float w3L = na
+var int w3T = na
+
+var box[] obBoxes = array.new_box()
+var line[] obMidLines = array.new_line()
+var int[] obDirs = array.new_int()
+var float[] obMids = array.new_float()
+var bool[] obActive = array.new_bool()
+var box[] fvgBoxes = array.new_box()
+var line[] fvgMidLines = array.new_line()
+var int[] fvgDirs = array.new_int()
+var float[] fvgMids = array.new_float()
+var bool[] fvgActive = array.new_bool()
+var line rangeHighLine = na
+var line rangeLowLine = na
+var label rangeHighLabel = na
+var label rangeLowLabel = na
+var label debugLabel = na
+var int completedWeeks = 0
+
+trimZones() =>
+    while array.size(obBoxes) > maxZones
+        box.delete(array.shift(obBoxes))
+        line.delete(array.shift(obMidLines))
+        array.shift(obDirs)
+        array.shift(obMids)
+        array.shift(obActive)
+    while array.size(fvgBoxes) > maxZones
+        box.delete(array.shift(fvgBoxes))
+        line.delete(array.shift(fvgMidLines))
+        array.shift(fvgDirs)
+        array.shift(fvgMids)
+        array.shift(fvgActive)
+
+addOb(_dir, _leftTime, _top, _bottom) =>
+    _mid = (_top + _bottom) / 2.0
+    _fill = _dir == 1 ? bullObColor : bearObColor
+    _border = _dir == 1 ? bullObBorder : bearObBorder
+    _label = _dir == 1 ? "W Bull OB" : "W Bear OB"
+    _box = box.new(_leftTime, _top, time, _bottom, xloc=xloc.bar_time, extend=extend.right, bgcolor=_fill, border_color=_border, text=_label, text_color=_border, text_size=size.tiny)
+    _line = line.new(_leftTime, _mid, time, _mid, xloc=xloc.bar_time, extend=extend.right, color=showMidline ? midColor : color.new(midColor, 100), style=line.style_dashed, width=1)
+    array.push(obBoxes, _box)
+    array.push(obMidLines, _line)
+    array.push(obDirs, _dir)
+    array.push(obMids, _mid)
+    array.push(obActive, true)
+    trimZones()
+
+addFvg(_dir, _leftTime, _top, _bottom) =>
+    _mid = (_top + _bottom) / 2.0
+    _fill = _dir == 1 ? bullFvgColor : bearFvgColor
+    _border = _dir == 1 ? color.new(color.teal, 45) : color.new(color.maroon, 45)
+    _label = _dir == 1 ? "W Bull FVG" : "W Bear FVG"
+    _box = box.new(_leftTime, _top, time, _bottom, xloc=xloc.bar_time, extend=extend.right, bgcolor=_fill, border_color=_border, text=_label, text_color=_border, text_size=size.tiny)
+    _line = line.new(_leftTime, _mid, time, _mid, xloc=xloc.bar_time, extend=extend.right, color=showMidline ? midColor : color.new(midColor, 100), style=line.style_dotted, width=1)
+    array.push(fvgBoxes, _box)
+    array.push(fvgMidLines, _line)
+    array.push(fvgDirs, _dir)
+    array.push(fvgMids, _mid)
+    array.push(fvgActive, true)
+    trimZones()
+
+if array.size(obBoxes) > 0
+    for i = 0 to array.size(obBoxes) - 1
+        if array.get(obActive, i)
+            dir = array.get(obDirs, i)
+            mid = array.get(obMids, i)
+            broken = dir == 1 ? close < mid : close > mid
+            if broken
+                bx = array.get(obBoxes, i)
+                ln = array.get(obMidLines, i)
+                box.set_extend(bx, extend.none)
+                box.set_right(bx, time)
+                line.set_extend(ln, extend.none)
+                line.set_x2(ln, time)
+                array.set(obActive, i, false)
+
+if array.size(fvgBoxes) > 0
+    for i = 0 to array.size(fvgBoxes) - 1
+        if array.get(fvgActive, i)
+            dir = array.get(fvgDirs, i)
+            mid = array.get(fvgMids, i)
+            broken = dir == 1 ? close < mid : close > mid
+            if broken
+                bx = array.get(fvgBoxes, i)
+                ln = array.get(fvgMidLines, i)
+                box.set_extend(bx, extend.none)
+                box.set_right(bx, time)
+                line.set_extend(ln, extend.none)
+                line.set_x2(ln, time)
+                array.set(fvgActive, i, false)
+
+weekKey = time(htf)
+newWeek = ta.change(weekKey) != 0
+
+if na(curT)
+    curT := weekKey
+    curO := open
+    curH := high
+    curL := low
+    curC := close
+else if newWeek
+    completedWeeks += 1
+    w3H := w2H
+    w3L := w2L
+    w3T := w2T
+    w2O := w1O
+    w2H := w1H
+    w2L := w1L
+    w2C := w1C
+    w2T := w1T
+    w1O := curO
+    w1H := curH
+    w1L := curL
+    w1C := curC
+    w1T := curT
+
+    ready = not na(w1C) and not na(w2C) and not na(w3H)
+    if ready and showOb
+        bullishOb = w1C > w2H and w2C < w2O
+        bearishOb = w1C < w2L and w2C > w2O
+        if bullishOb
+            top = useWicks ? w2H : w2O
+            bottom = useWicks ? w2L : w2C
+            addOb(1, w2T, top, bottom)
+        if bearishOb
+            top = useWicks ? w2H : w2C
+            bottom = useWicks ? w2L : w2O
+            addOb(-1, w2T, top, bottom)
+
+    if ready and showFvg
+        bullTop = w1L
+        bullBottom = w3H
+        bearTop = w3L
+        bearBottom = w1H
+        bullPct = math.abs(bullTop - bullBottom) / ((bullTop + bullBottom) / 2.0) * 100.0
+        bearPct = math.abs(bearTop - bearBottom) / ((bearTop + bearBottom) / 2.0) * 100.0
+        if bullTop > bullBottom and bullPct >= minFvgPct
+            addFvg(1, w3T, bullTop, bullBottom)
+        if bearTop > bearBottom and bearPct >= minFvgPct
+            addFvg(-1, w3T, bearTop, bearBottom)
+
+    curT := weekKey
+    curO := open
+    curH := high
+    curL := low
+    curC := close
+else
+    curH := math.max(curH, high)
+    curL := math.min(curL, low)
+    curC := close
+
+if barstate.islast and show365Range
+    startTime = time - 365 * 24 * 60 * 60 * 1000
+    float hi365 = na
+    float lo365 = na
+    int hiTime365 = na
+    int loTime365 = na
+    maxBack = math.min(bar_index, 5000)
+    for i = 0 to maxBack
+        if time[i] >= startTime
+            if na(hi365) or high[i] > hi365
+                hi365 := high[i]
+                hiTime365 := time[i]
+            if na(lo365) or low[i] < lo365
+                lo365 := low[i]
+                loTime365 := time[i]
+
+    line.delete(rangeHighLine)
+    line.delete(rangeLowLine)
+    label.delete(rangeHighLabel)
+    label.delete(rangeLowLabel)
+    if not na(hi365) and not na(lo365)
+        rangeHighLine := line.new(hiTime365, hi365, time, hi365, xloc=xloc.bar_time, extend=extend.right, color=rangeHighColor, width=2)
+        rangeLowLine := line.new(loTime365, lo365, time, lo365, xloc=xloc.bar_time, extend=extend.right, color=rangeLowColor, width=2)
+        rangeHighLabel := label.new(time, hi365, "365D High", xloc=xloc.bar_time, style=label.style_label_left, textcolor=color.black, color=rangeHighColor, size=size.small)
+        rangeLowLabel := label.new(time, lo365, "365D Low", xloc=xloc.bar_time, style=label.style_label_left, textcolor=color.black, color=rangeLowColor, size=size.small)
+
+if barstate.islast and showDebug
+    label.delete(debugLabel)
+    debugText = "CODEX SMC debug\ncompleted weeks: " + str.tostring(completedWeeks) + "\nOB boxes: " + str.tostring(array.size(obBoxes)) + "\nFVG boxes: " + str.tostring(array.size(fvgBoxes)) + "\ncurrent week key: " + str.tostring(weekKey) + "\nw1 close: " + str.tostring(w1C) + "\nw2 close: " + str.tostring(w2C)
+    debugLabel := label.new(time, high, debugText, xloc=xloc.bar_time, style=label.style_label_down, color=color.new(color.orange, 0), textcolor=color.black, size=size.small)
+
+if barstate.islast and not showDebug
+    label.delete(debugLabel)

@@ -1,0 +1,4 @@
+interface:
+  display_name: "CLOSE_TV"
+  short_description: "Close the local TradingView desktop app."
+  default_prompt: "Use $close-tv to close my TradingView desktop app."
