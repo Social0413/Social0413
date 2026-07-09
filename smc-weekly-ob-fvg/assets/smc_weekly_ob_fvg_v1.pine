@@ -12,7 +12,6 @@ showFvg = input.bool(true, "Show weekly FVG")
 showMidline = input.bool(true, "Show zone midpoint")
 show365Range = input.bool(true, "Show recent 365-day high/low")
 stableReplayExtend = input.bool(true, "Stable replay extension")
-stopAtMidpoint = input.bool(false, "Stop zones at midpoint break")
 showDebug = input.bool(false, "Show debug label")
 
 bullObColor = input.color(color.new(color.lime, 82), "Bullish OB fill")
@@ -116,7 +115,7 @@ if array.size(obBoxes) > 0
         if array.get(obActive, i)
             dir = array.get(obDirs, i)
             mid = array.get(obMids, i)
-            broken = stopAtMidpoint and (dir == 1 ? close < mid : close > mid)
+            broken = dir == 1 ? close < mid : close > mid
             if broken
                 bx = array.get(obBoxes, i)
                 ln = array.get(obMidLines, i)
@@ -136,7 +135,7 @@ if array.size(fvgBoxes) > 0
         if array.get(fvgActive, i)
             dir = array.get(fvgDirs, i)
             mid = array.get(fvgMids, i)
-            broken = stopAtMidpoint and (dir == 1 ? close < mid : close > mid)
+            broken = dir == 1 ? close < mid : close > mid
             if broken
                 bx = array.get(fvgBoxes, i)
                 ln = array.get(fvgMidLines, i)

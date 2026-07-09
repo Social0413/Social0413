@@ -22,11 +22,12 @@ Build Pine Script indicators for SMC analysis on TradingView. Version 1 focuses 
   - Bullish OB: a completed weekly close breaks above the recent weekly structure high; search backward for the nearest bearish weekly candle and use it as the OB.
   - Bearish OB: a completed weekly close breaks below the recent weekly structure low; search backward for the nearest bullish weekly candle and use it as the OB.
 - Extend each valid OB to the right.
-- Keep midpoint invalidation optional with `Stop zones at midpoint break`. Default it off for replay stability; turn it on when strict invalidation is more important than replay visibility.
+- Stop extending a bullish OB when price breaks below its midpoint.
+- Stop extending a bearish OB when price breaks above its midpoint.
 - Extend each valid FVG to the right.
 - Stop extending a bullish FVG when price breaks below its midpoint.
 - Stop extending a bearish FVG when price breaks above its midpoint.
-- Default to TradingView native right extension for active OB/FVG zones in replay mode. Use `Stable replay extension` and keep `Stop zones at midpoint break` off when stepping forward in replay causes drawings to disappear.
+- If the entire indicator disappears while stepping forward in replay mode, treat it as a script/object recalculation problem, not as individual OB/FVG invalidation.
 - Keep more historical OB/FVG zones by default (`Maximum zones per type` defaults to 220) so old OB zones are not trimmed while old FVG zones remain.
 - Label zones simply as `OB` and `FVG`; direction is communicated by color.
 - Mark the highest high and lowest low from the most recent 365 daily candles with visible horizontal lines.
