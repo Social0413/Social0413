@@ -36,12 +36,11 @@ Build Pine Script indicators for SMC analysis on TradingView. Version 1 focuses 
 - Always show `OB` and `FVG` text inside zones.
 - Use more transparent fills by default because overlapping zones become visually brighter when they stack.
 - Do not draw the 365-day high/low feature. It was removed because it added resource pressure in replay mode.
-- Mark daily CHOCH/MSS with horizontal lines at the confirmed daily swing high/low that price breaks.
-- Use `D CHOCH` when a daily break reverses the tracked daily trend.
-- Use `D MSS` when a daily break continues or starts the tracked daily trend.
+- Mark daily CHOCH/MSS with horizontal lines using the same structure logic from `C:\30_CodeX\03_H4M15`, with the M15 chart logic adapted for D.
+- Use `D CHOCH` when a daily close breaks the latest CHOCH pivot in the opposite tracked trend direction.
+- Use `D MSS` when a daily close breaks the latest MSS pivot in the opposite tracked trend direction and the candle body meets the ATR displacement filter.
 - Do not use `plotshape` for daily CHOCH/MSS. Use horizontal `line.new` structure levels with small text labels.
-- On daily charts, detect CHOCH/MSS directly from the chart's own daily candles instead of routing through `request.security()`.
-- On weekly or monthly charts, use daily lower-timeframe events when possible so daily structure lines are still visible from higher chart timeframes.
+- Keep CHOCH and MSS as separate pivot systems: CHOCH defaults to swing length 2; MSS defaults to swing length 5 plus ATR body filter.
 - Start FVG boxes from the confirming weekly candle rather than the earliest candle in the 3-candle pattern.
 - Build weekly candle history by aggregating the current chart bars into weekly candles. Avoid relying on weekly `request.security()` history for OB/FVG drawing, because those zones must remain visible when the user switches between weekly, daily, and intraday charts.
 

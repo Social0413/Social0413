@@ -209,6 +209,22 @@ https://github.com/Social0413/Social0413
 - 不再讓日線圖依賴 `request.security()` 回傳 daily event。
 - 週線、月線才使用 lower-timeframe daily events。
 
+## 16. 參考 03_H4M15 重做 CHOCH/MSS
+
+使用者指出應直接參考 `C:\30_CodeX\03_H4M15` 既有寫法，而不是重新猜測。前面寫錯的原因：
+
+- 沒有先搜尋既有可用實作，直接自行設計 daily event system。
+- 把 CHOCH/MSS 混成同一套事件碼，還加入 `request.security_lower_tf()`，造成顯示流程過度複雜。
+- 把 MSS 誤寫成「延續或啟動趨勢」也能成立，和 `03_H4M15` 的實作不一致。
+
+修正後：
+
+- CHOCH 使用獨立短 swing pivot，預設長度 2。
+- MSS 使用獨立長 swing pivot，預設長度 5。
+- MSS 另外要求 candle body 滿足 ATR displacement filter。
+- 只有突破方向與 tracked trend 相反時才觸發 CHOCH/MSS。
+- 保留使用者要求的水平線輸出，線位畫在被突破的 pivot 價位。
+
 同時調整 FVG 顏色：
 
 - Bullish FVG 改為較亮黃色。

@@ -11,9 +11,13 @@ showOb = input.bool(true, "Show weekly OB")
 showFvg = input.bool(true, "Show weekly FVG")
 showMidline = input.bool(true, "Show zone midpoint")
 stableReplayExtend = input.bool(true, "Stable replay extension")
-showDailyStructure = input.bool(true, "Show daily CHOCH/MSS")
-dailySwingLen = input.int(3, "Daily swing length", minval=2, maxval=20)
-maxDailyStructureLines = input.int(80, "Maximum daily structure lines", minval=20, maxval=200)
+showChoch = input.bool(true, "Show D CHOCH")
+showMss = input.bool(true, "Show D MSS")
+chochSwingLen = input.int(2, "D CHOCH swing length", minval=1, maxval=10)
+mssSwingLen = input.int(5, "D MSS swing length", minval=2, maxval=20)
+mssAtrLen = input.int(14, "D MSS ATR length", minval=1, maxval=100)
+mssBodyAtrMult = input.float(1.0, "D MSS body ATR multiplier", minval=0.0, step=0.1)
+maxStructureLines = input.int(120, "Maximum CHOCH/MSS lines", minval=20, maxval=300)
 
 bullObColor = input.color(color.new(color.lime, 90), "Bullish OB fill")
 bullObBorder = input.color(color.new(color.lime, 20), "Bullish OB border")
@@ -22,8 +26,10 @@ bearObBorder = input.color(color.new(color.red, 20), "Bearish OB border")
 bullFvgColor = input.color(color.new(color.yellow, 82), "Bullish FVG fill")
 bearFvgColor = input.color(color.new(color.olive, 90), "Bearish FVG fill")
 midColor = input.color(color.new(color.white, 15), "Zone midpoint color")
-chochColor = input.color(color.new(color.orange, 0), "Daily CHOCH color")
-mssColor = input.color(color.new(color.aqua, 0), "Daily MSS color")
+bullChochColor = input.color(color.new(color.lime, 0), "Bullish CHOCH line")
+bearChochColor = input.color(color.new(color.red, 0), "Bearish CHOCH line")
+bullMssColor = input.color(color.new(color.teal, 0), "Bullish MSS line")
+bearMssColor = input.color(color.new(color.maroon, 0), "Bearish MSS line")
 
 var float curO = na
 var float curH = na
@@ -59,14 +65,12 @@ var float[] fvgMids = array.new_float()
 var bool[] fvgActive = array.new_bool()
 var line[] structureLines = array.new_line()
 var label[] structureLabels = array.new_label()
-var int lastDailyStructureEventTime = na
-var float chartSwingHigh = na
-var float chartSwingLow = na
-var int chartSwingHighTime = na
-var int chartSwingLowTime = na
-var int chartBrokenHighTime = na
-var int chartBrokenLowTime = na
-var int chartStructureTrend = 0
+var float chochHigh = na
+var float chochLow = na
+var int chochTrend = 0
+var float mssHigh = na
+var float mssLow = na
+var int mssTrend = 0
 var int completedWeeks = 0
 var int[] weekTimes = array.new_int()
 var float[] weekOpens = array.new_float()
@@ -76,39 +80,6 @@ var float[] weekCloses = array.new_float()
 
 barMs = math.max(1, nz(time - time[1], 24 * 60 * 60 * 1000))
 dayMs = 24 * 60 * 60 * 1000
-
-dailyStructureEvent(_len) =>
-    var float swingHigh = na
-    var float swingLow = na
-    var int swingHighTime = na
-    var int swingLowTime = na
-    var int brokenHighTime = na
-    var int brokenLowTime = na
-    var int trend = 0
-    ph = ta.pivothigh(high, _len, _len)
-    pl = ta.pivotlow(low, _len, _len)
-    if not na(ph)
-        swingHigh := ph
-        swingHighTime := time[_len]
-    if not na(pl)
-        swingLow := pl
-        swingLowTime := time[_len]
-    eventCode = 0
-    eventLevel = close
-    if not na(swingHigh) and not na(swingHighTime) and high > swingHigh and brokenHighTime != swingHighTime
-        eventCode := trend == -1 ? 1 : 2
-        eventLevel := swingHigh
-        trend := 1
-        brokenHighTime := swingHighTime
-    if not na(swingLow) and not na(swingLowTime) and low < swingLow and brokenLowTime != swingLowTime
-        eventCode := trend == 1 ? -1 : -2
-        eventLevel := swingLow
-        trend := -1
-        brokenLowTime := swingLowTime
-    [time, eventCode, eventLevel]
-
-[dEventTime, dEventCode, dEventLevel] = request.security(syminfo.tickerid, "D", dailyStructureEvent(dailySwingLen), barmerge.gaps_off, barmerge.lookahead_off)
-[dEventTimes, dEventCodes, dEventLevels] = request.security_lower_tf(syminfo.tickerid, "D", dailyStructureEvent(dailySwingLen), ignore_invalid_timeframe=true)
 
 trimZones() =>
     while array.size(obBoxes) > maxZones
@@ -127,18 +98,14 @@ trimZones() =>
         array.shift(fvgActive)
 
 trimStructureLines() =>
-    while array.size(structureLines) > maxDailyStructureLines
+    while array.size(structureLines) > maxStructureLines
         line.delete(array.shift(structureLines))
         label.delete(array.shift(structureLabels))
 
-addStructureLine(_eventTime, _level, _code) =>
-    _isChoch = math.abs(_code) == 1
-    _isBull = _code > 0
-    _color = _isChoch ? chochColor : mssColor
-    _text = _isBull ? (_isChoch ? "D Bull CHOCH" : "D Bull MSS") : (_isChoch ? "D Bear CHOCH" : "D Bear MSS")
-    _style = _isBull ? label.style_label_up : label.style_label_down
-    _line = line.new(_eventTime, _level, _eventTime + dayMs, _level, xloc=xloc.bar_time, extend=extend.right, color=_color, style=line.style_solid, width=2)
-    _label = label.new(_eventTime, _level, _text, xloc=xloc.bar_time, style=_style, color=_color, textcolor=color.black, size=size.tiny)
+addStructureLine(_dir, _text, _level, _lineColor) =>
+    _style = _dir == 1 ? label.style_label_up : label.style_label_down
+    _line = line.new(time, _level, time + dayMs, _level, xloc=xloc.bar_time, extend=extend.right, color=_lineColor, style=line.style_solid, width=2)
+    _label = label.new(time, _level, _text, xloc=xloc.bar_time, style=_style, color=_lineColor, textcolor=color.white, size=size.small)
     array.push(structureLines, _line)
     array.push(structureLabels, _label)
     trimStructureLines()
@@ -221,39 +188,49 @@ if array.size(fvgBoxes) > 0
                 box.set_right(bx, time + barMs)
                 line.set_x2(ln, time + barMs)
 
-isDailyChart = timeframe.in_seconds(timeframe.period) == timeframe.in_seconds("D")
-useLowerDailyEvents = timeframe.in_seconds(timeframe.period) > timeframe.in_seconds("D")
-if showDailyStructure
-    if isDailyChart
-        chartPivotHigh = ta.pivothigh(high, dailySwingLen, dailySwingLen)
-        chartPivotLow = ta.pivotlow(low, dailySwingLen, dailySwingLen)
-        if not na(chartPivotHigh)
-            chartSwingHigh := chartPivotHigh
-            chartSwingHighTime := time[dailySwingLen]
-        if not na(chartPivotLow)
-            chartSwingLow := chartPivotLow
-            chartSwingLowTime := time[dailySwingLen]
-        if not na(chartSwingHigh) and not na(chartSwingHighTime) and high > chartSwingHigh and chartBrokenHighTime != chartSwingHighTime
-            bullChartEventCode = chartStructureTrend == -1 ? 1 : 2
-            addStructureLine(time, chartSwingHigh, bullChartEventCode)
-            chartStructureTrend := 1
-            chartBrokenHighTime := chartSwingHighTime
-        if not na(chartSwingLow) and not na(chartSwingLowTime) and low < chartSwingLow and chartBrokenLowTime != chartSwingLowTime
-            bearChartEventCode = chartStructureTrend == 1 ? -1 : -2
-            addStructureLine(time, chartSwingLow, bearChartEventCode)
-            chartStructureTrend := -1
-            chartBrokenLowTime := chartSwingLowTime
-    else if useLowerDailyEvents and array.size(dEventCodes) > 0
-        for i = 0 to array.size(dEventCodes) - 1
-            eventCode = array.get(dEventCodes, i)
-            eventTime = array.get(dEventTimes, i)
-            eventLevel = array.get(dEventLevels, i)
-            if eventCode != 0 and lastDailyStructureEventTime != eventTime
-                addStructureLine(eventTime, eventLevel, eventCode)
-                lastDailyStructureEventTime := eventTime
-    else if dEventCode != 0 and lastDailyStructureEventTime != dEventTime
-        addStructureLine(dEventTime, dEventLevel, dEventCode)
-        lastDailyStructureEventTime := dEventTime
+chochPivotHigh = ta.pivothigh(high, chochSwingLen, chochSwingLen)
+chochPivotLow = ta.pivotlow(low, chochSwingLen, chochSwingLen)
+mssPivotHigh = ta.pivothigh(high, mssSwingLen, mssSwingLen)
+mssPivotLow = ta.pivotlow(low, mssSwingLen, mssSwingLen)
+
+if not na(chochPivotHigh)
+    chochHigh := chochPivotHigh
+if not na(chochPivotLow)
+    chochLow := chochPivotLow
+if not na(mssPivotHigh)
+    mssHigh := mssPivotHigh
+if not na(mssPivotLow)
+    mssLow := mssPivotLow
+
+bullChoch = false
+bearChoch = false
+if not na(chochHigh) and close > chochHigh
+    bullChoch := chochTrend == -1
+    chochTrend := 1
+if not na(chochLow) and close < chochLow
+    bearChoch := chochTrend == 1
+    chochTrend := -1
+
+mssBody = math.abs(close - open)
+mssAtr = ta.atr(mssAtrLen)
+mssDisplacement = mssBodyAtrMult == 0.0 or mssBody >= mssAtr * mssBodyAtrMult
+bullMss = false
+bearMss = false
+if not na(mssHigh) and close > mssHigh and mssDisplacement
+    bullMss := mssTrend == -1
+    mssTrend := 1
+if not na(mssLow) and close < mssLow and mssDisplacement
+    bearMss := mssTrend == 1
+    mssTrend := -1
+
+if showChoch and bullChoch
+    addStructureLine(1, "D CHOCH", chochHigh, bullChochColor)
+if showChoch and bearChoch
+    addStructureLine(-1, "D CHOCH", chochLow, bearChochColor)
+if showMss and bullMss
+    addStructureLine(1, "D MSS", mssHigh, bullMssColor)
+if showMss and bearMss
+    addStructureLine(-1, "D MSS", mssLow, bearMssColor)
 
 weekKey = time(htf)
 newWeek = ta.change(weekKey) != 0
