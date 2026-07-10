@@ -1,13 +1,13 @@
 ---
 name: smc-weekly-ob-fvg
-description: Create and maintain a TradingView Pine Script indicator for Smart Money Concepts weekly order blocks, weekly fair value gaps, and daily CHOCH/MSS labels. Use when the user asks Codex to draw SMC, weekly OB, weekly FVG, bullish green OB zones, bearish red OB zones, stop zones at midpoint breaks, or daily structure shifts.
+description: Create and maintain a TradingView Pine Script indicator for Smart Money Concepts weekly order blocks, weekly fair value gaps, and daily CHOCH/MSS plot markers. Use when the user asks Codex to draw SMC, weekly OB, weekly FVG, bullish green OB zones, bearish red OB zones, stop zones at midpoint breaks, or daily structure shifts.
 ---
 
 # SMC Weekly OB FVG
 
 ## Overview
 
-Build Pine Script indicators for SMC analysis on TradingView. Version 1 focuses on the current ETHUSDT chart and draws weekly timeframe order blocks, weekly fair value gaps, and daily structure labels while the user views lower timeframes such as H4.
+Build Pine Script indicators for SMC analysis on TradingView. Version 1 focuses on the current ETHUSDT chart and draws weekly timeframe order blocks, weekly fair value gaps, and daily structure markers while the user views lower timeframes such as H4.
 
 ## Version 1 Rules
 
@@ -39,7 +39,7 @@ Build Pine Script indicators for SMC analysis on TradingView. Version 1 focuses 
 - Mark daily CHOCH/MSS from daily high/low breaks of confirmed daily swings.
 - Use `D CHOCH` when a daily break reverses the tracked daily trend.
 - Use `D MSS` when a daily break continues or starts the tracked daily trend.
-- Keep daily structure labels capped by `Maximum daily structure labels`.
+- Draw daily CHOCH/MSS with `plotshape` markers instead of `label.new`, so the structure marks do not add label object pressure in replay mode.
 - Start FVG boxes from the confirming weekly candle rather than the earliest candle in the 3-candle pattern.
 - Build weekly candle history by aggregating the current chart bars into weekly candles. Avoid relying on weekly `request.security()` history for OB/FVG drawing, because those zones must remain visible when the user switches between weekly, daily, and intraday charts.
 

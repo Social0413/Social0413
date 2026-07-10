@@ -169,7 +169,7 @@ https://github.com/Social0413/Social0413
 - 使用日線 high/low 突破 confirmed swing high/low 判斷結構突破。
 - 若突破方向反轉既有日線趨勢，標記為 `D CHOCH`。
 - 若突破方向延續或啟動日線趨勢，標記為 `D MSS`。
-- 日線結構 label 有獨立數量上限，避免壓垮 TradingView replay。
+- 後續改用 `plotshape` 繪製日線結構標記，避免增加 replay 模式的 label 物件壓力。
 
 同時移除 365D 高低點：
 
@@ -184,7 +184,13 @@ https://github.com/Social0413/Social0413
 - 在 daily `request.security()` 內部直接追蹤 swing、trend 與突破事件。
 - 日線 high 突破 confirmed swing high 時標 bullish `D MSS` 或 `D CHOCH`。
 - 日線 low 跌破 confirmed swing low 時標 bearish `D MSS` 或 `D CHOCH`。
-- 外層只負責接收日線事件並繪製 label。
+- 外層只負責接收日線事件並繪製標記。
+
+使用者再次回報 CHOCH/MSS 仍未顯示後，將日線結構顯示從 `label.new` 改成 `plotshape`：
+
+- Bullish CHOCH/MSS 顯示在 K 棒下方。
+- Bearish CHOCH/MSS 顯示在 K 棒上方。
+- 移除 `Maximum daily structure labels`，因為不再使用 label 物件。
 
 同時調整 FVG 顏色：
 
