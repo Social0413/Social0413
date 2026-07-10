@@ -19,8 +19,8 @@ bullObColor = input.color(color.new(color.lime, 90), "Bullish OB fill")
 bullObBorder = input.color(color.new(color.lime, 20), "Bullish OB border")
 bearObColor = input.color(color.new(color.red, 90), "Bearish OB fill")
 bearObBorder = input.color(color.new(color.red, 20), "Bearish OB border")
-bullFvgColor = input.color(color.new(color.teal, 94), "Bullish FVG fill")
-bearFvgColor = input.color(color.new(color.maroon, 94), "Bearish FVG fill")
+bullFvgColor = input.color(color.new(color.yellow, 82), "Bullish FVG fill")
+bearFvgColor = input.color(color.new(color.olive, 90), "Bearish FVG fill")
 midColor = input.color(color.new(color.white, 15), "Zone midpoint color")
 chochColor = input.color(color.new(color.orange, 0), "Daily CHOCH color")
 mssColor = input.color(color.new(color.aqua, 0), "Daily MSS color")
@@ -58,13 +58,7 @@ var int[] fvgDirs = array.new_int()
 var float[] fvgMids = array.new_float()
 var bool[] fvgActive = array.new_bool()
 var label[] structureLabels = array.new_label()
-var float lastDailySwingHigh = na
-var float lastDailySwingLow = na
-var int lastDailySwingHighTime = na
-var int lastDailySwingLowTime = na
-var int lastBrokenDailyHighTime = na
-var int lastBrokenDailyLowTime = na
-var int dailyTrend = 0
+var int lastDailyStructureEventTime = na
 var int completedWeeks = 0
 var int[] weekTimes = array.new_int()
 var float[] weekOpens = array.new_float()
@@ -74,8 +68,37 @@ var float[] weekCloses = array.new_float()
 
 barMs = math.max(1, nz(time - time[1], 24 * 60 * 60 * 1000))
 
-[dTime, dClose, dHigh, dLow, dPivotHigh, dPivotLow, dPivotTime] = request.security(syminfo.tickerid, "D", [time, close, high, low, ta.pivothigh(high, dailySwingLen, dailySwingLen), ta.pivotlow(low, dailySwingLen, dailySwingLen), time[dailySwingLen]], barmerge.gaps_off, barmerge.lookahead_off)
-newDailyBar = ta.change(dTime) != 0
+dailyStructureEvent(_len) =>
+    var float swingHigh = na
+    var float swingLow = na
+    var int swingHighTime = na
+    var int swingLowTime = na
+    var int brokenHighTime = na
+    var int brokenLowTime = na
+    var int trend = 0
+    ph = ta.pivothigh(high, _len, _len)
+    pl = ta.pivotlow(low, _len, _len)
+    if not na(ph)
+        swingHigh := ph
+        swingHighTime := time[_len]
+    if not na(pl)
+        swingLow := pl
+        swingLowTime := time[_len]
+    eventCode = 0
+    eventPrice = close
+    if not na(swingHigh) and not na(swingHighTime) and high > swingHigh and brokenHighTime != swingHighTime
+        eventCode := trend == -1 ? 1 : 2
+        eventPrice := low
+        trend := 1
+        brokenHighTime := swingHighTime
+    if not na(swingLow) and not na(swingLowTime) and low < swingLow and brokenLowTime != swingLowTime
+        eventCode := trend == 1 ? -1 : -2
+        eventPrice := high
+        trend := -1
+        brokenLowTime := swingLowTime
+    [time, eventCode, eventPrice]
+
+[dEventTime, dEventCode, dEventPrice] = request.security(syminfo.tickerid, "D", dailyStructureEvent(dailySwingLen), barmerge.gaps_off, barmerge.lookahead_off)
 
 trimZones() =>
     while array.size(obBoxes) > maxZones
@@ -131,7 +154,7 @@ obExists(_dir, _sourceTime) =>
 addFvg(_dir, _leftTime, _top, _bottom) =>
     _mid = (_top + _bottom) / 2.0
     _fill = _dir == 1 ? bullFvgColor : bearFvgColor
-    _border = _dir == 1 ? color.new(color.teal, 45) : color.new(color.maroon, 45)
+    _border = _dir == 1 ? color.new(color.yellow, 10) : color.new(color.olive, 30)
     _extend = stableReplayExtend ? extend.right : extend.none
     _box = box.new(_leftTime, _top, time, _bottom, xloc=xloc.bar_time, extend=_extend, bgcolor=_fill, border_color=_border, text="FVG", text_color=_border, text_size=size.tiny)
     _line = line.new(_leftTime, _mid, time, _mid, xloc=xloc.bar_time, extend=_extend, color=showMidline ? midColor : color.new(midColor, 100), style=line.style_dotted, width=1)
@@ -182,25 +205,11 @@ if array.size(fvgBoxes) > 0
                 box.set_right(bx, time + barMs)
                 line.set_x2(ln, time + barMs)
 
-if newDailyBar
-    if not na(dPivotHigh)
-        lastDailySwingHigh := dPivotHigh
-        lastDailySwingHighTime := dPivotTime
-    if not na(dPivotLow)
-        lastDailySwingLow := dPivotLow
-        lastDailySwingLowTime := dPivotTime
-
-    if showDailyStructure and not na(lastDailySwingHigh) and not na(lastDailySwingHighTime) and dClose > lastDailySwingHigh and lastBrokenDailyHighTime != lastDailySwingHighTime
-        isBullChoch = dailyTrend == -1
-        addStructureLabel(dTime, dLow, isBullChoch ? "D CHOCH" : "D MSS", 1, isBullChoch)
-        dailyTrend := 1
-        lastBrokenDailyHighTime := lastDailySwingHighTime
-
-    if showDailyStructure and not na(lastDailySwingLow) and not na(lastDailySwingLowTime) and dClose < lastDailySwingLow and lastBrokenDailyLowTime != lastDailySwingLowTime
-        isBearChoch = dailyTrend == 1
-        addStructureLabel(dTime, dHigh, isBearChoch ? "D CHOCH" : "D MSS", -1, isBearChoch)
-        dailyTrend := -1
-        lastBrokenDailyLowTime := lastDailySwingLowTime
+if showDailyStructure and dEventCode != 0 and lastDailyStructureEventTime != dEventTime
+    isDailyChoch = math.abs(dEventCode) == 1
+    dailyDir = dEventCode > 0 ? 1 : -1
+    addStructureLabel(dEventTime, dEventPrice, isDailyChoch ? "D CHOCH" : "D MSS", dailyDir, isDailyChoch)
+    lastDailyStructureEventTime := dEventTime
 
 weekKey = time(htf)
 newWeek = ta.change(weekKey) != 0

@@ -14,6 +14,8 @@ Build Pine Script indicators for SMC analysis on TradingView. Version 1 focuses 
 - Use weekly (`W`) candles as the high timeframe source.
 - Draw bullish order blocks in green.
 - Draw bearish order blocks in red.
+- Draw bullish FVG in a brighter yellow.
+- Draw bearish FVG in a darker yellow/olive.
 - Detect weekly FVG with the classic 3-candle imbalance:
   - Bullish FVG: week 3 low is above week 1 high.
   - Bearish FVG: week 3 high is below week 1 low.
@@ -34,7 +36,7 @@ Build Pine Script indicators for SMC analysis on TradingView. Version 1 focuses 
 - Always show `OB` and `FVG` text inside zones.
 - Use more transparent fills by default because overlapping zones become visually brighter when they stack.
 - Do not draw the 365-day high/low feature. It was removed because it added resource pressure in replay mode.
-- Mark daily CHOCH/MSS from confirmed daily swing breaks.
+- Mark daily CHOCH/MSS from daily high/low breaks of confirmed daily swings.
 - Use `D CHOCH` when a daily break reverses the tracked daily trend.
 - Use `D MSS` when a daily break continues or starts the tracked daily trend.
 - Keep daily structure labels capped by `Maximum daily structure labels`.

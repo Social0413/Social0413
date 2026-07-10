@@ -49,6 +49,7 @@ smc-weekly-ob-fvg/assets/smc_weekly_ob_fvg_v1.pine
 - 繪製週線 OB 與 FVG。
 - 看多 OB 用綠色。
 - 看空 OB 用紅色。
+- FVG 使用黃色系：做多 FVG 較亮，做空 FVG 較暗。
 - FVG 區間必須大於價格中位數的 3%。
 - OB 使用結構突破規則：
   - 週收盤突破近期結構高，回找最近 bearish 週 K 當 bullish OB。
@@ -56,7 +57,7 @@ smc-weekly-ob-fvg/assets/smc_weekly_ob_fvg_v1.pine
 - 同一方向、同一根週 K 只能生成一次 OB。
 - OB/FVG 過中線後停止延伸。
 - OB/FVG 文字永遠顯示。
-- 額外標記日線級別的 CHOCH 與 MSS。
+- 額外標記日線級別的 CHOCH 與 MSS，使用日線高/低點突破 confirmed swing 判斷。
 - 已移除 365 天高低點，降低回放模式與長歷史掃描的資源壓力。
 - `Maximum zones per type` 目前預設為 `40`，降低 TradingView 回放模式的物件壓力。
 

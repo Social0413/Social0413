@@ -164,9 +164,9 @@ https://github.com/Social0413/Social0413
 
 ## 13. 日線 CHOCH/MSS 與移除 365D
 
-新增日線級別結構標記：
+新增日線級別結構標記，後續調整成由日線資料內部直接產生事件，避免外層判斷過於保守而看不到標記：
 
-- 使用日線 confirmed swing high/low 判斷結構突破。
+- 使用日線 high/low 突破 confirmed swing high/low 判斷結構突破。
 - 若突破方向反轉既有日線趨勢，標記為 `D CHOCH`。
 - 若突破方向延續或啟動日線趨勢，標記為 `D MSS`。
 - 日線結構 label 有獨立數量上限，避免壓垮 TradingView replay。
@@ -176,3 +176,17 @@ https://github.com/Social0413/Social0413
 - 刪除 `365D High` / `365D Low` 線與 label。
 - 刪除 365 天歷史掃描邏輯。
 - 目標是降低回放模式與長歷史圖表的資源壓力。
+
+## 14. CHOCH/MSS 顯示修正與 FVG 黃色系
+
+使用者回報設定中已開啟 `Show daily CHOCH/MSS`，但圖表上看不到標記，因此將日線結構判斷改為：
+
+- 在 daily `request.security()` 內部直接追蹤 swing、trend 與突破事件。
+- 日線 high 突破 confirmed swing high 時標 bullish `D MSS` 或 `D CHOCH`。
+- 日線 low 跌破 confirmed swing low 時標 bearish `D MSS` 或 `D CHOCH`。
+- 外層只負責接收日線事件並繪製 label。
+
+同時調整 FVG 顏色：
+
+- Bullish FVG 改為較亮黃色。
+- Bearish FVG 改為較暗橄欖黃。
