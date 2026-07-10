@@ -39,6 +39,7 @@ Build Pine Script indicators for SMC analysis on TradingView. Version 1 focuses 
 - Use weekly (`W`) data for OB/FVG.
 - Use daily (`D`) data for CHOCH/MSS, regardless of the currently viewed chart timeframe.
 - Mark daily CHOCH/MSS with horizontal lines using the same structure logic from `C:\30_CodeX\03_H4M15`, with the M15 chart logic adapted for D inside `request.security(..., "D", ...)`.
+- On the D chart itself, run the same D logic directly from the chart candles; on other chart timeframes, use `request.security(..., "D", ...)`.
 - Use `D CHOCH` when a daily close breaks the latest CHOCH pivot in the opposite tracked trend direction.
 - Use `D MSS` when a daily close breaks the latest MSS pivot in the opposite tracked trend direction and the candle body meets the ATR displacement filter.
 - Do not use `plotshape` or separate `label.new` labels for daily CHOCH/MSS.

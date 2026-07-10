@@ -254,3 +254,9 @@ https://github.com/Social0413/Social0413
 - CHOCH/MSS 判斷固定包進 `request.security(syminfo.tickerid, "D", ...)`。
 - 保留 `03_H4M15` 的 CHOCH/MSS 內部邏輯，但資料來源強制為日線。
 - OB/FVG 維持週線來源。
+
+後續發現完全包進 `request.security("D")` 後，日線圖本身可能不顯示 CHOCH/MSS。因此再調整：
+
+- 在 D 圖上直接用目前圖表的日線 K 棒跑同一套 `03_H4M15` 結構邏輯。
+- 在非 D 圖上才使用 `request.security(..., "D", ...)`。
+- 這樣仍維持「D 判斷 CHOCH/MSS」，但避免 D 圖被 security 封裝吃掉訊號。

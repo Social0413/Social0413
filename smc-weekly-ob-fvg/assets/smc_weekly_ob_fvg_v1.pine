@@ -72,6 +72,12 @@ var int lastBullChochTime = na
 var int lastBearChochTime = na
 var int lastBullMssTime = na
 var int lastBearMssTime = na
+var float chartChochHigh = na
+var float chartChochLow = na
+var int chartChochTrend = 0
+var float chartMssHigh = na
+var float chartMssLow = na
+var int chartMssTrend = 0
 var int completedWeeks = 0
 var int[] weekTimes = array.new_int()
 var float[] weekOpens = array.new_float()
@@ -256,18 +262,65 @@ if array.size(structureLines) > 0
                 line.set_x2(ln, time + barMs)
                 box.set_right(txt, time + barMs)
 
-if showChoch and dBullChoch and lastBullChochTime != dStructureTime
-    addStructureLine(1, "CHOCH", dChochHigh, bullChochColor)
-    lastBullChochTime := dStructureTime
-if showChoch and dBearChoch and lastBearChochTime != dStructureTime
-    addStructureLine(-1, "CHOCH", dChochLow, bearChochColor)
-    lastBearChochTime := dStructureTime
-if showMss and dBullMss and lastBullMssTime != dStructureTime
-    addStructureLine(1, "MSS", dMssHigh, bullMssColor)
-    lastBullMssTime := dStructureTime
-if showMss and dBearMss and lastBearMssTime != dStructureTime
-    addStructureLine(-1, "MSS", dMssLow, bearMssColor)
-    lastBearMssTime := dStructureTime
+isDailyChart = timeframe.in_seconds(timeframe.period) == timeframe.in_seconds("D")
+chartChochPivotHigh = ta.pivothigh(high, chochSwingLen, chochSwingLen)
+chartChochPivotLow = ta.pivotlow(low, chochSwingLen, chochSwingLen)
+chartMssPivotHigh = ta.pivothigh(high, mssSwingLen, mssSwingLen)
+chartMssPivotLow = ta.pivotlow(low, mssSwingLen, mssSwingLen)
+
+if isDailyChart
+    if not na(chartChochPivotHigh)
+        chartChochHigh := chartChochPivotHigh
+    if not na(chartChochPivotLow)
+        chartChochLow := chartChochPivotLow
+    if not na(chartMssPivotHigh)
+        chartMssHigh := chartMssPivotHigh
+    if not na(chartMssPivotLow)
+        chartMssLow := chartMssPivotLow
+
+chartBullChoch = false
+chartBearChoch = false
+if isDailyChart and not na(chartChochHigh) and close > chartChochHigh
+    chartBullChoch := chartChochTrend == -1
+    chartChochTrend := 1
+if isDailyChart and not na(chartChochLow) and close < chartChochLow
+    chartBearChoch := chartChochTrend == 1
+    chartChochTrend := -1
+
+chartMssBody = math.abs(close - open)
+chartMssAtr = ta.atr(mssAtrLen)
+chartMssDisplacement = mssBodyAtrMult == 0.0 or chartMssBody >= chartMssAtr * mssBodyAtrMult
+chartBullMss = false
+chartBearMss = false
+if isDailyChart and not na(chartMssHigh) and close > chartMssHigh and chartMssDisplacement
+    chartBullMss := chartMssTrend == -1
+    chartMssTrend := 1
+if isDailyChart and not na(chartMssLow) and close < chartMssLow and chartMssDisplacement
+    chartBearMss := chartMssTrend == 1
+    chartMssTrend := -1
+
+structureTime = isDailyChart ? time : dStructureTime
+bullChochSignal = isDailyChart ? chartBullChoch : dBullChoch
+bearChochSignal = isDailyChart ? chartBearChoch : dBearChoch
+bullMssSignal = isDailyChart ? chartBullMss : dBullMss
+bearMssSignal = isDailyChart ? chartBearMss : dBearMss
+bullChochLevel = isDailyChart ? chartChochHigh : dChochHigh
+bearChochLevel = isDailyChart ? chartChochLow : dChochLow
+bullMssLevel = isDailyChart ? chartMssHigh : dMssHigh
+bearMssLevel = isDailyChart ? chartMssLow : dMssLow
+
+if showChoch and bullChochSignal and lastBullChochTime != structureTime
+    addStructureLine(1, "CHOCH", bullChochLevel, bullChochColor)
+    lastBullChochTime := structureTime
+if showChoch and bearChochSignal and lastBearChochTime != structureTime
+    addStructureLine(-1, "CHOCH", bearChochLevel, bearChochColor)
+    lastBearChochTime := structureTime
+if showMss and bullMssSignal and lastBullMssTime != structureTime
+    addStructureLine(1, "MSS", bullMssLevel, bullMssColor)
+    lastBullMssTime := structureTime
+if showMss and bearMssSignal and lastBearMssTime != structureTime
+    addStructureLine(-1, "MSS", bearMssLevel, bearMssColor)
+    lastBearMssTime := structureTime
 
 weekKey = time(htf)
 newWeek = ta.change(weekKey) != 0
