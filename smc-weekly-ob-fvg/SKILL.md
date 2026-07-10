@@ -1,13 +1,13 @@
 ---
 name: smc-weekly-ob-fvg
-description: Create and maintain a TradingView Pine Script indicator for Smart Money Concepts weekly order blocks, fair value gaps, and recent range high/low levels. Use when the user asks Codex to draw SMC, weekly OB, weekly FVG, bullish green OB zones, bearish red OB zones, stop zones at midpoint breaks, or mark the last 365 days high and low.
+description: Create and maintain a TradingView Pine Script indicator for Smart Money Concepts weekly order blocks, weekly fair value gaps, and daily CHOCH/MSS labels. Use when the user asks Codex to draw SMC, weekly OB, weekly FVG, bullish green OB zones, bearish red OB zones, stop zones at midpoint breaks, or daily structure shifts.
 ---
 
 # SMC Weekly OB FVG
 
 ## Overview
 
-Build Pine Script indicators for SMC analysis on TradingView. Version 1 focuses on the current ETHUSDT chart and draws weekly timeframe order blocks and fair value gaps while the user views lower timeframes such as H4.
+Build Pine Script indicators for SMC analysis on TradingView. Version 1 focuses on the current ETHUSDT chart and draws weekly timeframe order blocks, weekly fair value gaps, and daily structure labels while the user views lower timeframes such as H4.
 
 ## Version 1 Rules
 
@@ -33,9 +33,11 @@ Build Pine Script indicators for SMC analysis on TradingView. Version 1 focuses 
 - Keep replay calculations light. Daily/weekly replay steps recalculate more frequently than monthly replay, so avoid long history loops in replay-sensitive code.
 - Always show `OB` and `FVG` text inside zones.
 - Use more transparent fills by default because overlapping zones become visually brighter when they stack.
-- Mark the highest high and lowest low from the most recent 365 daily candles with visible horizontal lines.
-- Anchor each 365-day high/low line to the daily candle where that high/low happened, then extend it to the right until the level changes.
-- Draw 365-day high/low as horizontal rays from the anchor candle, not as a line from the anchor to the current bar.
+- Do not draw the 365-day high/low feature. It was removed because it added resource pressure in replay mode.
+- Mark daily CHOCH/MSS from confirmed daily swing breaks.
+- Use `D CHOCH` when a daily break reverses the tracked daily trend.
+- Use `D MSS` when a daily break continues or starts the tracked daily trend.
+- Keep daily structure labels capped by `Maximum daily structure labels`.
 - Start FVG boxes from the confirming weekly candle rather than the earliest candle in the 3-candle pattern.
 - Build weekly candle history by aggregating the current chart bars into weekly candles. Avoid relying on weekly `request.security()` history for OB/FVG drawing, because those zones must remain visible when the user switches between weekly, daily, and intraday charts.
 

@@ -10,8 +10,10 @@ minFvgPct = input.float(3.0, "Minimum FVG size (%)", minval=0.0, step=0.25)
 showOb = input.bool(true, "Show weekly OB")
 showFvg = input.bool(true, "Show weekly FVG")
 showMidline = input.bool(true, "Show zone midpoint")
-show365Range = input.bool(true, "Show recent 365-day high/low")
 stableReplayExtend = input.bool(true, "Stable replay extension")
+showDailyStructure = input.bool(true, "Show daily CHOCH/MSS")
+dailySwingLen = input.int(3, "Daily swing length", minval=2, maxval=20)
+maxStructureLabels = input.int(80, "Maximum daily structure labels", minval=20, maxval=200)
 
 bullObColor = input.color(color.new(color.lime, 90), "Bullish OB fill")
 bullObBorder = input.color(color.new(color.lime, 20), "Bullish OB border")
@@ -20,8 +22,8 @@ bearObBorder = input.color(color.new(color.red, 20), "Bearish OB border")
 bullFvgColor = input.color(color.new(color.teal, 94), "Bullish FVG fill")
 bearFvgColor = input.color(color.new(color.maroon, 94), "Bearish FVG fill")
 midColor = input.color(color.new(color.white, 15), "Zone midpoint color")
-rangeHighColor = input.color(color.new(color.yellow, 0), "365-day high color")
-rangeLowColor = input.color(color.new(color.aqua, 0), "365-day low color")
+chochColor = input.color(color.new(color.orange, 0), "Daily CHOCH color")
+mssColor = input.color(color.new(color.aqua, 0), "Daily MSS color")
 
 var float curO = na
 var float curH = na
@@ -55,10 +57,14 @@ var line[] fvgMidLines = array.new_line()
 var int[] fvgDirs = array.new_int()
 var float[] fvgMids = array.new_float()
 var bool[] fvgActive = array.new_bool()
-var line rangeHighLine = na
-var line rangeLowLine = na
-var label rangeHighLabel = na
-var label rangeLowLabel = na
+var label[] structureLabels = array.new_label()
+var float lastDailySwingHigh = na
+var float lastDailySwingLow = na
+var int lastDailySwingHighTime = na
+var int lastDailySwingLowTime = na
+var int lastBrokenDailyHighTime = na
+var int lastBrokenDailyLowTime = na
+var int dailyTrend = 0
 var int completedWeeks = 0
 var int[] weekTimes = array.new_int()
 var float[] weekOpens = array.new_float()
@@ -67,6 +73,9 @@ var float[] weekLows = array.new_float()
 var float[] weekCloses = array.new_float()
 
 barMs = math.max(1, nz(time - time[1], 24 * 60 * 60 * 1000))
+
+[dTime, dClose, dHigh, dLow, dPivotHigh, dPivotLow, dPivotTime] = request.security(syminfo.tickerid, "D", [time, close, high, low, ta.pivothigh(high, dailySwingLen, dailySwingLen), ta.pivotlow(low, dailySwingLen, dailySwingLen), time[dailySwingLen]], barmerge.gaps_off, barmerge.lookahead_off)
+newDailyBar = ta.change(dTime) != 0
 
 trimZones() =>
     while array.size(obBoxes) > maxZones
@@ -83,6 +92,17 @@ trimZones() =>
         array.shift(fvgDirs)
         array.shift(fvgMids)
         array.shift(fvgActive)
+
+trimStructureLabels() =>
+    while array.size(structureLabels) > maxStructureLabels
+        label.delete(array.shift(structureLabels))
+
+addStructureLabel(_eventTime, _price, _text, _dir, _isChoch) =>
+    _color = _isChoch ? chochColor : mssColor
+    _style = _dir == 1 ? label.style_label_up : label.style_label_down
+    _label = label.new(_eventTime, _price, _text, xloc=xloc.bar_time, style=_style, color=_color, textcolor=color.black, size=size.tiny)
+    array.push(structureLabels, _label)
+    trimStructureLabels()
 
 addOb(_dir, _leftTime, _top, _bottom) =>
     _mid = (_top + _bottom) / 2.0
@@ -161,6 +181,26 @@ if array.size(fvgBoxes) > 0
                 ln = array.get(fvgMidLines, i)
                 box.set_right(bx, time + barMs)
                 line.set_x2(ln, time + barMs)
+
+if newDailyBar
+    if not na(dPivotHigh)
+        lastDailySwingHigh := dPivotHigh
+        lastDailySwingHighTime := dPivotTime
+    if not na(dPivotLow)
+        lastDailySwingLow := dPivotLow
+        lastDailySwingLowTime := dPivotTime
+
+    if showDailyStructure and not na(lastDailySwingHigh) and not na(lastDailySwingHighTime) and dClose > lastDailySwingHigh and lastBrokenDailyHighTime != lastDailySwingHighTime
+        isBullChoch = dailyTrend == -1
+        addStructureLabel(dTime, dLow, isBullChoch ? "D CHOCH" : "D MSS", 1, isBullChoch)
+        dailyTrend := 1
+        lastBrokenDailyHighTime := lastDailySwingHighTime
+
+    if showDailyStructure and not na(lastDailySwingLow) and not na(lastDailySwingLowTime) and dClose < lastDailySwingLow and lastBrokenDailyLowTime != lastDailySwingLowTime
+        isBearChoch = dailyTrend == 1
+        addStructureLabel(dTime, dHigh, isBearChoch ? "D CHOCH" : "D MSS", -1, isBearChoch)
+        dailyTrend := -1
+        lastBrokenDailyLowTime := lastDailySwingLowTime
 
 weekKey = time(htf)
 newWeek = ta.change(weekKey) != 0
@@ -257,29 +297,3 @@ else
     curH := math.max(curH, high)
     curL := math.min(curL, low)
     curC := close
-
-if barstate.islast and show365Range
-    startTime = time - 365 * 24 * 60 * 60 * 1000
-    float hi365 = na
-    float lo365 = na
-    int hiTime365 = na
-    int loTime365 = na
-    maxBack = math.min(bar_index, 370)
-    for i = 0 to maxBack
-        if time[i] >= startTime
-            if na(hi365) or high[i] > hi365
-                hi365 := high[i]
-                hiTime365 := time[i]
-            if na(lo365) or low[i] < lo365
-                lo365 := low[i]
-                loTime365 := time[i]
-
-    line.delete(rangeHighLine)
-    line.delete(rangeLowLine)
-    label.delete(rangeHighLabel)
-    label.delete(rangeLowLabel)
-    if not na(hi365) and not na(lo365)
-        rangeHighLine := line.new(hiTime365, hi365, hiTime365 + barMs, hi365, xloc=xloc.bar_time, extend=extend.right, color=rangeHighColor, width=2)
-        rangeLowLine := line.new(loTime365, lo365, loTime365 + barMs, lo365, xloc=xloc.bar_time, extend=extend.right, color=rangeLowColor, width=2)
-        rangeHighLabel := label.new(time + barMs, hi365, "365D High", xloc=xloc.bar_time, style=label.style_label_left, textcolor=color.black, color=rangeHighColor, size=size.small)
-        rangeLowLabel := label.new(time + barMs, lo365, "365D Low", xloc=xloc.bar_time, style=label.style_label_left, textcolor=color.black, color=rangeLowColor, size=size.small)

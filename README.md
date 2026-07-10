@@ -56,7 +56,8 @@ smc-weekly-ob-fvg/assets/smc_weekly_ob_fvg_v1.pine
 - 同一方向、同一根週 K 只能生成一次 OB。
 - OB/FVG 過中線後停止延伸。
 - OB/FVG 文字永遠顯示。
-- 365 天高低點固定錨定在發生高/低點的 K 棒上，並向右延伸。
+- 額外標記日線級別的 CHOCH 與 MSS。
+- 已移除 365 天高低點，降低回放模式與長歷史掃描的資源壓力。
 - `Maximum zones per type` 目前預設為 `40`，降低 TradingView 回放模式的物件壓力。
 
 ## 回放模式狀態
@@ -70,7 +71,7 @@ smc-weekly-ob-fvg/assets/smc_weekly_ob_fvg_v1.pine
 目前已採取的穩定化措施：
 
 - 降低最大區塊數。
-- 365D 高低點掃描從大量歷史掃描縮小到約 370 根。
+- 移除 365D 高低點掃描。
 - 避免同一 OB 來源 K 棒重複生成。
 - 移除 Debug label，減少額外 label 物件。
 

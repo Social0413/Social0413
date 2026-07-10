@@ -161,3 +161,18 @@ https://github.com/Social0413/Social0413
 - 僅保留最近 N 個有效 OB/FVG。
 - 更少 box/line 物件。
 - 或將部分顯示改成 plot/fill 形式，降低 TradingView replay 的物件壓力。
+
+## 13. 日線 CHOCH/MSS 與移除 365D
+
+新增日線級別結構標記：
+
+- 使用日線 confirmed swing high/low 判斷結構突破。
+- 若突破方向反轉既有日線趨勢，標記為 `D CHOCH`。
+- 若突破方向延續或啟動日線趨勢，標記為 `D MSS`。
+- 日線結構 label 有獨立數量上限，避免壓垮 TradingView replay。
+
+同時移除 365D 高低點：
+
+- 刪除 `365D High` / `365D Low` 線與 label。
+- 刪除 365 天歷史掃描邏輯。
+- 目標是降低回放模式與長歷史圖表的資源壓力。
