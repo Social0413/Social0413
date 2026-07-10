@@ -239,3 +239,18 @@ https://github.com/Social0413/Social0413
 - CHOCH/MSS 不再建立獨立 label。
 - 由於 Pine `line` 物件本身不能像 TradingView 手動畫線一樣直接內建文字，改用透明 text box 對齊線段中間，視覺上讓 `CHOCH` / `MSS` 在水平線中間。
 - 結構線不再無限延伸；建立後從下一根 K 開始，只要 K 棒 high/low 觸碰該線位，就把右端點停在觸碰 K 棒。
+
+## 18. 固定日線判斷 CHOCH/MSS
+
+使用者確認本專案的時框分工：
+
+- 週時框判斷 OB、FVG。
+- 日時框判斷 CHOCH、MSS。
+
+上一版雖然沒有使用 M15 資料，但 CHOCH/MSS 實際上跑在目前圖表週期上；在日線圖就是 D，在其他週期就不是 D。這不符合規格。
+
+修正後：
+
+- CHOCH/MSS 判斷固定包進 `request.security(syminfo.tickerid, "D", ...)`。
+- 保留 `03_H4M15` 的 CHOCH/MSS 內部邏輯，但資料來源強制為日線。
+- OB/FVG 維持週線來源。
