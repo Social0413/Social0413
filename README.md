@@ -1,5 +1,19 @@
 # TradingView SMC Replay Toolkit
 
+> 專案知識已改為 Repository 內的規格先行文件。功能定義以 [SMC_SPEC.md](SMC_SPEC.md) 為入口；尚未驗證的項目不視為已完成。
+
+## 專案知識索引
+
+- [SMC_SPEC.md](SMC_SPEC.md)：現行 SMC 訊號、失效與顯示規格。
+- [DESIGN.md](DESIGN.md)：資料流、狀態與 Pine 繪圖設計。
+- [ROADMAP.md](ROADMAP.md)：後續驗證與候選方向。
+- [CODING_RULE.md](CODING_RULE.md)：Pine 與版本控制規則。
+- [CHANGELOG.md](CHANGELOG.md)：依 Git history 整理的變更摘要。
+- [TEST_RESULT.md](TEST_RESULT.md)：已完成與待執行測試。
+- [KNOWN_BUGS.md](KNOWN_BUGS.md)：已知限制與已修正問題。
+- [TODO.md](TODO.md)：可執行待辦清單。
+- [PROJECT_HISTORY.md](PROJECT_HISTORY.md)：完整開發歷程。
+
 這個專案整理了一組給 Codex 使用的 TradingView 自動化技能，以及一個用於 SMC 回放分析的 Pine Script 指標。
 
 專案目標是讓 Codex 可以協助開啟 TradingView、切到指定標的與週期，並用穩定、可版本控管的方式迭代 SMC 分析工具。

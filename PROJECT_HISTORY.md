@@ -1,5 +1,7 @@
 # TradingView SMC Replay Toolkit - Development History
 
+> 本文件保留開發歷程；現行可執行規格請以 [SMC_SPEC.md](SMC_SPEC.md) 為準，設計決策見 [DESIGN.md](DESIGN.md)，未驗證事項見 [TEST_RESULT.md](TEST_RESULT.md) 與 [KNOWN_BUGS.md](KNOWN_BUGS.md)。
+
 本文記錄目前專案的發展過程與重要決策。
 
 ## 1. 基礎 TradingView 技能
