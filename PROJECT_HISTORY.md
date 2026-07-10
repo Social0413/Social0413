@@ -260,3 +260,9 @@ https://github.com/Social0413/Social0413
 - 在 D 圖上直接用目前圖表的日線 K 棒跑同一套 `03_H4M15` 結構邏輯。
 - 在非 D 圖上才使用 `request.security(..., "D", ...)`。
 - 這樣仍維持「D 判斷 CHOCH/MSS」，但避免 D 圖被 security 封裝吃掉訊號。
+
+再度回測後，發現只要引入 `request.security("D")` 分支就會讓日線顯示不穩。最終改回 `64482af` 這個已知可顯示版本的 CHOCH/MSS 邏輯，只增加 `timeframe.isdaily` 限制：
+
+- 日線圖顯示 CHOCH/MSS。
+- 非日線圖不畫 CHOCH/MSS，避免誤用 M15/H4。
+- 不再用 `request.security("D")` 產生 CHOCH/MSS。

@@ -57,7 +57,7 @@ smc-weekly-ob-fvg/assets/smc_weekly_ob_fvg_v1.pine
 - 同一方向、同一根週 K 只能生成一次 OB。
 - OB/FVG 過中線後停止延伸。
 - OB/FVG 文字永遠顯示。
-- 額外用水平線標記日線級別的 CHOCH 與 MSS，固定使用 D 資料判斷，不跟隨目前圖表週期變動。
+- 額外用水平線標記日線級別的 CHOCH 與 MSS，僅在日線圖上顯示，避免誤用 M15/H4。
 - 專案時框分工固定為：週線判斷 OB/FVG，日線判斷 CHOCH/MSS。
 - CHOCH 線使用暗色系，MSS 線使用亮色系。
 - CHOCH/MSS 線從下一根 K 開始，若 K 棒碰到該線位就停止延伸。

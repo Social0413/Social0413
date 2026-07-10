@@ -68,16 +68,12 @@ var box[] structureTextBoxes = array.new_box()
 var float[] structureLevels = array.new_float()
 var int[] structureStartTimes = array.new_int()
 var bool[] structureActive = array.new_bool()
-var int lastBullChochTime = na
-var int lastBearChochTime = na
-var int lastBullMssTime = na
-var int lastBearMssTime = na
-var float chartChochHigh = na
-var float chartChochLow = na
-var int chartChochTrend = 0
-var float chartMssHigh = na
-var float chartMssLow = na
-var int chartMssTrend = 0
+var float chochHigh = na
+var float chochLow = na
+var int chochTrend = 0
+var float mssHigh = na
+var float mssLow = na
+var int mssTrend = 0
 var int completedWeeks = 0
 var int[] weekTimes = array.new_int()
 var float[] weekOpens = array.new_float()
@@ -87,51 +83,6 @@ var float[] weekCloses = array.new_float()
 
 barMs = math.max(1, nz(time - time[1], 24 * 60 * 60 * 1000))
 dayMs = 24 * 60 * 60 * 1000
-
-dailyStructureSignals() =>
-    var float dChochHigh = na
-    var float dChochLow = na
-    var int dChochTrend = 0
-    var float dMssHigh = na
-    var float dMssLow = na
-    var int dMssTrend = 0
-    dChochPivotHigh = ta.pivothigh(high, chochSwingLen, chochSwingLen)
-    dChochPivotLow = ta.pivotlow(low, chochSwingLen, chochSwingLen)
-    dMssPivotHigh = ta.pivothigh(high, mssSwingLen, mssSwingLen)
-    dMssPivotLow = ta.pivotlow(low, mssSwingLen, mssSwingLen)
-    if not na(dChochPivotHigh)
-        dChochHigh := dChochPivotHigh
-    if not na(dChochPivotLow)
-        dChochLow := dChochPivotLow
-    if not na(dMssPivotHigh)
-        dMssHigh := dMssPivotHigh
-    if not na(dMssPivotLow)
-        dMssLow := dMssPivotLow
-
-    dBullChoch = false
-    dBearChoch = false
-    if not na(dChochHigh) and close > dChochHigh
-        dBullChoch := dChochTrend == -1
-        dChochTrend := 1
-    if not na(dChochLow) and close < dChochLow
-        dBearChoch := dChochTrend == 1
-        dChochTrend := -1
-
-    dMssBody = math.abs(close - open)
-    dMssAtr = ta.atr(mssAtrLen)
-    dMssDisplacement = mssBodyAtrMult == 0.0 or dMssBody >= dMssAtr * mssBodyAtrMult
-    dBullMss = false
-    dBearMss = false
-    if not na(dMssHigh) and close > dMssHigh and dMssDisplacement
-        dBullMss := dMssTrend == -1
-        dMssTrend := 1
-    if not na(dMssLow) and close < dMssLow and dMssDisplacement
-        dBearMss := dMssTrend == 1
-        dMssTrend := -1
-
-    [time, dBullChoch, dBearChoch, dBullMss, dBearMss, dChochHigh, dChochLow, dMssHigh, dMssLow]
-
-[dStructureTime, dBullChoch, dBearChoch, dBullMss, dBearMss, dChochHigh, dChochLow, dMssHigh, dMssLow] = request.security(syminfo.tickerid, "D", dailyStructureSignals(), barmerge.gaps_off, barmerge.lookahead_off)
 
 trimZones() =>
     while array.size(obBoxes) > maxZones
@@ -262,65 +213,50 @@ if array.size(structureLines) > 0
                 line.set_x2(ln, time + barMs)
                 box.set_right(txt, time + barMs)
 
-isDailyChart = timeframe.in_seconds(timeframe.period) == timeframe.in_seconds("D")
-chartChochPivotHigh = ta.pivothigh(high, chochSwingLen, chochSwingLen)
-chartChochPivotLow = ta.pivotlow(low, chochSwingLen, chochSwingLen)
-chartMssPivotHigh = ta.pivothigh(high, mssSwingLen, mssSwingLen)
-chartMssPivotLow = ta.pivotlow(low, mssSwingLen, mssSwingLen)
+chochPivotHigh = ta.pivothigh(high, chochSwingLen, chochSwingLen)
+chochPivotLow = ta.pivotlow(low, chochSwingLen, chochSwingLen)
+mssPivotHigh = ta.pivothigh(high, mssSwingLen, mssSwingLen)
+mssPivotLow = ta.pivotlow(low, mssSwingLen, mssSwingLen)
 
-if isDailyChart
-    if not na(chartChochPivotHigh)
-        chartChochHigh := chartChochPivotHigh
-    if not na(chartChochPivotLow)
-        chartChochLow := chartChochPivotLow
-    if not na(chartMssPivotHigh)
-        chartMssHigh := chartMssPivotHigh
-    if not na(chartMssPivotLow)
-        chartMssLow := chartMssPivotLow
+if timeframe.isdaily
+    if not na(chochPivotHigh)
+        chochHigh := chochPivotHigh
+    if not na(chochPivotLow)
+        chochLow := chochPivotLow
+    if not na(mssPivotHigh)
+        mssHigh := mssPivotHigh
+    if not na(mssPivotLow)
+        mssLow := mssPivotLow
 
-chartBullChoch = false
-chartBearChoch = false
-if isDailyChart and not na(chartChochHigh) and close > chartChochHigh
-    chartBullChoch := chartChochTrend == -1
-    chartChochTrend := 1
-if isDailyChart and not na(chartChochLow) and close < chartChochLow
-    chartBearChoch := chartChochTrend == 1
-    chartChochTrend := -1
+bullChoch = false
+bearChoch = false
+if timeframe.isdaily and not na(chochHigh) and close > chochHigh
+    bullChoch := chochTrend == -1
+    chochTrend := 1
+if timeframe.isdaily and not na(chochLow) and close < chochLow
+    bearChoch := chochTrend == 1
+    chochTrend := -1
 
-chartMssBody = math.abs(close - open)
-chartMssAtr = ta.atr(mssAtrLen)
-chartMssDisplacement = mssBodyAtrMult == 0.0 or chartMssBody >= chartMssAtr * mssBodyAtrMult
-chartBullMss = false
-chartBearMss = false
-if isDailyChart and not na(chartMssHigh) and close > chartMssHigh and chartMssDisplacement
-    chartBullMss := chartMssTrend == -1
-    chartMssTrend := 1
-if isDailyChart and not na(chartMssLow) and close < chartMssLow and chartMssDisplacement
-    chartBearMss := chartMssTrend == 1
-    chartMssTrend := -1
+mssBody = math.abs(close - open)
+mssAtr = ta.atr(mssAtrLen)
+mssDisplacement = mssBodyAtrMult == 0.0 or mssBody >= mssAtr * mssBodyAtrMult
+bullMss = false
+bearMss = false
+if timeframe.isdaily and not na(mssHigh) and close > mssHigh and mssDisplacement
+    bullMss := mssTrend == -1
+    mssTrend := 1
+if timeframe.isdaily and not na(mssLow) and close < mssLow and mssDisplacement
+    bearMss := mssTrend == 1
+    mssTrend := -1
 
-structureTime = isDailyChart ? time : dStructureTime
-bullChochSignal = isDailyChart ? chartBullChoch : dBullChoch
-bearChochSignal = isDailyChart ? chartBearChoch : dBearChoch
-bullMssSignal = isDailyChart ? chartBullMss : dBullMss
-bearMssSignal = isDailyChart ? chartBearMss : dBearMss
-bullChochLevel = isDailyChart ? chartChochHigh : dChochHigh
-bearChochLevel = isDailyChart ? chartChochLow : dChochLow
-bullMssLevel = isDailyChart ? chartMssHigh : dMssHigh
-bearMssLevel = isDailyChart ? chartMssLow : dMssLow
-
-if showChoch and bullChochSignal and lastBullChochTime != structureTime
-    addStructureLine(1, "CHOCH", bullChochLevel, bullChochColor)
-    lastBullChochTime := structureTime
-if showChoch and bearChochSignal and lastBearChochTime != structureTime
-    addStructureLine(-1, "CHOCH", bearChochLevel, bearChochColor)
-    lastBearChochTime := structureTime
-if showMss and bullMssSignal and lastBullMssTime != structureTime
-    addStructureLine(1, "MSS", bullMssLevel, bullMssColor)
-    lastBullMssTime := structureTime
-if showMss and bearMssSignal and lastBearMssTime != structureTime
-    addStructureLine(-1, "MSS", bearMssLevel, bearMssColor)
-    lastBearMssTime := structureTime
+if showChoch and bullChoch
+    addStructureLine(1, "CHOCH", chochHigh, bullChochColor)
+if showChoch and bearChoch
+    addStructureLine(-1, "CHOCH", chochLow, bearChochColor)
+if showMss and bullMss
+    addStructureLine(1, "MSS", mssHigh, bullMssColor)
+if showMss and bearMss
+    addStructureLine(-1, "MSS", mssLow, bearMssColor)
 
 weekKey = time(htf)
 newWeek = ta.change(weekKey) != 0
