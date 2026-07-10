@@ -276,3 +276,7 @@ https://github.com/Social0413/Social0413
 ### 2026-07-10 - D CHOCH/MSS intraday display fix
 
 After testing showed D CHOCH/MSS only appeared on the daily chart, the non-daily display path was changed to match the working OB/FVG approach: intraday bars now aggregate into completed daily candles first, then the daily CHOCH/MSS logic runs from those completed daily candles. This removes the unstable `request.security("D")` display path and prevents H4/M15 from being used as the structure source.
+
+### 2026-07-10 - CHOCH/MSS structure-break segment direction
+
+CHOCH/MSS lines were changed from future-facing extension lines into fixed structure-break segments. Each line now starts from the broken daily pivot candle and ends at the candle that confirms the break, with the text placed below the line for readability.

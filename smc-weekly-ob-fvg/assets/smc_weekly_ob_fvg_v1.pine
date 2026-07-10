@@ -70,9 +70,13 @@ var int[] structureStartTimes = array.new_int()
 var bool[] structureActive = array.new_bool()
 var float chochHigh = na
 var float chochLow = na
+var int chochHighTime = na
+var int chochLowTime = na
 var int chochTrend = 0
 var float mssHigh = na
 var float mssLow = na
+var int mssHighTime = na
+var int mssLowTime = na
 var int mssTrend = 0
 var float dCurO = na
 var float dCurH = na
@@ -81,9 +85,13 @@ var float dCurC = na
 var int dCurT = na
 var float aggChochHigh = na
 var float aggChochLow = na
+var int aggChochHighTime = na
+var int aggChochLowTime = na
 var int aggChochTrend = 0
 var float aggMssHigh = na
 var float aggMssLow = na
+var int aggMssHighTime = na
+var int aggMssLowTime = na
 var int aggMssTrend = 0
 var int[] dayTimes = array.new_int()
 var float[] dayHighs = array.new_float()
@@ -149,15 +157,19 @@ trimStructureLines() =>
         array.shift(structureStartTimes)
         array.shift(structureActive)
 
-addStructureLine(_dir, _text, _level, _lineColor) =>
+addStructureLine(_dir, _text, _level, _lineColor, _leftTime, _rightTime) =>
     _pad = math.max(syminfo.mintick * 20.0, _level * 0.0005)
-    _line = line.new(time, _level, time + dayMs, _level, xloc=xloc.bar_time, extend=extend.none, color=_lineColor, style=line.style_solid, width=2)
-    _textBox = box.new(time, _level + _pad, time + dayMs, _level - _pad, xloc=xloc.bar_time, bgcolor=color.new(color.black, 100), border_color=color.new(_lineColor, 100), text=_text, text_color=_lineColor, text_size=size.small, text_halign=text.align_center, text_valign=text.align_center)
+    _x1 = na(_leftTime) ? time - dayMs : _leftTime
+    _x2 = na(_rightTime) ? time : _rightTime
+    _start = math.min(_x1, _x2)
+    _end = math.max(_x1, _x2)
+    _line = line.new(_start, _level, _end, _level, xloc=xloc.bar_time, extend=extend.none, color=_lineColor, style=line.style_solid, width=2)
+    _textBox = box.new(_start, _level - _pad * 0.25, _end, _level - _pad * 2.0, xloc=xloc.bar_time, bgcolor=color.new(color.black, 100), border_color=color.new(_lineColor, 100), text=_text, text_color=_lineColor, text_size=size.small, text_halign=text.align_center, text_valign=text.align_center)
     array.push(structureLines, _line)
     array.push(structureTextBoxes, _textBox)
     array.push(structureLevels, _level)
-    array.push(structureStartTimes, time)
-    array.push(structureActive, true)
+    array.push(structureStartTimes, _end)
+    array.push(structureActive, false)
     trimStructureLines()
 
 addOb(_dir, _leftTime, _top, _bottom) =>
@@ -262,12 +274,16 @@ mssPivotLow = ta.pivotlow(low, mssSwingLen, mssSwingLen)
 if timeframe.isdaily
     if not na(chochPivotHigh)
         chochHigh := chochPivotHigh
+        chochHighTime := time[chochSwingLen]
     if not na(chochPivotLow)
         chochLow := chochPivotLow
+        chochLowTime := time[chochSwingLen]
     if not na(mssPivotHigh)
         mssHigh := mssPivotHigh
+        mssHighTime := time[mssSwingLen]
     if not na(mssPivotLow)
         mssLow := mssPivotLow
+        mssLowTime := time[mssSwingLen]
 
 bullChoch = false
 bearChoch = false
@@ -291,13 +307,13 @@ if timeframe.isdaily and not na(mssLow) and close < mssLow and mssDisplacement
     mssTrend := -1
 
 if showChoch and bullChoch
-    addStructureLine(1, "CHOCH", chochHigh, bullChochColor)
+    addStructureLine(1, "CHOCH", chochHigh, bullChochColor, chochHighTime, time)
 if showChoch and bearChoch
-    addStructureLine(-1, "CHOCH", chochLow, bearChochColor)
+    addStructureLine(-1, "CHOCH", chochLow, bearChochColor, chochLowTime, time)
 if showMss and bullMss
-    addStructureLine(1, "MSS", mssHigh, bullMssColor)
+    addStructureLine(1, "MSS", mssHigh, bullMssColor, mssHighTime, time)
 if showMss and bearMss
-    addStructureLine(-1, "MSS", mssLow, bearMssColor)
+    addStructureLine(-1, "MSS", mssLow, bearMssColor, mssLowTime, time)
 
 canBuildDaily = timeframe.in_seconds(timeframe.period) < timeframe.in_seconds("D")
 dayKey = time("D")
@@ -324,15 +340,19 @@ if canBuildDaily
         if dayCount >= chochSwingLen * 2 + 1
             if arrayPivotHigh(dayHighs, chochCenter, chochSwingLen)
                 aggChochHigh := array.get(dayHighs, chochCenter)
+                aggChochHighTime := array.get(dayTimes, chochCenter)
             if arrayPivotLow(dayLows, chochCenter, chochSwingLen)
                 aggChochLow := array.get(dayLows, chochCenter)
+                aggChochLowTime := array.get(dayTimes, chochCenter)
 
         mssCenter = dayCount - 1 - mssSwingLen
         if dayCount >= mssSwingLen * 2 + 1
             if arrayPivotHigh(dayHighs, mssCenter, mssSwingLen)
                 aggMssHigh := array.get(dayHighs, mssCenter)
+                aggMssHighTime := array.get(dayTimes, mssCenter)
             if arrayPivotLow(dayLows, mssCenter, mssSwingLen)
                 aggMssLow := array.get(dayLows, mssCenter)
+                aggMssLowTime := array.get(dayTimes, mssCenter)
 
         aggBullChoch = false
         aggBearChoch = false
@@ -356,13 +376,13 @@ if canBuildDaily
             aggMssTrend := -1
 
         if showChoch and aggBullChoch
-            addStructureLine(1, "CHOCH", aggChochHigh, bullChochColor)
+            addStructureLine(1, "CHOCH", aggChochHigh, bullChochColor, aggChochHighTime, time)
         if showChoch and aggBearChoch
-            addStructureLine(-1, "CHOCH", aggChochLow, bearChochColor)
+            addStructureLine(-1, "CHOCH", aggChochLow, bearChochColor, aggChochLowTime, time)
         if showMss and aggBullMss
-            addStructureLine(1, "MSS", aggMssHigh, bullMssColor)
+            addStructureLine(1, "MSS", aggMssHigh, bullMssColor, aggMssHighTime, time)
         if showMss and aggBearMss
-            addStructureLine(-1, "MSS", aggMssLow, bearMssColor)
+            addStructureLine(-1, "MSS", aggMssLow, bearMssColor, aggMssLowTime, time)
 
         dCurT := dayKey
         dCurO := open

@@ -44,8 +44,8 @@ Build Pine Script indicators for SMC analysis on TradingView. Version 1 focuses 
 - Use `D CHOCH` when a daily close breaks the latest CHOCH pivot in the opposite tracked trend direction.
 - Use `D MSS` when a daily close breaks the latest MSS pivot in the opposite tracked trend direction and the candle body meets the ATR displacement filter.
 - Do not use `plotshape` or separate `label.new` labels for daily CHOCH/MSS.
-- Draw CHOCH/MSS as horizontal structure lines that stop extending when a later candle touches the level.
-- Put the `CHOCH` or `MSS` text visually in the middle of the structure segment. Pine line objects do not support native line text, so use a transparent text box aligned to the line instead of a separate label.
+- Draw CHOCH/MSS as fixed horizontal structure-break segments from the broken pivot candle to the candle that confirms the break. Do not extend CHOCH/MSS into future candles.
+- Put the `CHOCH` or `MSS` text below the structure segment so it does not cover the line or candles. Pine line objects do not support native line text, so use a transparent text box under the line instead of a separate label.
 - Use darker colors for CHOCH and brighter colors for MSS.
 - Keep CHOCH and MSS as separate pivot systems: CHOCH defaults to swing length 2; MSS defaults to swing length 5 plus ATR body filter.
 - Start FVG boxes from the confirming weekly candle rather than the earliest candle in the 3-candle pattern.
