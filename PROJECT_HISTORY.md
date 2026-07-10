@@ -192,6 +192,17 @@ https://github.com/Social0413/Social0413
 - Bearish CHOCH/MSS 顯示在 K 棒上方。
 - 移除 `Maximum daily structure labels`，因為不再使用 label 物件。
 
+## 15. CHOCH/MSS 改為水平結構線
+
+使用者明確要求不要用 shape，而是用水平線標示，因此將日線 CHOCH/MSS 輸出改為：
+
+- 當日線 high 突破 confirmed swing high，在該 swing high 價格畫水平線。
+- 當日線 low 跌破 confirmed swing low，在該 swing low 價格畫水平線。
+- 方向反轉標為 `D Bull CHOCH` 或 `D Bear CHOCH`。
+- 方向延續或啟動趨勢標為 `D Bull MSS` 或 `D Bear MSS`。
+- 在週線、月線等高於日線的圖表，嘗試用 daily lower-timeframe events 抓出該週/月內的日線結構事件。
+- 保留水平線與小型文字標籤，讓結構位階比 shape 更容易看見。
+
 同時調整 FVG 顏色：
 
 - Bullish FVG 改為較亮黃色。

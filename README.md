@@ -57,7 +57,7 @@ smc-weekly-ob-fvg/assets/smc_weekly_ob_fvg_v1.pine
 - 同一方向、同一根週 K 只能生成一次 OB。
 - OB/FVG 過中線後停止延伸。
 - OB/FVG 文字永遠顯示。
-- 額外標記日線級別的 CHOCH 與 MSS，使用日線高/低點突破 confirmed swing 判斷。
+- 額外用水平線標記日線級別的 CHOCH 與 MSS，線位在被突破的 confirmed swing high/low。
 - 已移除 365 天高低點，降低回放模式與長歷史掃描的資源壓力。
 - `Maximum zones per type` 目前預設為 `40`，降低 TradingView 回放模式的物件壓力。
 
