@@ -266,3 +266,9 @@ https://github.com/Social0413/Social0413
 - 日線圖顯示 CHOCH/MSS。
 - 非日線圖不畫 CHOCH/MSS，避免誤用 M15/H4。
 - 不再用 `request.security("D")` 產生 CHOCH/MSS。
+
+使用者接著要求日線畫出的 CHOCH/MSS 在其他時框也要顯示，但不能用其他時框重新判斷。因此改成：
+
+- D 圖保留 `64482af` 的可顯示直接邏輯。
+- 非 D 圖只透過 `request.security(..., "D", ...)` 讀取日線訊號並顯示。
+- 顏色規則固定為：做多綠色系、做空紅色系；CHOCH 較暗、MSS 較亮。
