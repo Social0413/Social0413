@@ -272,3 +272,7 @@ https://github.com/Social0413/Social0413
 - D 圖保留 `64482af` 的可顯示直接邏輯。
 - 非 D 圖只透過 `request.security(..., "D", ...)` 讀取日線訊號並顯示。
 - 顏色規則固定為：做多綠色系、做空紅色系；CHOCH 較暗、MSS 較亮。
+
+### 2026-07-10 - D CHOCH/MSS intraday display fix
+
+After testing showed D CHOCH/MSS only appeared on the daily chart, the non-daily display path was changed to match the working OB/FVG approach: intraday bars now aggregate into completed daily candles first, then the daily CHOCH/MSS logic runs from those completed daily candles. This removes the unstable `request.security("D")` display path and prevents H4/M15 from being used as the structure source.

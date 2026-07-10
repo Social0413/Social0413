@@ -74,10 +74,22 @@ var int chochTrend = 0
 var float mssHigh = na
 var float mssLow = na
 var int mssTrend = 0
-var int lastRemoteBullChochTime = na
-var int lastRemoteBearChochTime = na
-var int lastRemoteBullMssTime = na
-var int lastRemoteBearMssTime = na
+var float dCurO = na
+var float dCurH = na
+var float dCurL = na
+var float dCurC = na
+var int dCurT = na
+var float aggChochHigh = na
+var float aggChochLow = na
+var int aggChochTrend = 0
+var float aggMssHigh = na
+var float aggMssLow = na
+var int aggMssTrend = 0
+var int[] dayTimes = array.new_int()
+var float[] dayHighs = array.new_float()
+var float[] dayLows = array.new_float()
+var float[] dayCloses = array.new_float()
+var float[] dayTrs = array.new_float()
 var int completedWeeks = 0
 var int[] weekTimes = array.new_int()
 var float[] weekOpens = array.new_float()
@@ -88,50 +100,30 @@ var float[] weekCloses = array.new_float()
 barMs = math.max(1, nz(time - time[1], 24 * 60 * 60 * 1000))
 dayMs = 24 * 60 * 60 * 1000
 
-dailyStructureSignals() =>
-    var float dChochHigh = na
-    var float dChochLow = na
-    var int dChochTrend = 0
-    var float dMssHigh = na
-    var float dMssLow = na
-    var int dMssTrend = 0
-    dChochPivotHigh = ta.pivothigh(high, chochSwingLen, chochSwingLen)
-    dChochPivotLow = ta.pivotlow(low, chochSwingLen, chochSwingLen)
-    dMssPivotHigh = ta.pivothigh(high, mssSwingLen, mssSwingLen)
-    dMssPivotLow = ta.pivotlow(low, mssSwingLen, mssSwingLen)
-    if not na(dChochPivotHigh)
-        dChochHigh := dChochPivotHigh
-    if not na(dChochPivotLow)
-        dChochLow := dChochPivotLow
-    if not na(dMssPivotHigh)
-        dMssHigh := dMssPivotHigh
-    if not na(dMssPivotLow)
-        dMssLow := dMssPivotLow
+arrayPivotHigh(_values, _center, _len) =>
+    _ok = true
+    _value = array.get(_values, _center)
+    for j = 1 to _len
+        if array.get(_values, _center - j) >= _value or array.get(_values, _center + j) > _value
+            _ok := false
+    _ok
 
-    dBullChoch = false
-    dBearChoch = false
-    if not na(dChochHigh) and close > dChochHigh
-        dBullChoch := dChochTrend == -1
-        dChochTrend := 1
-    if not na(dChochLow) and close < dChochLow
-        dBearChoch := dChochTrend == 1
-        dChochTrend := -1
+arrayPivotLow(_values, _center, _len) =>
+    _ok = true
+    _value = array.get(_values, _center)
+    for j = 1 to _len
+        if array.get(_values, _center - j) <= _value or array.get(_values, _center + j) < _value
+            _ok := false
+    _ok
 
-    dMssBody = math.abs(close - open)
-    dMssAtr = ta.atr(mssAtrLen)
-    dMssDisplacement = mssBodyAtrMult == 0.0 or dMssBody >= dMssAtr * mssBodyAtrMult
-    dBullMss = false
-    dBearMss = false
-    if not na(dMssHigh) and close > dMssHigh and dMssDisplacement
-        dBullMss := dMssTrend == -1
-        dMssTrend := 1
-    if not na(dMssLow) and close < dMssLow and dMssDisplacement
-        dBearMss := dMssTrend == 1
-        dMssTrend := -1
-
-    [time, dBullChoch, dBearChoch, dBullMss, dBearMss, dChochHigh, dChochLow, dMssHigh, dMssLow]
-
-[dStructureTime, dBullChoch, dBearChoch, dBullMss, dBearMss, dChochHigh, dChochLow, dMssHigh, dMssLow] = request.security(syminfo.tickerid, "D", dailyStructureSignals(), barmerge.gaps_off, barmerge.lookahead_off)
+arrayAverageLast(_values, _len) =>
+    _size = array.size(_values)
+    _count = math.min(_len, _size)
+    _sum = 0.0
+    if _count > 0
+        for j = 0 to _count - 1
+            _sum += array.get(_values, _size - 1 - j)
+    _count > 0 ? _sum / _count : na
 
 trimZones() =>
     while array.size(obBoxes) > maxZones
@@ -307,19 +299,80 @@ if showMss and bullMss
 if showMss and bearMss
     addStructureLine(-1, "MSS", mssLow, bearMssColor)
 
-if not timeframe.isdaily
-    if showChoch and dBullChoch and lastRemoteBullChochTime != dStructureTime
-        addStructureLine(1, "CHOCH", dChochHigh, bullChochColor)
-        lastRemoteBullChochTime := dStructureTime
-    if showChoch and dBearChoch and lastRemoteBearChochTime != dStructureTime
-        addStructureLine(-1, "CHOCH", dChochLow, bearChochColor)
-        lastRemoteBearChochTime := dStructureTime
-    if showMss and dBullMss and lastRemoteBullMssTime != dStructureTime
-        addStructureLine(1, "MSS", dMssHigh, bullMssColor)
-        lastRemoteBullMssTime := dStructureTime
-    if showMss and dBearMss and lastRemoteBearMssTime != dStructureTime
-        addStructureLine(-1, "MSS", dMssLow, bearMssColor)
-        lastRemoteBearMssTime := dStructureTime
+canBuildDaily = timeframe.in_seconds(timeframe.period) < timeframe.in_seconds("D")
+dayKey = time("D")
+newDay = ta.change(dayKey) != 0
+
+if canBuildDaily
+    if na(dCurT)
+        dCurT := dayKey
+        dCurO := open
+        dCurH := high
+        dCurL := low
+        dCurC := close
+    else if newDay
+        prevClose = array.size(dayCloses) > 0 ? array.get(dayCloses, array.size(dayCloses) - 1) : dCurC
+        dTr = math.max(dCurH - dCurL, math.max(math.abs(dCurH - prevClose), math.abs(dCurL - prevClose)))
+        array.push(dayTimes, dCurT)
+        array.push(dayHighs, dCurH)
+        array.push(dayLows, dCurL)
+        array.push(dayCloses, dCurC)
+        array.push(dayTrs, dTr)
+
+        dayCount = array.size(dayTimes)
+        chochCenter = dayCount - 1 - chochSwingLen
+        if dayCount >= chochSwingLen * 2 + 1
+            if arrayPivotHigh(dayHighs, chochCenter, chochSwingLen)
+                aggChochHigh := array.get(dayHighs, chochCenter)
+            if arrayPivotLow(dayLows, chochCenter, chochSwingLen)
+                aggChochLow := array.get(dayLows, chochCenter)
+
+        mssCenter = dayCount - 1 - mssSwingLen
+        if dayCount >= mssSwingLen * 2 + 1
+            if arrayPivotHigh(dayHighs, mssCenter, mssSwingLen)
+                aggMssHigh := array.get(dayHighs, mssCenter)
+            if arrayPivotLow(dayLows, mssCenter, mssSwingLen)
+                aggMssLow := array.get(dayLows, mssCenter)
+
+        aggBullChoch = false
+        aggBearChoch = false
+        if not na(aggChochHigh) and dCurC > aggChochHigh
+            aggBullChoch := aggChochTrend == -1
+            aggChochTrend := 1
+        if not na(aggChochLow) and dCurC < aggChochLow
+            aggBearChoch := aggChochTrend == 1
+            aggChochTrend := -1
+
+        aggMssBody = math.abs(dCurC - dCurO)
+        aggMssAtr = arrayAverageLast(dayTrs, mssAtrLen)
+        aggMssDisplacement = mssBodyAtrMult == 0.0 or (not na(aggMssAtr) and aggMssBody >= aggMssAtr * mssBodyAtrMult)
+        aggBullMss = false
+        aggBearMss = false
+        if not na(aggMssHigh) and dCurC > aggMssHigh and aggMssDisplacement
+            aggBullMss := aggMssTrend == -1
+            aggMssTrend := 1
+        if not na(aggMssLow) and dCurC < aggMssLow and aggMssDisplacement
+            aggBearMss := aggMssTrend == 1
+            aggMssTrend := -1
+
+        if showChoch and aggBullChoch
+            addStructureLine(1, "CHOCH", aggChochHigh, bullChochColor)
+        if showChoch and aggBearChoch
+            addStructureLine(-1, "CHOCH", aggChochLow, bearChochColor)
+        if showMss and aggBullMss
+            addStructureLine(1, "MSS", aggMssHigh, bullMssColor)
+        if showMss and aggBearMss
+            addStructureLine(-1, "MSS", aggMssLow, bearMssColor)
+
+        dCurT := dayKey
+        dCurO := open
+        dCurH := high
+        dCurL := low
+        dCurC := close
+    else
+        dCurH := math.max(dCurH, high)
+        dCurL := math.min(dCurL, low)
+        dCurC := close
 
 weekKey = time(htf)
 newWeek = ta.change(weekKey) != 0
