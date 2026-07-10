@@ -8,3 +8,14 @@
 - [ ] 測試 `Maximum zones per type` 與 `Maximum CHOCH/MSS lines` 邊界。
 - [ ] 決定是否將 `High timeframe` 固定為 Weekly。
 - [ ] 每次功能變更同步維護規格、Changelog、測試結果與已知限制。
+- [ ] 在 Daily、H4、M15 驗證 `B SETUP`、`S SETUP` 是否只在同方向 Daily MSS bias 與有效 Weekly zone 重疊時出現。
+- [ ] 驗證同一次連續停留在 zone 內只顯示一次，離開再進入時重新顯示。
+- [ ] 驗證 `Maximum SETUP labels` 在最小值、預設 40 與最大值時均只刪除最舊標籤。
+- [ ] 驗證同一 zone 再進入時只保留最新 SETUP，不會誤刪其他 OB/FVG 的 SETUP；重疊 zone 應歸屬最近 midpoint。
+- [ ] 驗證同 zone 中未 ARMED 的 SETUP 會被替換，但已 ARMED 並暗化封存的 SETUP 在後續 re-entry 後仍保留。
+- [ ] 在 H4、M15 驗證每個 SETUP 最多一個 ARMED，以及 zone 失效、反向 Daily MSS、20 bars 逾期的取消流程。
+- [ ] 驗證 ARMED swing length、ATR multiplier 與 label 上限的邊界值。
+- [ ] 在 H4、M15 Replay 驗證 ARMED 後首次回踩 ENTRY，以及 zone/bias/protect close/new SETUP 取消流程；另測 expiry=0 與正值。
+- [ ] 驗證隱藏 SETUP 或 ARMED 標籤時，ENTRY 狀態流程仍維持一致。
+- [ ] Replay 驗證 Trade Plan 從 ENTRY 下一根 K 才判定、SL/TP 同 K 採 SL 優先、TP1 後原 SL 保留，以及最多 20 組裁切。
+- [ ] 驗證 Bullish/Bearish 非法 SL、最小跳動距離與 TP2 小於 TP1 的防護。

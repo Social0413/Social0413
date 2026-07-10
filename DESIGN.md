@@ -11,6 +11,12 @@
 3. OB/FVG 建立後保存在平行 arrays，逐 bar 檢查 midpoint invalidation。
 4. CHOCH/MSS 各自維護 pivot、trend 與物件 arrays，事件成立時建立固定線段及透明文字 box。
 5. 超過使用者設定上限時，從 arrays 前端刪除最舊物件。
+6. SETUP 使用最新 Daily MSS bias 與目前 K 棒對有效 Weekly zone 的重疊狀態；重疊狀態由 false 轉為 true 時顯示一次。
+   SETUP label 與 zone key 使用平行 arrays；同 key 新訊號先刪除仍在等待的舊 label 再移到 arrays 尾端。ARMED 成立時將 key 改為 archived key，使完成流程的 SETUP 不會被後續同 zone 訊號刪除。
+7. ARMED 保存 SETUP 方向、來源 zone、起始 bar 與待突破 pivot；zone 失效、bias 反轉、逾期或突破成立時清除狀態。
+   ARMED 成立前以 active zone key 查找平行 SETUP label arrays，只暗化同 key 最新 SETUP，再清除候選狀態。
+8. ENTRY 保存 ARMED 的方向、來源 zone、突破位、保護 swing 與起始 bar；首次有效回踩、取消或新 SETUP 後清除候選。
+9. Trade Plan 使用平行 arrays 保存三條線、資訊 label、方向、四個價格、起始 bar 與狀態；狀態 0 為等待、1 為 TP1、2 為 WIN、-1 為 LOSS。
 
 ## 關鍵設計決策
 
@@ -18,10 +24,11 @@
 - Intraday 的 Daily CHOCH/MSS 不採用已證實不穩定的 `request.security("D")` 顯示路徑，而由 intraday bars 重建完成日線。
 - CHOCH 與 MSS 使用不同 pivot 長度；MSS 另加 ATR body displacement，避免兩者退化成同一訊號。
 - 結構線是「pivot 到 breakout」的事實區段，而不是 future-facing ray。
-- `line` 無文字能力，因此使用透明 `box` 承載文字；這會同時消耗 box 資源。
+- `line` 無文字能力，因此 MSS 使用透明 `box` 承載文字；CHOCH 的文字已隱藏，只保留結構線。
+- SETUP/ARMED/ENTRY/Trade Plan 都是視覺分析層，不使用 `strategy.entry()`；Trade Plan 線與結果不代表實際成交。
 
 ## 非目標
 
-- 目前不含交易下單、alert、回測績效或策略部位管理。
+- 目前不含交易下單、alert、正式策略回測或真實部位管理；Entry/SL/TP 只屬於 indicator 的視覺計畫與 OHLC 結果追蹤。
 - 目前不含 365D High/Low。
 - 目前沒有宣稱支援所有 symbol、session 或非標準 chart type。

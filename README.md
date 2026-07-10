@@ -75,7 +75,13 @@ smc-weekly-ob-fvg/assets/smc_weekly_ob_fvg_v1.pine
 - 專案時框分工固定為：週線判斷 OB/FVG，日線判斷 CHOCH/MSS。
 - 做多 CHOCH/MSS 使用綠色系，做空 CHOCH/MSS 使用紅色系；CHOCH 較暗，MSS 較亮。
 - CHOCH/MSS 線從下一根 K 開始，若 K 棒碰到該線位就停止延伸。
-- CHOCH/MSS 文字顯示在線段中間，不再另外建立獨立標籤。
+- CHOCH 只保留結構線、不顯示文字；MSS 保留線段中間的 `MSS` 文字，不另外建立獨立標籤。
+- SETUP：最新 Daily MSS 方向與目前 K 棒觸及的有效 Weekly OB/FVG 同向時，每次進區顯示一次 `B SETUP` 或 `S SETUP`；每個 zone 只替換尚未 ARMED 的舊 SETUP，已進入 ARMED 的暗色 SETUP 會保留。
+- 第二步 ARMED：SETUP 後，當目前圖表時框收盤突破 confirmed pivot 且 K 棒實體通過 ATR displacement 時，顯示一次 `B ARMED` 或 `S ARMED`；不畫進場線。
+- ARMED 成立後，對應 SETUP 會自動暗化，讓視覺焦點保留在最新流程階段。
+- 第三步 ENTRY：ARMED 後等待首次回踩突破位並收盤重新確認，顯示一次 `B ENTRY` 或 `S ENTRY`；仍不畫 SL/TP，也不會送單。
+- ENTRY 等待目前預設不限期；保護 swing 必須被收盤突破才取消，不因單純影線觸及而取消。
+- 第四步 Trade Plan：ENTRY 收盤建立 Entry/SL/TP1/TP2 計畫，預設 TP1=1R、TP2=2R，從下一根 K 開始以 SL 優先規則追蹤 `TP1 HIT`、`WIN TP2` 或 `LOSS`；最多保留 20 筆，不會實際送單。
 - 已移除 365 天高低點，降低回放模式與長歷史掃描的資源壓力。
 - `Maximum zones per type` 目前預設為 `40`，降低 TradingView 回放模式的物件壓力。
 

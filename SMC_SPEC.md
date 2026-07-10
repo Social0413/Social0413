@@ -31,7 +31,7 @@
 - 使用獨立 pivot 系統，預設 swing length 2。
 - Daily close 突破最新 pivot，且方向與已追蹤 trend 相反時產生 `CHOCH`。
 - 線段由被突破的 Daily pivot candle 畫到確認突破的 Daily candle，不向未來延伸。
-- 文字置於線段下方；因 Pine line 無原生文字，以透明 text box 實作。
+- CHOCH 只顯示線段，不顯示 `CHOCH` 文字，以降低圖表雜訊。
 - Bullish 使用深綠、Bearish 使用深紅。
 
 ## MSS
@@ -39,7 +39,7 @@
 - 使用獨立 pivot 系統，預設 swing length 5。
 - 除結構突破與 trend 反轉外，突破 candle body 必須符合 ATR displacement filter。
 - ATR length 預設 14，body multiplier 預設 1.0；設為 0 可停用 displacement 門檻。
-- 線段與文字規則同 CHOCH；Bullish 使用亮綠、Bearish 使用亮紅。
+- 線段範圍同 CHOCH，但 MSS 保留 `MSS` 文字；Bullish 使用亮綠、Bearish 使用亮紅。
 
 ## 顯示與資源限制
 
@@ -47,3 +47,49 @@
 - `Stable replay extension` 預設開啟，使用 `extend.right`；midpoint invalidation 仍必須生效。
 - 已移除 365D High/Low，以降低 Replay object pressure。
 - Pine indicator 宣告上限為 500 boxes、500 lines、200 labels；這是平台物件上限設定，不是保證所有歷史區間皆可無限制顯示。
+
+## SETUP（進場開發第一階段）
+
+- SETUP 僅為圖上提示，不送出訂單，也不連接交易所或券商。
+- 最新完成的 Daily bullish/bearish MSS 決定目前 bias，直到反方向 Daily MSS 出現。
+- 目前圖表 K 棒的 high/low 與仍有效、同方向的 Weekly OB 或 FVG 重疊時，視為進入 zone。
+- Bullish bias 與 bullish zone 同時成立時顯示綠色 `B SETUP`；Bearish bias 與 bearish zone 同時成立時顯示紅色 `S SETUP`。
+- 同一次連續停留在 zone 內只顯示一次；離開後再次進入可重新顯示。
+- 每個確切 Weekly zone 只保留最新一個尚未 ARMED 的 SETUP；重新進入同一 zone 時刪除該 zone 舊的等待中標籤並建立新標籤。不同 zone 的 SETUP 互不刪除。
+- OB/FVG 重疊時，SETUP 歸屬於 midpoint 距目前收盤價最近的有效 zone。
+- 價格持續與多個重疊 zone 接觸時，若依上述規則選出的 zone key 改變，視為進入另一個 zone，可產生新的 SETUP。
+- SETUP 標籤最多保留最新 40 個，可由 `Maximum SETUP labels` 向下調整；超限時刪除最舊標籤，不影響訊號判定。
+
+## ARMED（進場開發第二階段）
+
+- 每個 SETUP 建立一個等待中的 ARMED 候選；新的 SETUP 會取代前一個尚未完成的候選。
+- 重新進入同一 zone 時，已完成的歷史 ARMED 標籤保留；只有尚未完成的 ARMED 候選被新 SETUP 取代。
+- 使用目前圖表時框的 confirmed pivot，預設 swing length 3；Bullish SETUP 等待收盤向上突破 swing high，Bearish SETUP 等待收盤向下突破 swing low。
+- 突破必須由前一根收盤尚未越過、目前收盤正式越過，且 candle body 預設至少為目前圖表時框 ATR(14) 的 1.0 倍。
+- 成立時顯示 `B ARMED` 或 `S ARMED`，同一 SETUP 最多一次，不畫水平線。
+- ARMED 成立時，將同一 zone 對應的最新 SETUP 標籤改為較暗、較透明並封存；封存後不再被同 zone 的後續 SETUP 取代，確保 SETUP → ARMED → ENTRY 歷史鏈仍可辨識。
+- SETUP 所屬 Weekly zone 失效、出現反向 Daily MSS，或等待超過預設 20 根圖表 K 時取消候選。
+- ARMED 標籤最多保留最新 40 個，可由 `Maximum ARMED labels` 向下調整。
+
+## ENTRY（進場開發第三階段）
+
+- ARMED 成立時保存被突破的 pivot level、來源 zone、ARMED bar，以及反方向最近 confirmed pivot 作為保護 swing。
+- ENTRY 必須發生在 ARMED 之後的 K 棒；Bullish 為 low 回到或跌破突破位且收盤重新站上，Bearish 為 high 回到或突破突破位且收盤重新跌回其下。
+- 每個 ARMED 最多產生一個 `B ENTRY` 或 `S ENTRY`，只顯示小標籤，不畫水平線。
+- 原 zone 失效、Daily MSS bias 反向、收盤突破反方向保護 swing，或出現新 SETUP 時取消 ENTRY 候選。
+- `ENTRY retest expiry bars` 預設為 0，代表不限期；設為正整數時，等待超過指定圖表 K 棒數才取消。
+- ENTRY 標籤最多保留最新 40 個，可向下調整；SETUP、ARMED、ENTRY 三類合計設定上限為 120，低於 indicator 的 200 labels 宣告上限。
+- `Show SETUP`、`Show ARMED`、`Show ENTRY` 僅控制各階段標籤顯示，不改變狀態判定與後續流程。
+- ENTRY 標籤本身不代表實際送單；Stop/TP 的圖表追蹤由下方 Trade Plan 階段處理。
+
+## Trade Plan（進場開發第四階段）
+
+- ENTRY 成立時以確認 K 收盤作為 Entry，ARMED 保存的反方向 confirmed pivot 作為 SL；Bullish SL 必須低於 Entry，Bearish SL 必須高於 Entry，且距離至少一個 `syminfo.mintick`。
+- Risk 定義為 `abs(Entry - SL)`；TP1 預設 1R、TP2 預設 2R。若使用者將 TP2 倍數設得低於 TP1，實際 TP2 自動採用 TP1 倍數作為下限。
+- 每筆計畫建立 SL、TP1、TP2 三條短線與一個資訊標籤；線段由 ENTRY bar 開始，逐 bar 延伸到計畫結束。
+- SL/TP 從 ENTRY 下一根 K 才開始判定，避免使用 ENTRY 確認 K 已發生的 high/low。
+- 同一根 K 同時觸及 SL 與任一 TP 時，採保守的 SL 優先；TP2 觸及標示 `WIN TP2`，SL 觸及標示 `LOSS`，若先前已達 TP1 則標示 `TP1 → LOSS`。
+- TP1 達成只更新為 `TP1 HIT`，不移動 SL，繼續等待原始 SL 或 TP2。
+- 新 SETUP/ARMED/ENTRY 與原 Weekly zone 後續失效均不取消已建立的 Trade Plan；每筆計畫獨立追蹤。
+- 最多保留最新 20 筆 Trade Plan，超限時整組刪除最舊的三條線與資訊標籤。
+- Trade Plan 只供圖表分析，不使用 `strategy.entry()`，也不會實際送單。

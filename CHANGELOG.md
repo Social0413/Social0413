@@ -5,6 +5,11 @@
 ## Unreleased
 
 - 新增 `SMC_SPEC.md`、`DESIGN.md`、`ROADMAP.md`、`CODING_RULE.md`、`TEST_RESULT.md`、`KNOWN_BUGS.md`、`TODO.md`，並建立 Repository 知識索引。
+- 新增完整進場工作流：Daily MSS bias 與 Weekly zone 形成 SETUP；圖表時框 pivot breakout 加 ATR displacement 形成 ARMED；首次回踩突破位並收盤確認形成 ENTRY。
+- SETUP/ARMED/ENTRY 各最多 40 個標籤；SETUP 以 zone key 管理，重進同 zone 只替換尚未 ARMED 的標籤，ARMED 後暗化並封存以保留流程鏈。
+- 新增 Trade Plan：ENTRY 收盤、保護 swing SL、預設 1R/2R 目標、下一根 K 起算、同 K 採 SL 優先，以及最多 20 筆整組裁切；僅供圖表分析，不送單。
+- ENTRY 保護 swing 改為收盤突破才失效；retest expiry 預設 0（關閉）。OB/FVG 重疊時依距收盤最近 midpoint 選擇 zone，zone key 改變視為新 SETUP。
+- CHOCH 隱藏文字但保留結構線；MSS 線與文字維持顯示。ARMED zone 追蹤使用字串 key，避免 Pine 不支援 box handle equality 的編譯錯誤。
 
 ## 2026-07-10
 

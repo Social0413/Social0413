@@ -18,6 +18,21 @@ mssSwingLen = input.int(5, "D MSS swing length", minval=2, maxval=20)
 mssAtrLen = input.int(14, "D MSS ATR length", minval=1, maxval=100)
 mssBodyAtrMult = input.float(1.0, "D MSS body ATR multiplier", minval=0.0, step=0.1)
 maxStructureLines = input.int(120, "Maximum CHOCH/MSS lines", minval=20, maxval=300)
+showSetup = input.bool(true, "Show SETUP")
+maxSetupLabels = input.int(40, "Maximum SETUP labels", minval=5, maxval=40)
+showArmed = input.bool(true, "Show ARMED")
+armedSwingLen = input.int(3, "ARMED swing length", minval=1, maxval=10)
+armedAtrLen = input.int(14, "ARMED ATR length", minval=1, maxval=100)
+armedBodyAtrMult = input.float(1.0, "ARMED body ATR multiplier", minval=0.0, step=0.1)
+armedExpiryBars = input.int(20, "ARMED expiry bars", minval=1, maxval=200)
+maxArmedLabels = input.int(40, "Maximum ARMED labels", minval=5, maxval=40)
+showEntry = input.bool(true, "Show ENTRY")
+entryExpiryBars = input.int(0, "ENTRY retest expiry bars (0 = off)", minval=0, maxval=100)
+maxEntryLabels = input.int(40, "Maximum ENTRY labels", minval=5, maxval=40)
+showTradePlans = input.bool(true, "Show SL/TP trade plans")
+tradeTp1R = input.float(1.0, "Trade plan TP1 (R)", minval=0.25, step=0.25)
+tradeTp2R = input.float(2.0, "Trade plan TP2 (R)", minval=0.5, step=0.25)
+maxTradePlans = input.int(20, "Maximum trade plans", minval=1, maxval=20)
 
 bullObColor = input.color(color.new(color.lime, 90), "Bullish OB fill")
 bullObBorder = input.color(color.new(color.lime, 20), "Bullish OB border")
@@ -58,11 +73,17 @@ var float[] obMids = array.new_float()
 var bool[] obActive = array.new_bool()
 var int[] obSourceTimes = array.new_int()
 var int[] obSourceDirs = array.new_int()
+var float[] obTops = array.new_float()
+var float[] obBottoms = array.new_float()
+var string[] obKeys = array.new_string()
 var box[] fvgBoxes = array.new_box()
 var line[] fvgMidLines = array.new_line()
 var int[] fvgDirs = array.new_int()
 var float[] fvgMids = array.new_float()
 var bool[] fvgActive = array.new_bool()
+var float[] fvgTops = array.new_float()
+var float[] fvgBottoms = array.new_float()
+var string[] fvgKeys = array.new_string()
 var line[] structureLines = array.new_line()
 var box[] structureTextBoxes = array.new_box()
 var float[] structureLevels = array.new_float()
@@ -104,6 +125,33 @@ var float[] weekOpens = array.new_float()
 var float[] weekHighs = array.new_float()
 var float[] weekLows = array.new_float()
 var float[] weekCloses = array.new_float()
+var int setupBias = 0
+var label[] setupLabels = array.new_label()
+var string[] setupLabelKeys = array.new_string()
+var label[] armedLabels = array.new_label()
+var label[] entryLabels = array.new_label()
+var int activeSetupDir = 0
+var int activeSetupBar = na
+var string activeSetupZoneKey = ""
+var float activeSetupBreakLevel = na
+var float lastArmedPivotHigh = na
+var float lastArmedPivotLow = na
+var int activeArmedDir = 0
+var int activeArmedBar = na
+var string activeArmedZoneKey = ""
+var float activeArmedRetestLevel = na
+var float activeArmedProtectLevel = na
+var line[] tradeSlLines = array.new_line()
+var line[] tradeTp1Lines = array.new_line()
+var line[] tradeTp2Lines = array.new_line()
+var label[] tradeLabels = array.new_label()
+var int[] tradeDirs = array.new_int()
+var float[] tradeEntries = array.new_float()
+var float[] tradeStops = array.new_float()
+var float[] tradeTp1s = array.new_float()
+var float[] tradeTp2s = array.new_float()
+var int[] tradeStartBars = array.new_int()
+var int[] tradeStatuses = array.new_int()
 
 barMs = math.max(1, nz(time - time[1], 24 * 60 * 60 * 1000))
 dayMs = 24 * 60 * 60 * 1000
@@ -142,12 +190,18 @@ trimZones() =>
         array.shift(obActive)
         array.shift(obSourceTimes)
         array.shift(obSourceDirs)
+        array.shift(obTops)
+        array.shift(obBottoms)
+        array.shift(obKeys)
     while array.size(fvgBoxes) > maxZones
         box.delete(array.shift(fvgBoxes))
         line.delete(array.shift(fvgMidLines))
         array.shift(fvgDirs)
         array.shift(fvgMids)
         array.shift(fvgActive)
+        array.shift(fvgTops)
+        array.shift(fvgBottoms)
+        array.shift(fvgKeys)
 
 trimStructureLines() =>
     while array.size(structureLines) > maxStructureLines
@@ -157,6 +211,122 @@ trimStructureLines() =>
         array.shift(structureStartTimes)
         array.shift(structureActive)
 
+findTouchedZoneKey(_dir) =>
+    string _found = ""
+    float _bestDistance = na
+    if array.size(obBoxes) > 0
+        for i = 0 to array.size(obBoxes) - 1
+            if array.get(obActive, i) and array.get(obDirs, i) == _dir and high >= array.get(obBottoms, i) and low <= array.get(obTops, i)
+                _distance = math.abs(close - array.get(obMids, i))
+                if na(_bestDistance) or _distance < _bestDistance
+                    _bestDistance := _distance
+                    _found := array.get(obKeys, i)
+    if array.size(fvgBoxes) > 0
+        for i = 0 to array.size(fvgBoxes) - 1
+            if array.get(fvgActive, i) and array.get(fvgDirs, i) == _dir and high >= array.get(fvgBottoms, i) and low <= array.get(fvgTops, i)
+                _distance = math.abs(close - array.get(fvgMids, i))
+                if na(_bestDistance) or _distance < _bestDistance
+                    _bestDistance := _distance
+                    _found := array.get(fvgKeys, i)
+    _found
+
+zoneIsActive(_zoneKey) =>
+    _active = false
+    if _zoneKey != ""
+        if array.size(obBoxes) > 0
+            for i = 0 to array.size(obBoxes) - 1
+                if array.get(obKeys, i) == _zoneKey
+                    _active := array.get(obActive, i)
+        if array.size(fvgBoxes) > 0
+            for i = 0 to array.size(fvgBoxes) - 1
+                if array.get(fvgKeys, i) == _zoneKey
+                    _active := array.get(fvgActive, i)
+    _active
+
+addSetupLabel(_dir, _zoneKey) =>
+    _isBull = _dir == 1
+    _key = _zoneKey == "" ? "UNKNOWN:" + str.tostring(_dir) + ":" + str.tostring(bar_index) : _zoneKey
+    _oldIndex = -1
+    if array.size(setupLabelKeys) > 0
+        for i = 0 to array.size(setupLabelKeys) - 1
+            if array.get(setupLabelKeys, i) == _key
+                _oldIndex := i
+                break
+    if _oldIndex >= 0
+        label.delete(array.remove(setupLabels, _oldIndex))
+        array.remove(setupLabelKeys, _oldIndex)
+    _label = label.new(bar_index, _isBull ? low : high, _isBull ? "B SETUP" : "S SETUP", style=_isBull ? label.style_label_up : label.style_label_down, color=color.new(_isBull ? color.green : color.red, 20), textcolor=color.white, size=size.tiny)
+    array.push(setupLabels, _label)
+    array.push(setupLabelKeys, _key)
+    while array.size(setupLabels) > maxSetupLabels
+        label.delete(array.shift(setupLabels))
+        array.shift(setupLabelKeys)
+
+dimAndArchiveSetupLabel(_dir, _zoneKey) =>
+    if _zoneKey != "" and array.size(setupLabelKeys) > 0
+        for i = 0 to array.size(setupLabelKeys) - 1
+            if array.get(setupLabelKeys, i) == _zoneKey
+                _setupLabel = array.get(setupLabels, i)
+                _dimColor = color.new(_dir == 1 ? color.green : color.red, 75)
+                label.set_color(_setupLabel, _dimColor)
+                label.set_textcolor(_setupLabel, color.new(color.white, 55))
+                array.set(setupLabelKeys, i, "ARCHIVED:" + _zoneKey + ":" + str.tostring(bar_index))
+                break
+
+addArmedLabel(_dir) =>
+    _isBull = _dir == 1
+    _label = label.new(bar_index, _isBull ? low : high, _isBull ? "B ARMED" : "S ARMED", style=_isBull ? label.style_label_up : label.style_label_down, color=color.new(_isBull ? color.lime : color.red, 5), textcolor=_isBull ? color.black : color.white, size=size.tiny)
+    array.push(armedLabels, _label)
+    while array.size(armedLabels) > maxArmedLabels
+        label.delete(array.shift(armedLabels))
+
+addEntryLabel(_dir) =>
+    _isBull = _dir == 1
+    _label = label.new(bar_index, _isBull ? low : high, _isBull ? "B ENTRY" : "S ENTRY", style=_isBull ? label.style_label_up : label.style_label_down, color=color.new(_isBull ? color.aqua : color.orange, 5), textcolor=color.black, size=size.tiny)
+    array.push(entryLabels, _label)
+    while array.size(entryLabels) > maxEntryLabels
+        label.delete(array.shift(entryLabels))
+
+trimTradePlans() =>
+    while array.size(tradeLabels) > maxTradePlans
+        line.delete(array.shift(tradeSlLines))
+        line.delete(array.shift(tradeTp1Lines))
+        line.delete(array.shift(tradeTp2Lines))
+        label.delete(array.shift(tradeLabels))
+        array.shift(tradeDirs)
+        array.shift(tradeEntries)
+        array.shift(tradeStops)
+        array.shift(tradeTp1s)
+        array.shift(tradeTp2s)
+        array.shift(tradeStartBars)
+        array.shift(tradeStatuses)
+
+addTradePlan(_dir, _entry, _stop) =>
+    _validSide = _dir == 1 ? _stop < _entry : _stop > _entry
+    _valid = _validSide and math.abs(_entry - _stop) >= syminfo.mintick
+    if _valid
+        _risk = math.abs(_entry - _stop)
+        _tp1 = _dir == 1 ? _entry + _risk * tradeTp1R : _entry - _risk * tradeTp1R
+        _effectiveTp2R = math.max(tradeTp2R, tradeTp1R)
+        _tp2 = _dir == 1 ? _entry + _risk * _effectiveTp2R : _entry - _risk * _effectiveTp2R
+        _slLine = line.new(bar_index, _stop, bar_index + 1, _stop, color=color.new(color.red, 10), style=line.style_dashed, width=1)
+        _tp1Line = line.new(bar_index, _tp1, bar_index + 1, _tp1, color=color.new(color.aqua, 15), style=line.style_dotted, width=1)
+        _tp2Line = line.new(bar_index, _tp2, bar_index + 1, _tp2, color=color.new(color.blue, 10), style=line.style_dotted, width=1)
+        _text = (_dir == 1 ? "B PLAN" : "S PLAN") + "\nEntry " + str.tostring(_entry, format.mintick) + "\nSL " + str.tostring(_stop, format.mintick) + "\nTP1 " + str.tostring(_tp1, format.mintick) + "\nTP2 " + str.tostring(_tp2, format.mintick)
+        _planLabel = label.new(bar_index, _entry, _text, style=label.style_label_left, color=color.new(color.navy, 20), textcolor=color.white, size=size.tiny)
+        array.push(tradeSlLines, _slLine)
+        array.push(tradeTp1Lines, _tp1Line)
+        array.push(tradeTp2Lines, _tp2Line)
+        array.push(tradeLabels, _planLabel)
+        array.push(tradeDirs, _dir)
+        array.push(tradeEntries, _entry)
+        array.push(tradeStops, _stop)
+        array.push(tradeTp1s, _tp1)
+        array.push(tradeTp2s, _tp2)
+        array.push(tradeStartBars, bar_index)
+        array.push(tradeStatuses, 0)
+        trimTradePlans()
+
 addStructureLine(_dir, _text, _level, _lineColor, _leftTime, _rightTime) =>
     _pad = math.max(syminfo.mintick * 20.0, _level * 0.0005)
     _x1 = na(_leftTime) ? time - dayMs : _leftTime
@@ -164,7 +334,8 @@ addStructureLine(_dir, _text, _level, _lineColor, _leftTime, _rightTime) =>
     _start = math.min(_x1, _x2)
     _end = math.max(_x1, _x2)
     _line = line.new(_start, _level, _end, _level, xloc=xloc.bar_time, extend=extend.none, color=_lineColor, style=line.style_solid, width=2)
-    _textBox = box.new(_start, _level - _pad * 0.25, _end, _level - _pad * 2.0, xloc=xloc.bar_time, bgcolor=color.new(color.black, 100), border_color=color.new(_lineColor, 100), text=_text, text_color=_lineColor, text_size=size.small, text_halign=text.align_center, text_valign=text.align_center)
+    _displayText = _text == "CHOCH" ? "" : _text
+    _textBox = box.new(_start, _level - _pad * 0.25, _end, _level - _pad * 2.0, xloc=xloc.bar_time, bgcolor=color.new(color.black, 100), border_color=color.new(_lineColor, 100), text=_displayText, text_color=_lineColor, text_size=size.small, text_halign=text.align_center, text_valign=text.align_center)
     array.push(structureLines, _line)
     array.push(structureTextBoxes, _textBox)
     array.push(structureLevels, _level)
@@ -186,6 +357,9 @@ addOb(_dir, _leftTime, _top, _bottom) =>
     array.push(obActive, true)
     array.push(obSourceTimes, _leftTime)
     array.push(obSourceDirs, _dir)
+    array.push(obTops, _top)
+    array.push(obBottoms, _bottom)
+    array.push(obKeys, "OB:" + str.tostring(_dir) + ":" + str.tostring(_leftTime))
     trimZones()
 
 obExists(_dir, _sourceTime) =>
@@ -208,6 +382,9 @@ addFvg(_dir, _leftTime, _top, _bottom) =>
     array.push(fvgDirs, _dir)
     array.push(fvgMids, _mid)
     array.push(fvgActive, true)
+    array.push(fvgTops, _top)
+    array.push(fvgBottoms, _bottom)
+    array.push(fvgKeys, "FVG:" + str.tostring(_dir) + ":" + str.tostring(_leftTime))
     trimZones()
 
 if array.size(obBoxes) > 0
@@ -315,6 +492,11 @@ if showMss and bullMss
 if showMss and bearMss
     addStructureLine(-1, "MSS", mssLow, bearMssColor, mssLowTime, time)
 
+if bullMss
+    setupBias := 1
+if bearMss
+    setupBias := -1
+
 canBuildDaily = timeframe.in_seconds(timeframe.period) < timeframe.in_seconds("D")
 dayKey = time("D")
 newDay = ta.change(dayKey) != 0
@@ -384,6 +566,11 @@ if canBuildDaily
         if showMss and aggBearMss
             addStructureLine(-1, "MSS", aggMssLow, bearMssColor, aggMssLowTime, time)
 
+        if aggBullMss
+            setupBias := 1
+        if aggBearMss
+            setupBias := -1
+
         dCurT := dayKey
         dCurO := open
         dCurH := high
@@ -393,6 +580,135 @@ if canBuildDaily
         dCurH := math.max(dCurH, high)
         dCurL := math.min(dCurL, low)
         dCurC := close
+
+bullTouchedZoneKey = findTouchedZoneKey(1)
+bearTouchedZoneKey = findTouchedZoneKey(-1)
+bullSetupActive = setupBias == 1 and bullTouchedZoneKey != ""
+bearSetupActive = setupBias == -1 and bearTouchedZoneKey != ""
+bullSetupEvent = bullSetupActive and (not bullSetupActive[1] or bullTouchedZoneKey != bullTouchedZoneKey[1])
+bearSetupEvent = bearSetupActive and (not bearSetupActive[1] or bearTouchedZoneKey != bearTouchedZoneKey[1])
+
+if bullSetupEvent
+    if showSetup
+        addSetupLabel(1, bullTouchedZoneKey)
+    activeSetupDir := 1
+    activeSetupBar := bar_index
+    activeSetupZoneKey := bullTouchedZoneKey
+    activeSetupBreakLevel := lastArmedPivotHigh
+    activeArmedDir := 0
+    activeArmedBar := na
+    activeArmedZoneKey := ""
+    activeArmedRetestLevel := na
+    activeArmedProtectLevel := na
+if bearSetupEvent
+    if showSetup
+        addSetupLabel(-1, bearTouchedZoneKey)
+    activeSetupDir := -1
+    activeSetupBar := bar_index
+    activeSetupZoneKey := bearTouchedZoneKey
+    activeSetupBreakLevel := lastArmedPivotLow
+    activeArmedDir := 0
+    activeArmedBar := na
+    activeArmedZoneKey := ""
+    activeArmedRetestLevel := na
+    activeArmedProtectLevel := na
+
+armedPivotHigh = ta.pivothigh(high, armedSwingLen, armedSwingLen)
+armedPivotLow = ta.pivotlow(low, armedSwingLen, armedSwingLen)
+if not na(armedPivotHigh)
+    lastArmedPivotHigh := armedPivotHigh
+    if activeSetupDir == 1
+        activeSetupBreakLevel := armedPivotHigh
+if not na(armedPivotLow)
+    lastArmedPivotLow := armedPivotLow
+    if activeSetupDir == -1
+        activeSetupBreakLevel := armedPivotLow
+
+setupExpired = activeSetupDir != 0 and bar_index - activeSetupBar > armedExpiryBars
+setupOppositeBias = activeSetupDir != 0 and setupBias != activeSetupDir
+setupZoneInvalid = activeSetupDir != 0 and not zoneIsActive(activeSetupZoneKey)
+if setupExpired or setupOppositeBias or setupZoneInvalid
+    activeSetupDir := 0
+    activeSetupBar := na
+    activeSetupZoneKey := ""
+    activeSetupBreakLevel := na
+
+armedBody = math.abs(close - open)
+armedAtr = ta.atr(armedAtrLen)
+armedDisplacement = armedBodyAtrMult == 0.0 or armedBody >= armedAtr * armedBodyAtrMult
+bullArmedEvent = activeSetupDir == 1 and bar_index > activeSetupBar and not na(activeSetupBreakLevel) and close > activeSetupBreakLevel and close[1] <= activeSetupBreakLevel and armedDisplacement
+bearArmedEvent = activeSetupDir == -1 and bar_index > activeSetupBar and not na(activeSetupBreakLevel) and close < activeSetupBreakLevel and close[1] >= activeSetupBreakLevel and armedDisplacement
+if bullArmedEvent or bearArmedEvent
+    dimAndArchiveSetupLabel(activeSetupDir, activeSetupZoneKey)
+    if showArmed
+        addArmedLabel(activeSetupDir)
+    activeArmedDir := activeSetupDir
+    activeArmedBar := bar_index
+    activeArmedZoneKey := activeSetupZoneKey
+    activeArmedRetestLevel := activeSetupBreakLevel
+    activeArmedProtectLevel := activeSetupDir == 1 ? lastArmedPivotLow : lastArmedPivotHigh
+    activeSetupDir := 0
+    activeSetupBar := na
+    activeSetupZoneKey := ""
+    activeSetupBreakLevel := na
+
+entryExpired = activeArmedDir != 0 and entryExpiryBars > 0 and bar_index - activeArmedBar > entryExpiryBars
+entryOppositeBias = activeArmedDir != 0 and setupBias != activeArmedDir
+entryZoneInvalid = activeArmedDir != 0 and not zoneIsActive(activeArmedZoneKey)
+entryProtectBroken = activeArmedDir == 1 ? (not na(activeArmedProtectLevel) and close < activeArmedProtectLevel) : activeArmedDir == -1 ? (not na(activeArmedProtectLevel) and close > activeArmedProtectLevel) : false
+if entryExpired or entryOppositeBias or entryZoneInvalid or entryProtectBroken
+    activeArmedDir := 0
+    activeArmedBar := na
+    activeArmedZoneKey := ""
+    activeArmedRetestLevel := na
+    activeArmedProtectLevel := na
+
+bullEntryEvent = activeArmedDir == 1 and bar_index > activeArmedBar and low <= activeArmedRetestLevel and close > activeArmedRetestLevel
+bearEntryEvent = activeArmedDir == -1 and bar_index > activeArmedBar and high >= activeArmedRetestLevel and close < activeArmedRetestLevel
+if bullEntryEvent or bearEntryEvent
+    completedEntryDir = activeArmedDir
+    completedEntryStop = activeArmedProtectLevel
+    if showEntry
+        addEntryLabel(completedEntryDir)
+    if showTradePlans
+        addTradePlan(completedEntryDir, close, completedEntryStop)
+    activeArmedDir := 0
+    activeArmedBar := na
+    activeArmedZoneKey := ""
+    activeArmedRetestLevel := na
+    activeArmedProtectLevel := na
+
+if array.size(tradeLabels) > 0
+    for i = 0 to array.size(tradeLabels) - 1
+        tradeStatus = array.get(tradeStatuses, i)
+        if tradeStatus == 0 or tradeStatus == 1
+            tradeDir = array.get(tradeDirs, i)
+            tradeEntry = array.get(tradeEntries, i)
+            tradeStop = array.get(tradeStops, i)
+            tradeTp1 = array.get(tradeTp1s, i)
+            tradeTp2 = array.get(tradeTp2s, i)
+            tradeStartBar = array.get(tradeStartBars, i)
+            tradeLabel = array.get(tradeLabels, i)
+            line.set_x2(array.get(tradeSlLines, i), bar_index)
+            line.set_x2(array.get(tradeTp1Lines, i), bar_index)
+            line.set_x2(array.get(tradeTp2Lines, i), bar_index)
+            if bar_index > tradeStartBar
+                stopHit = tradeDir == 1 ? low <= tradeStop : high >= tradeStop
+                tp1Hit = tradeDir == 1 ? high >= tradeTp1 : low <= tradeTp1
+                tp2Hit = tradeDir == 1 ? high >= tradeTp2 : low <= tradeTp2
+                tradeText = (tradeDir == 1 ? "B PLAN" : "S PLAN") + "\nEntry " + str.tostring(tradeEntry, format.mintick) + "\nSL " + str.tostring(tradeStop, format.mintick) + "\nTP1 " + str.tostring(tradeTp1, format.mintick) + "\nTP2 " + str.tostring(tradeTp2, format.mintick)
+                if stopHit
+                    label.set_text(tradeLabel, tradeText + (tradeStatus == 1 ? "\nTP1 → LOSS" : "\nLOSS"))
+                    label.set_color(tradeLabel, color.new(color.red, 10))
+                    array.set(tradeStatuses, i, -1)
+                else if tp2Hit
+                    label.set_text(tradeLabel, tradeText + "\nWIN TP2")
+                    label.set_color(tradeLabel, color.new(color.green, 10))
+                    array.set(tradeStatuses, i, 2)
+                else if tp1Hit and tradeStatus == 0
+                    label.set_text(tradeLabel, tradeText + "\nTP1 HIT")
+                    label.set_color(tradeLabel, color.new(color.teal, 10))
+                    array.set(tradeStatuses, i, 1)
 
 weekKey = time(htf)
 newWeek = ta.change(weekKey) != 0
