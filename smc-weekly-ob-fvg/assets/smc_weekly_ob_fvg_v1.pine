@@ -60,6 +60,13 @@ var bool[] fvgActive = array.new_bool()
 var line[] structureLines = array.new_line()
 var label[] structureLabels = array.new_label()
 var int lastDailyStructureEventTime = na
+var float chartSwingHigh = na
+var float chartSwingLow = na
+var int chartSwingHighTime = na
+var int chartSwingLowTime = na
+var int chartBrokenHighTime = na
+var int chartBrokenLowTime = na
+var int chartStructureTrend = 0
 var int completedWeeks = 0
 var int[] weekTimes = array.new_int()
 var float[] weekOpens = array.new_float()
@@ -214,9 +221,29 @@ if array.size(fvgBoxes) > 0
                 box.set_right(bx, time + barMs)
                 line.set_x2(ln, time + barMs)
 
+isDailyChart = timeframe.in_seconds(timeframe.period) == timeframe.in_seconds("D")
 useLowerDailyEvents = timeframe.in_seconds(timeframe.period) > timeframe.in_seconds("D")
 if showDailyStructure
-    if useLowerDailyEvents and array.size(dEventCodes) > 0
+    if isDailyChart
+        chartPivotHigh = ta.pivothigh(high, dailySwingLen, dailySwingLen)
+        chartPivotLow = ta.pivotlow(low, dailySwingLen, dailySwingLen)
+        if not na(chartPivotHigh)
+            chartSwingHigh := chartPivotHigh
+            chartSwingHighTime := time[dailySwingLen]
+        if not na(chartPivotLow)
+            chartSwingLow := chartPivotLow
+            chartSwingLowTime := time[dailySwingLen]
+        if not na(chartSwingHigh) and not na(chartSwingHighTime) and high > chartSwingHigh and chartBrokenHighTime != chartSwingHighTime
+            bullChartEventCode = chartStructureTrend == -1 ? 1 : 2
+            addStructureLine(time, chartSwingHigh, bullChartEventCode)
+            chartStructureTrend := 1
+            chartBrokenHighTime := chartSwingHighTime
+        if not na(chartSwingLow) and not na(chartSwingLowTime) and low < chartSwingLow and chartBrokenLowTime != chartSwingLowTime
+            bearChartEventCode = chartStructureTrend == 1 ? -1 : -2
+            addStructureLine(time, chartSwingLow, bearChartEventCode)
+            chartStructureTrend := -1
+            chartBrokenLowTime := chartSwingLowTime
+    else if useLowerDailyEvents and array.size(dEventCodes) > 0
         for i = 0 to array.size(dEventCodes) - 1
             eventCode = array.get(dEventCodes, i)
             eventTime = array.get(dEventTimes, i)

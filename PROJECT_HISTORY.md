@@ -203,6 +203,12 @@ https://github.com/Social0413/Social0413
 - 在週線、月線等高於日線的圖表，嘗試用 daily lower-timeframe events 抓出該週/月內的日線結構事件。
 - 保留水平線與小型文字標籤，讓結構位階比 shape 更容易看見。
 
+使用者再次截圖確認日線圖上仍看不到 CHOCH/MSS 後，改成：
+
+- 日線圖直接用目前圖表的日線 K 棒找 pivot swing、判斷突破、畫水平線。
+- 不再讓日線圖依賴 `request.security()` 回傳 daily event。
+- 週線、月線才使用 lower-timeframe daily events。
+
 同時調整 FVG 顏色：
 
 - Bullish FVG 改為較亮黃色。
