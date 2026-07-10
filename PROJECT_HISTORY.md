@@ -229,3 +229,13 @@ https://github.com/Social0413/Social0413
 
 - Bullish FVG 改為較亮黃色。
 - Bearish FVG 改為較暗橄欖黃。
+
+## 17. CHOCH/MSS 線段顯示收斂
+
+使用者確認 CHOCH/MSS 已出現，但線太長、標籤太亂，因此調整顯示規則：
+
+- CHOCH 改成暗色系。
+- MSS 改成亮色系。
+- CHOCH/MSS 不再建立獨立 label。
+- 由於 Pine `line` 物件本身不能像 TradingView 手動畫線一樣直接內建文字，改用透明 text box 對齊線段中間，視覺上讓 `CHOCH` / `MSS` 在水平線中間。
+- 結構線不再無限延伸；建立後從下一根 K 開始，只要 K 棒 high/low 觸碰該線位，就把右端點停在觸碰 K 棒。

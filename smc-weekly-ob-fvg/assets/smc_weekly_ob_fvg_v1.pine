@@ -26,10 +26,10 @@ bearObBorder = input.color(color.new(color.red, 20), "Bearish OB border")
 bullFvgColor = input.color(color.new(color.yellow, 82), "Bullish FVG fill")
 bearFvgColor = input.color(color.new(color.olive, 90), "Bearish FVG fill")
 midColor = input.color(color.new(color.white, 15), "Zone midpoint color")
-bullChochColor = input.color(color.new(color.lime, 0), "Bullish CHOCH line")
-bearChochColor = input.color(color.new(color.red, 0), "Bearish CHOCH line")
+bullChochColor = input.color(color.rgb(0, 105, 60), "Bullish CHOCH line")
+bearChochColor = input.color(color.rgb(120, 35, 35), "Bearish CHOCH line")
 bullMssColor = input.color(color.new(color.teal, 0), "Bullish MSS line")
-bearMssColor = input.color(color.new(color.maroon, 0), "Bearish MSS line")
+bearMssColor = input.color(color.new(color.red, 0), "Bearish MSS line")
 
 var float curO = na
 var float curH = na
@@ -64,7 +64,10 @@ var int[] fvgDirs = array.new_int()
 var float[] fvgMids = array.new_float()
 var bool[] fvgActive = array.new_bool()
 var line[] structureLines = array.new_line()
-var label[] structureLabels = array.new_label()
+var box[] structureTextBoxes = array.new_box()
+var float[] structureLevels = array.new_float()
+var int[] structureStartTimes = array.new_int()
+var bool[] structureActive = array.new_bool()
 var float chochHigh = na
 var float chochLow = na
 var int chochTrend = 0
@@ -100,14 +103,20 @@ trimZones() =>
 trimStructureLines() =>
     while array.size(structureLines) > maxStructureLines
         line.delete(array.shift(structureLines))
-        label.delete(array.shift(structureLabels))
+        box.delete(array.shift(structureTextBoxes))
+        array.shift(structureLevels)
+        array.shift(structureStartTimes)
+        array.shift(structureActive)
 
 addStructureLine(_dir, _text, _level, _lineColor) =>
-    _style = _dir == 1 ? label.style_label_up : label.style_label_down
-    _line = line.new(time, _level, time + dayMs, _level, xloc=xloc.bar_time, extend=extend.right, color=_lineColor, style=line.style_solid, width=2)
-    _label = label.new(time, _level, _text, xloc=xloc.bar_time, style=_style, color=_lineColor, textcolor=color.white, size=size.small)
+    _pad = math.max(syminfo.mintick * 20.0, _level * 0.0005)
+    _line = line.new(time, _level, time + dayMs, _level, xloc=xloc.bar_time, extend=extend.none, color=_lineColor, style=line.style_solid, width=2)
+    _textBox = box.new(time, _level + _pad, time + dayMs, _level - _pad, xloc=xloc.bar_time, bgcolor=color.new(color.black, 100), border_color=color.new(_lineColor, 100), text=_text, text_color=_lineColor, text_size=size.small, text_halign=text.align_center, text_valign=text.align_center)
     array.push(structureLines, _line)
-    array.push(structureLabels, _label)
+    array.push(structureTextBoxes, _textBox)
+    array.push(structureLevels, _level)
+    array.push(structureStartTimes, time)
+    array.push(structureActive, true)
     trimStructureLines()
 
 addOb(_dir, _leftTime, _top, _bottom) =>
@@ -188,6 +197,22 @@ if array.size(fvgBoxes) > 0
                 box.set_right(bx, time + barMs)
                 line.set_x2(ln, time + barMs)
 
+if array.size(structureLines) > 0
+    for i = 0 to array.size(structureLines) - 1
+        if array.get(structureActive, i)
+            level = array.get(structureLevels, i)
+            startTime = array.get(structureStartTimes, i)
+            ln = array.get(structureLines, i)
+            txt = array.get(structureTextBoxes, i)
+            touched = time > startTime and high >= level and low <= level
+            if touched
+                line.set_x2(ln, time)
+                box.set_right(txt, time)
+                array.set(structureActive, i, false)
+            else
+                line.set_x2(ln, time + barMs)
+                box.set_right(txt, time + barMs)
+
 chochPivotHigh = ta.pivothigh(high, chochSwingLen, chochSwingLen)
 chochPivotLow = ta.pivotlow(low, chochSwingLen, chochSwingLen)
 mssPivotHigh = ta.pivothigh(high, mssSwingLen, mssSwingLen)
@@ -224,13 +249,13 @@ if not na(mssLow) and close < mssLow and mssDisplacement
     mssTrend := -1
 
 if showChoch and bullChoch
-    addStructureLine(1, "D CHOCH", chochHigh, bullChochColor)
+    addStructureLine(1, "CHOCH", chochHigh, bullChochColor)
 if showChoch and bearChoch
-    addStructureLine(-1, "D CHOCH", chochLow, bearChochColor)
+    addStructureLine(-1, "CHOCH", chochLow, bearChochColor)
 if showMss and bullMss
-    addStructureLine(1, "D MSS", mssHigh, bullMssColor)
+    addStructureLine(1, "MSS", mssHigh, bullMssColor)
 if showMss and bearMss
-    addStructureLine(-1, "D MSS", mssLow, bearMssColor)
+    addStructureLine(-1, "MSS", mssLow, bearMssColor)
 
 weekKey = time(htf)
 newWeek = ta.change(weekKey) != 0
