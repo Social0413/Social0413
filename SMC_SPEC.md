@@ -82,6 +82,15 @@
 - `Show SETUP`、`Show ARMED`、`Show ENTRY` 僅控制各階段標籤顯示，不改變狀態判定與後續流程。
 - ENTRY 標籤本身不代表實際送單；Stop/TP 的圖表追蹤由下方 Trade Plan 階段處理。
 
+## 交易統計與週期比較
+
+- V1 的 `Entry timeframe` 可選 H4、H1、M30；圖表週期必須與選項相同，否則不建立新 SETUP/ARMED/ENTRY，表格顯示切換提示。
+- 統計期間由 `Statistics lookback days` 控制，可選 90、180、365、730 天；期間開始前不建立候選交易。
+- `SETUP expiry hours` 預設 24 小時，依 Entry timeframe 換算 bars；H4/H1/M30 分別為 6/24/48 bars。
+- 預設 TP1 平倉比例為 50%；預設 TP1=1R、TP2=2R 時，WIN TP2=+1.5R、TP1→LOSS=0R、Direct Loss=-1R。
+- 同一根 K 同時觸及 SL/TP 時維持 SL 優先。
+- V2 只在 M30 圖表計算；內部分別以 M30、完成 H1 K、完成 H4 K 維護三套獨立 SETUP/ARMED/ENTRY 與交易結果，表格僅做比較顯示。
+
 ## Trade Plan（進場開發第四階段）
 
 - ENTRY 成立時以確認 K 收盤作為 Entry，ARMED 保存的反方向 confirmed pivot 作為 SL；Bullish SL 必須低於 Entry，Bearish SL 必須高於 Entry，且距離至少一個 `syminfo.mintick`。

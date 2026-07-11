@@ -18,6 +18,12 @@
 
 專案目標是讓 Codex 可以協助開啟 TradingView、切到指定標的與週期，並用穩定、可版本控管的方式迭代 SMC 分析工具。
 
+## 統計版本
+
+- `smc-weekly-ob-fvg/assets/smc_weekly_ob_fvg_v1.pine`：單一 Entry timeframe 的詳細交易統計與訊號漏斗。
+- `smc-weekly-ob-fvg/assets/smc_weekly_ob_fvg_compare_v2.pine`：固定在 M30 圖表執行，並在同一張表比較 H4、H1、M30 的 SETUP、ARMED、交易數、TP1/TP2 命中率、Net R、Avg R 與 Profit Factor。
+- V2 目前不是跨圖表週期固定計算版本；切換到非 M30 圖表時只顯示 `USE M30 CHART`。
+
 ## 目前功能
 
 ### open-tv

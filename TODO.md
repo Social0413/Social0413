@@ -1,5 +1,12 @@
 # TODO
 
+- [x] 新增 V1 進場後統計表、R 模型與訊號漏斗。
+- [x] 新增固定統計 Window 與按小時換算的 SETUP expiry。
+- [x] 新增 V2 M30 圖表內的 H4/H1/M30 自動比較表。
+- [ ] 逐筆比對 V2 三列結果與相同 symbol/window 下三次 V1 統計。
+- [ ] 以完全數值化 M30 intrabar arrays 支援 V2 在 H1/H4 圖表顯示相同結果；不得把 line/label/box 帶入 `security()`。
+- [ ] 測試 V2 長時間 Replay、交易 arrays 與 Pine request/object limits。
+
 - [ ] 在 TradingView Pine Editor compile 現行 script，記錄版本與結果。
 - [ ] 以相同 symbol/期間比對 Daily、H4、M15 的 Weekly OB/FVG。
 - [ ] 比對 Daily 基準與 H4/M15 聚合產生的 CHOCH/MSS。
