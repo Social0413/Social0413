@@ -4,7 +4,12 @@
 
 ## Unreleased
 
-- V1 新增可選 H4/H1/M30 Entry timeframe、固定統計 Window、24 小時 SETUP expiry 換算、TP1 分批 R 模型、永久累計績效表與訊號漏斗；詳細表改為 tiny 字體。
+- V1 移除手動 `Entry timeframe` 選項；H4、H1、M30 chart 自動以目前圖表週期作為 Entry timeframe，其他週期不建立新候選並顯示切換提示。
+- V1 將 Trade Plan 計算與顯示解耦；關閉 `Show SL/TP trade plans` 只隱藏 lines/labels，不再停止交易與績效統計。
+- 新增獨立 `smc_weekly_ob_fvg_cross_tf_v3.pine`：以完成 M30 bars 作為基礎資料流，維護 M30/H1/H4 三套獨立狀態；H1/H4 chart 使用 lower-timeframe arrays 回放，表格固定顯示 H4、H1、M30 三列。
+- V3 將 chart-side pivot 與 ATR series 保持在全域逐次計算，避免條件迴圈內呼叫 `ta.pivothigh()`、`ta.pivotlow()`、`ta.atr()` 的 consistency 警告。
+- V3 已完成 Pine Editor compile，並以同一 symbol、365D Window 驗證 M30/H1/H4 圖表的三列統計一致；其他市場、Window 與資源邊界仍列為未測。
+- V1 新增 H4/H1/M30 chart-driven Entry timeframe、固定統計 Window、24 小時 SETUP expiry 換算、TP1 分批 R 模型、永久累計績效表與訊號漏斗；詳細表改為 tiny 字體。
 - 新增 `smc_weekly_ob_fvg_compare_v2.pine`：在 M30 圖表內平行維護 H4/H1/M30 三套狀態，右下角顯示三週期 SETUP、ARMED、Trades、TP1%、TP2%、Net R、Avg R 與 PF 比較表。
 - V2 預設關閉單週期 SETUP/ARMED/ENTRY、Trade Plan 與詳細統計顯示，避免和 Compare 表重疊；Weekly OB/FVG 與 Daily structure 繪圖仍保留。
 - 回退不可用的固定 M30 `security()` snapshot 嘗試；目前非 M30 圖表顯示 `USE M30 CHART`，跨圖表週期固定結果列為後續工作。

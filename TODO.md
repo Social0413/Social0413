@@ -4,7 +4,10 @@
 - [x] 新增固定統計 Window 與按小時換算的 SETUP expiry。
 - [x] 新增 V2 M30 圖表內的 H4/H1/M30 自動比較表。
 - [ ] 逐筆比對 V2 三列結果與相同 symbol/window 下三次 V1 統計。
-- [ ] 以完全數值化 M30 intrabar arrays 支援 V2 在 H1/H4 圖表顯示相同結果；不得把 line/label/box 帶入 `security()`。
+- [x] 完成獨立 V3 coding：以 M30 intrabar arrays 在 H1/H4 圖表回放 M30 基礎資料流，並維護 M30/H1/H4 三套統計狀態；不把 line/label/box 帶入 `security()`。
+- [x] 在 Pine Editor compile V3，修正 Pine syntax 與 consistency 問題。
+- [x] 以相同 symbol、365D Window 逐欄比對 V3 在三種圖表上的三列 SETUP、ARMED、Trades、TP1%、TP2%、Net R、Avg R、PF。
+- [ ] 若 V3 三週期不一致，將 Weekly zone active state 與 Daily bias 完全移入純 M30 數值核心後再驗收。
 - [ ] 測試 V2 長時間 Replay、交易 arrays 與 Pine request/object limits。
 
 - [ ] 在 TradingView Pine Editor compile 現行 script，記錄版本與結果。
@@ -26,3 +29,4 @@
 - [ ] 驗證隱藏 SETUP 或 ARMED 標籤時，ENTRY 狀態流程仍維持一致。
 - [ ] Replay 驗證 Trade Plan 從 ENTRY 下一根 K 才判定、SL/TP 同 K 採 SL 優先、TP1 後原 SL 保留，以及最多 20 組裁切。
 - [ ] 驗證 Bullish/Bearish 非法 SL、最小跳動距離與 TP2 小於 TP1 的防護。
+- [ ] 在 V1 開啟／關閉 `Show SL/TP trade plans`，確認統計數值完全相同且關閉時不建立 lines/labels。

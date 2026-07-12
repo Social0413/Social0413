@@ -84,12 +84,15 @@
 
 ## 交易統計與週期比較
 
-- V1 的 `Entry timeframe` 可選 H4、H1、M30；圖表週期必須與選項相同，否則不建立新 SETUP/ARMED/ENTRY，表格顯示切換提示。
+- V1 不提供 `Entry timeframe` 選項；目前圖表週期即為 Entry timeframe。H4、H1、M30 圖表分別直接計算該週期 SETUP/ARMED/ENTRY，其他圖表不建立新候選並顯示切換提示。
 - 統計期間由 `Statistics lookback days` 控制，可選 90、180、365、730 天；期間開始前不建立候選交易。
 - `SETUP expiry hours` 預設 24 小時，依 Entry timeframe 換算 bars；H4/H1/M30 分別為 6/24/48 bars。
 - 預設 TP1 平倉比例為 50%；預設 TP1=1R、TP2=2R 時，WIN TP2=+1.5R、TP1→LOSS=0R、Direct Loss=-1R。
 - 同一根 K 同時觸及 SL/TP 時維持 SL 優先。
 - V2 只在 M30 圖表計算；內部分別以 M30、完成 H1 K、完成 H4 K 維護三套獨立 SETUP/ARMED/ENTRY 與交易結果，表格僅做比較顯示。
+- V3 Cross-Timeframe Stats 以完成的 M30 bars 作為唯一基礎資料流；M30 圖表直接逐 bar 計算，H1/H4 圖表使用 `request.security_lower_tf()` 取得每根圖表 K 棒內依時間排序的 M30 intrabars 並逐筆回放。
+- V3 必須由 M30 基礎資料流分別驅動 M30、完成 H1 K、完成 H4 K 三套獨立 SETUP/ARMED/ENTRY 與交易狀態，表格固定顯示 M30、H1、H4 三列。圖表週期不得改變任何一列結果；非 M30/H1/H4 圖表顯示切換提示，不宣告支援。
+- V3 只納入已完成的 M30 bars；即時尚未完成的 M30 bar 不得提前計入。若 TradingView intrabar 歷史覆蓋不足，表格必須顯示資料覆蓋警告，不能把部分歷史結果標示為完整同步。
 
 ## Trade Plan（進場開發第四階段）
 
@@ -102,3 +105,4 @@
 - 新 SETUP/ARMED/ENTRY 與原 Weekly zone 後續失效均不取消已建立的 Trade Plan；每筆計畫獨立追蹤。
 - 最多保留最新 20 筆 Trade Plan，超限時整組刪除最舊的三條線與資訊標籤。
 - Trade Plan 只供圖表分析，不使用 `strategy.entry()`，也不會實際送單。
+- V1 的 `Show SL/TP trade plans` 只控制 SL/TP lines 與 plan labels；有效 ENTRY、交易狀態與績效統計永遠計算，不受顯示開關影響。

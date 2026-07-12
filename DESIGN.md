@@ -20,9 +20,12 @@
 
 ## 統計資料流
 
+- V1 僅維護一套狀態，Entry timeframe 直接跟隨目前 H4/H1/M30 chart；切換 chart timeframe 時 Pine 重新執行並計算該週期結果，不保留手動 Entry timeframe input。
 - V1 在有效 Trade Plan 建立時累計 Total，交易結束時累計 TP2 win、TP1→Loss、Direct Loss、Gross Win/Loss 與 Net R；圖形被 `Maximum trade plans` 裁切時，累計值不回退。
 - 訊號漏斗另外記錄 SETUP、ARMED、Valid ENTRY、失效原因、SETUP/ARMED replacement、same/changed zone 與 OB/FVG 來源。
 - V2 共用 Weekly zone 與 Daily bias，但 H4、H1、M30 各自保存 active SETUP、ARMED、pivot、交易 arrays 與績效累計，避免不同 Entry timeframe 互相清除狀態。
+- V3 以 M30 作為唯一基礎資料流，但保留 M30、H1、H4 三套獨立狀態；每根完成 M30 更新 M30 引擎，每 2 根同一 H1 bucket 的 M30 聚合完成後更新 H1，每 8 根同一 H4 bucket 的 M30 聚合完成後更新 H4。
+- V3 表格固定顯示 H4、H1、M30 三列；完整覆蓋顯示 `3TF V3`，`3TF PARTIAL` 代表 intrabar 歷史未覆蓋完整統計 Window。
 - V2 的比較表位於右下角，使用 tiny 字體；V1 詳細表位於右上角，使用 tiny 字體。
 
 ## 關鍵設計決策

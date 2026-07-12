@@ -6,6 +6,8 @@
 - 曾嘗試以 `request.security(..., "30", compareSnapshot())` 固定計算，但 Pine Editor 回報 `line.set_x2 cannot be used with any parameter of security()`；該路徑已移除，不能視為跨週期支援。
 - V2 保留 V1 的繪圖與單週期程式，再追加 Compare 引擎；雖然 V2 預設關閉單週期標籤、Trade Plan 與詳細表格，仍有額外計算與物件配額壓力，尚未完成長時間 Replay 壓力測試。
 - V2 三週期 Compare 已在 M30 圖表顯示，但尚未逐筆與三次 V1（H4/H1/M30）建立完整一致性驗收紀錄。
+- V3 已完成 Pine Editor compile，且使用者在同一 symbol、365D Window 的 M30/H1/H4 圖表取得一致三列結果。此驗收只涵蓋已提供的市場與期間，不代表所有 symbol、session 或 Window 均已驗證。
+- H1/H4 的 lower-timeframe 歷史受 TradingView plan、symbol 與可用歷史深度限制；`3TF PARTIAL` 表示統計 Window 不完整。V3 仍共用主程式建立的 Weekly zone 與 Daily bias 狀態，其他市場若出現跨圖差異，需再將 zone/bias 移入純 M30 數值核心。
 
 - TradingView/Pine 無本機自動測試環境；Repository 的靜態檢查不能取代 Pine Editor compile 與圖表驗證。
 - Intraday Daily candle 是由目前 chart bars 聚合；session、缺失 bars、非標準 chart type 對結果的影響尚未建立測試證據。

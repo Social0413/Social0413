@@ -1,5 +1,20 @@
 # Test Results
 
+## 2026-07-11 V1 chart-driven Entry timeframe
+
+- V1 已將 Trade Plan 計算與繪圖解耦；靜態檢查確認有效 ENTRY 無條件建立數值 Trade Plan，顯示開關只包住 line/label 建立與更新。尚待 Pine Editor compile，以及開關前後統計數值一致性確認。
+- V1 已移除手動 `Entry timeframe` input，改由 H4/H1/M30 chart timeframe 自動決定單引擎週期；其他交易、統計與繪圖流程未改動。
+- 已完成 Repository 靜態檢查；使用者實圖已確認 H4/H1/M30 表格標題與對應 V3 統計一致。V1 解耦修改後尚待 Pine Editor compile，以及開關前後統計數值一致性確認。
+
+## 2026-07-11 Cross-Timeframe Stats v3
+
+- 使用者在 9921、365D Window 的 H4、H1、M30 圖表完成實圖比對：V1 與 V3 對應列分別為 H4 `SETUP 17 / ARMED 1 / Trades 1 / Net R 0R`、H1 `20 / 2 / 1 / 1.5R`、M30 `26 / 6 / 4 / 2R`；TP1%、TP2%、Avg R、PF 亦一致。
+- V3 三引擎重構後已在 Pine Editor compile；開發過程發現並修正條件 scope consistency 警告及破損字串 syntax error。上述編譯與實圖結果可標記為本次樣本通過。
+- 單引擎草稿曾完成 Pine Editor compile並回報三項 consistency 警告；三引擎重構已將 chart-side pivot high、pivot low 與 ATR 保持在全域逐次計算。
+- V3 保留 V2 的 M30/H1/H4 三套獨立狀態與交易 arrays；M30 engine 在 H1/H4 chart 回放 M30 arrays，H1 engine 在 H4 chart 回放 H1 arrays，H4 engine 在完成 H4 時更新。
+- Repository 靜態檢查包含：兩個 `request.security_lower_tf()` expression 均不含 line/label/box、三套 SETUP/ARMED/Trade arrays 分離、三列表格存在，以及 `git diff --check` 無 whitespace error。
+- 未實際測試：其他 symbol/session、90/180/730D Window、`3TF PARTIAL` 覆蓋警告、長時間 Replay 與 arrays/request/object limits；這些項目不標記為通過。
+
 ## 2026-07-11 Trade statistics and compare v2
 
 - 使用者截圖確認 V1 在 H4/H1/M30 可顯示 Total、Open、Win TP2、TP1→Loss、Direct Loss、TP1/TP2 Rate、Net R、Avg R、Profit Factor 與訊號漏斗。
