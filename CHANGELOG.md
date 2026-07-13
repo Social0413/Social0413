@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 將 V1 與 V4 SWING 的 Daily MSS 預設 swing length 由 5 改為 4；MSS 成立時固定保存反方向 confirmed Daily pivot，完成 Daily close 穿越後 Bias 轉為 Neutral。失效位不 trailing，也不使用 CHOCH 或時間期限取消 Bias。
 - 再次收斂 V1 與 V4 的 FVG 規則：保留標準三根完成 K 的 wick-to-wick gap，以及同方向、body 至少為來源時框 Wilder ATR(14) × 1.0 的中間 displacement；移除過嚴的 ATR × 0.5 gap 寬度與確認 K 順向半部條件。現有 midpoint invalidation 與其他交易流程不變；已在 TradingView H4／1095D 以 2105、1504、2324 完成 V1／V4 SWING 所有可比欄位回歸，三者完全一致。
 - 收斂 V1 與 V4 的 OB 規則：結構突破 candle body 必須至少為來源時框 Wilder ATR(14) × 1.0，才回找 displacement 前最近的反向 candle；OB 範圍固定改為 Hybrid Range，移除 Wick／Body 輸入。V1 使用 Weekly ATR，V4 Weekly／Daily／H4 Zone Engine 分別使用各自來源時框 ATR；已在 TradingView H4／1095D 以 2105、1504、2324 完成 V1／V4 SWING 所有可比欄位回歸，三者完全一致。
 - 新增獨立 V4 Top-down Model Research Engine 開發規格；保留 V3 不覆蓋。

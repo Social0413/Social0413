@@ -47,7 +47,8 @@ Build Pine Script indicators for SMC analysis on TradingView. Version 1 focuses 
 - Draw CHOCH/MSS as fixed horizontal structure-break segments from the broken pivot candle to the candle that confirms the break. Do not extend CHOCH/MSS into future candles.
 - Put the `CHOCH` or `MSS` text below the structure segment so it does not cover the line or candles. Pine line objects do not support native line text, so use a transparent text box under the line instead of a separate label.
 - Use darker colors for CHOCH and brighter colors for MSS.
-- Keep CHOCH and MSS as separate pivot systems: CHOCH defaults to swing length 2; MSS defaults to swing length 5 plus ATR body filter.
+- Keep CHOCH and MSS as separate pivot systems: CHOCH defaults to swing length 2; Daily MSS defaults to swing length 4 plus ATR body filter.
+- When a bullish Daily MSS forms, freeze the latest confirmed Daily swing low as its Bias invalidation level; for a bearish Daily MSS, freeze the latest confirmed Daily swing high. A completed Daily close through that fixed level changes the Bias to Neutral. Do not trail the level or use CHOCH/time expiry to invalidate the Bias.
 - Start FVG boxes from the confirming weekly candle rather than the earliest candle in the 3-candle pattern.
 - Build weekly candle history by aggregating the current chart bars into weekly candles. Avoid relying on weekly `request.security()` history for OB/FVG drawing, because those zones must remain visible when the user switches between weekly, daily, and intraday charts.
 

@@ -1,5 +1,18 @@
 # Test Results
 
+## 2026-07-13 Daily Bias responsiveness and structural invalidation
+
+- V1 與 V4 SWING 的 Daily MSS 預設 swing length 已由 5 改為 4；ATR(14) × 1.0 displacement 與 trend-reversal MSS 條件不變。
+- Bullish／Bearish MSS 現在會分別固定保存成立當下最新的 confirmed Daily swing low／high；後續完成 Daily close 穿越時，Bias 轉為 Neutral。失效位不 trailing，CHOCH 與時間期限不參與 Bias 取消。
+- 已完成 Repository 靜態交叉檢查與 `git diff --check`；使用者已確認 V1、V4 的 `D MSS swing length` 均為 4，兩支程式也都能在 TradingView H4／1095D 執行。
+- 第一輪固定案例：2324 的 V1／V4 SWING 完全一致，均為 SETUP 8、OB SETUP 2、FVG SETUP 6、Same-zone SETUP 4、Changed-zone SETUP 4、ARMED 0、Total 0。
+- 2105 的 V1 為 SETUP 8／OB 6／FVG 2／Same 2／Changed 6，V4 SWING 為 9／6／3／2／7；1504 的 V1 為 18／4／14／11／7，V4 SWING 為 19／4／15／11／8。兩個差異均為 V4 多 1 個 FVG／Changed-zone SETUP，ARMED 與 Total 不受影響。
+- 程式碼交叉比對定位到 V1 新增的直接 Daily 失效判斷缺少 `timeframe.isdaily` 限制，導致 H4 chart 每根 H4 close 都可能提前將 Bias 轉為 Neutral；V4 SWING 則正確地只在完成 Daily candle 後判斷。V1 已補上 timeframe 限制，Intraday chart 僅保留聚合完成 Daily candle 的失效路徑。
+- 修正後第二輪 TradingView H4／1095D 實圖：2105 的 V1／V4 SWING 均為 SETUP 9、SETUP replaced 1、ARMED 0、Total 0、OB SETUP 6、FVG SETUP 3、Same-zone SETUP 2、Changed-zone SETUP 7、Net R 0R。
+- 1504 的 V1／V4 SWING 均為 SETUP 19、SETUP replaced 4、ARMED 1、Total 1、OB SETUP 4、FVG SETUP 15、Same-zone SETUP 11、Changed-zone SETUP 8、Net R -1R、Profit Factor 0。
+- 2324 的 V1／V4 SWING 均為 SETUP 8、SETUP replaced 2、ARMED 0、Total 0、OB SETUP 2、FVG SETUP 6、Same-zone SETUP 4、Changed-zone SETUP 4、Net R 0R。
+- 結果：兩支程式均成功執行；三個固定標的的所有 V1 可比欄位均與 V4 SWING 一致。Daily MSS swing length 4 與固定結構失效位本輪驗收通過。
+
 ## 2026-07-13 FVG ATR filtering
 
 - 現行規則已同步收斂為：標準三根完成 K 的 wick-to-wick gap，不設最小 gap 寬度；中間 candle 必須與 FVG 同方向且 body 至少為來源時框 Wilder ATR(14) × 1.0。V1 Weekly 與 V4 SWING Weekly 共用相同 geometry、ATR、方向與 middle displacement 公式。

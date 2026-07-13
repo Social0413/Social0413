@@ -10,7 +10,7 @@
   - `FAST`：H4 OB/FVG zone → H1 MSS bias → M30 execution。
 - 每套模型必須擁有獨立的 zone、bias、SETUP、ARMED、ENTRY 與 trade state，不得共用 active SETUP/ARMED。
 - Weekly、Daily、H4 Zone Engine 均採用與 V1 相同的多 Zone arrays：OB/FVG 每類最多 40 個、OB source 去重、OB 結構突破 candle 必須通過來源時框 ATR(14) × 1.0 displacement、OB 固定使用 Hybrid Range；FVG 使用標準三根完成 K 的 wick-to-wick gap，中間 candle 必須為同方向 ATR(14) × 1.0 displacement。所有 active zones 共同參與最近 midpoint touch 選擇，並由 execution bar close 穿越 midpoint 失效。
-- SWING 的 Daily MSS bias 使用與 V1 H4 chart 相同的完成 Daily candle 聚合、confirmed pivot、最近 `ATR length` 根 True Range 平均與 trend-reversal MSS 更新規則，作為 V1↔V4 對答案基準。
+- SWING 的 Daily MSS bias 使用與 V1 H4 chart 相同的完成 Daily candle 聚合、confirmed pivot、最近 `ATR length` 根 True Range 平均、trend-reversal MSS 更新規則與固定結構失效位，作為 V1↔V4 對答案基準。
 - 相同 symbol、H4 chart、1095D、參數與資料覆蓋下，驗收對應為：V1 `SETUP` = V4 SWING `SETUP`、V1 `ARMED` = V4 SWING `ARMED`、V1 `Total` = V4 SWING `Total`，且 TP2 Rate、Net R、Profit Factor、OB/FVG 與 replacement 分類都必須一致；任何差異都視為待追查，不以模型差異解釋。
 - V4 使用與 V1 相同的統計名稱：SETUP replaced、ARMED replaced、OB SETUP、FVG SETUP、Same-zone SETUP、Changed-zone SETUP。`UNIQUE SETUP`、`U>A`、`A>T` 是 V4 額外研究欄位，沒有 V1 對應欄位。
 - 完成的高週期 context 才能供低週期模型使用；不得將同一高週期 candle 的最終值回填至其內部較早 intrabars。
@@ -55,7 +55,7 @@
 
 ## MSS
 
-- 使用獨立 pivot 系統，預設 swing length 5。
+- 使用獨立 pivot 系統，預設 swing length 4。
 - 除結構突破與 trend 反轉外，突破 candle body 必須符合 ATR displacement filter。
 - ATR length 預設 14，body multiplier 預設 1.0；設為 0 可停用 displacement 門檻。
 - 線段範圍同 CHOCH，但 MSS 保留 `MSS` 文字；Bullish 使用亮綠、Bearish 使用亮紅。
@@ -70,7 +70,8 @@
 ## SETUP（進場開發第一階段）
 
 - SETUP 僅為圖上提示，不送出訂單，也不連接交易所或券商。
-- 最新完成的 Daily bullish/bearish MSS 決定目前 bias，直到反方向 Daily MSS 出現。
+- 最新完成的 Daily bullish/bearish MSS 決定目前 bias。Bullish MSS 成立時固定保存當下最新 confirmed Daily swing low；Bearish MSS 成立時固定保存當下最新 confirmed Daily swing high，作為該 Bias 的結構失效位。
+- 只有完成的 Daily close 跌破 Bullish Bias 失效位或突破 Bearish Bias 失效位時，Bias 才轉為 Neutral；失效位不隨後續 pivot 移動，也不使用 CHOCH 或時間期限取消 Bias。Neutral 後等待反方向 Daily MSS 建立新 Bias。
 - 目前圖表 K 棒的 high/low 與仍有效、同方向的 Weekly OB 或 FVG 重疊時，視為進入 zone。
 - Bullish bias 與 bullish zone 同時成立時顯示綠色 `B SETUP`；Bearish bias 與 bearish zone 同時成立時顯示紅色 `S SETUP`。
 - 同一次連續停留在 zone 內只顯示一次；離開後再次進入可重新顯示。

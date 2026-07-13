@@ -11,7 +11,8 @@ obSearchBack = input.int(8, "OB candle searchback", minval=1, maxval=30)
 const int zoneAtrLen = 14
 const float obBodyAtrMult = 1.0
 const float fvgBodyAtrMult = 1.0
-mssSwingLen = input.int(5, "D MSS swing length", minval=2, maxval=20)
+mssSwingLen = input.int(4, "D MSS swing length", minval=2, maxval=20)
+lowerBiasMssSwingLen = input.int(5, "H4/H1 MSS swing length", minval=2, maxval=20)
 mssAtrLen = input.int(14, "D MSS ATR length", minval=1, maxval=100)
 mssBodyAtrMult = input.float(1.0, "D MSS body ATR multiplier", minval=0.0, step=0.1)
 armedSwingLen = input.int(3, "ARMED swing length", minval=1, maxval=10)
@@ -189,8 +190,8 @@ biasContext() =>
     var float lastLow = na
     var int trend = 0
     var int bias = 0
-    ph = ta.pivothigh(high, mssSwingLen, mssSwingLen)
-    pl = ta.pivotlow(low, mssSwingLen, mssSwingLen)
+    ph = ta.pivothigh(high, lowerBiasMssSwingLen, lowerBiasMssSwingLen)
+    pl = ta.pivotlow(low, lowerBiasMssSwingLen, lowerBiasMssSwingLen)
     if not na(ph)
         lastHigh := ph
     if not na(pl)
@@ -252,17 +253,29 @@ processCompletedDailyBias(_open, _high, _low, _close, _highs, _lows, _closes, _t
     atr = arrayAverageLast(_trs, mssAtrLen)
     displacement = mssBodyAtrMult == 0.0 or (not na(atr) and body >= atr * mssBodyAtrMult)
     trend = array.get(_stateI, 0)
+    bias = array.get(_stateI, 1)
+    invalidation = array.get(_stateF, 2)
+    if bias == 1 and not na(invalidation) and _close < invalidation
+        bias := 0
+        invalidation := na
+    if bias == -1 and not na(invalidation) and _close > invalidation
+        bias := 0
+        invalidation := na
     if not na(array.get(_stateF, 0)) and _close > array.get(_stateF, 0) and displacement
         bullMss = trend == -1
         trend := 1
         if bullMss
-            array.set(_stateI, 1, 1)
+            bias := 1
+            invalidation := array.get(_stateF, 1)
     if not na(array.get(_stateF, 1)) and _close < array.get(_stateF, 1) and displacement
         bearMss = trend == 1
         trend := -1
         if bearMss
-            array.set(_stateI, 1, -1)
+            bias := -1
+            invalidation := array.get(_stateF, 0)
     array.set(_stateI, 0, trend)
+    array.set(_stateI, 1, bias)
+    array.set(_stateF, 2, invalidation)
     true
 
 // Integer state: setupDir, setupStep, armedDir, armedStep, raw, unique,
@@ -502,7 +515,7 @@ var float[] dailyBiasLows = array.new_float()
 var float[] dailyBiasCloses = array.new_float()
 var float[] dailyBiasTrs = array.new_float()
 var int[] dailyBiasStateI = array.from(0, 0)
-var float[] dailyBiasStateF = array.from(float(na), float(na))
+var float[] dailyBiasStateF = array.from(float(na), float(na), float(na))
 
 h4Bias = biasContext()
 

@@ -15,7 +15,7 @@ stableReplayExtend = input.bool(true, "Stable replay extension")
 showChoch = input.bool(true, "Show D CHOCH")
 showMss = input.bool(true, "Show D MSS")
 chochSwingLen = input.int(2, "D CHOCH swing length", minval=1, maxval=10)
-mssSwingLen = input.int(5, "D MSS swing length", minval=2, maxval=20)
+mssSwingLen = input.int(4, "D MSS swing length", minval=2, maxval=20)
 mssAtrLen = input.int(14, "D MSS ATR length", minval=1, maxval=100)
 mssBodyAtrMult = input.float(1.0, "D MSS body ATR multiplier", minval=0.0, step=0.1)
 maxStructureLines = input.int(120, "Maximum CHOCH/MSS lines", minval=20, maxval=300)
@@ -130,6 +130,7 @@ var float[] weekHighs = array.new_float()
 var float[] weekLows = array.new_float()
 var float[] weekCloses = array.new_float()
 var int setupBias = 0
+var float setupBiasInvalidation = na
 var label[] setupLabels = array.new_label()
 var string[] setupLabelKeys = array.new_string()
 var label[] armedLabels = array.new_label()
@@ -553,10 +554,18 @@ if showMss and bullMss
 if showMss and bearMss
     addStructureLine(-1, "MSS", mssLow, bearMssColor, mssLowTime, time)
 
+if timeframe.isdaily and setupBias == 1 and not na(setupBiasInvalidation) and close < setupBiasInvalidation
+    setupBias := 0
+    setupBiasInvalidation := na
+if timeframe.isdaily and setupBias == -1 and not na(setupBiasInvalidation) and close > setupBiasInvalidation
+    setupBias := 0
+    setupBiasInvalidation := na
 if bullMss
     setupBias := 1
+    setupBiasInvalidation := mssLow
 if bearMss
     setupBias := -1
+    setupBiasInvalidation := mssHigh
 
 canBuildDaily = timeframe.in_seconds(timeframe.period) < timeframe.in_seconds("D")
 dayKey = time("D")
@@ -627,10 +636,18 @@ if canBuildDaily
         if showMss and aggBearMss
             addStructureLine(-1, "MSS", aggMssLow, bearMssColor, aggMssLowTime, time)
 
+        if setupBias == 1 and not na(setupBiasInvalidation) and dCurC < setupBiasInvalidation
+            setupBias := 0
+            setupBiasInvalidation := na
+        if setupBias == -1 and not na(setupBiasInvalidation) and dCurC > setupBiasInvalidation
+            setupBias := 0
+            setupBiasInvalidation := na
         if aggBullMss
             setupBias := 1
+            setupBiasInvalidation := aggMssLow
         if aggBearMss
             setupBias := -1
+            setupBiasInvalidation := aggMssHigh
 
         dCurT := dayKey
         dCurO := open

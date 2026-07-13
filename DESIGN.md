@@ -40,6 +40,7 @@
 - V1 Weekly Zone 與 V4 各來源時框 Zone 共用同一 Wilder ATR、OB displacement／Hybrid Range 與 FVG geometry／middle displacement 公式；V1／V4 SWING 必須逐欄一致。
 - Intraday 的 Daily CHOCH/MSS 不採用已證實不穩定的 `request.security("D")` 顯示路徑，而由 intraday bars 重建完成日線。
 - CHOCH 與 MSS 使用不同 pivot 長度；MSS 另加 ATR body displacement，避免兩者退化成同一訊號。
+- Daily MSS 預設 pivot length 為 4。MSS 建立 Bias 時固定保存當下反方向 confirmed Daily pivot；完成 Daily close 穿越該位置後 Bias 轉為 Neutral，且失效位不 trailing。
 - 結構線是「pivot 到 breakout」的事實區段，而不是 future-facing ray。
 - `line` 無文字能力，因此 MSS 使用透明 `box` 承載文字；CHOCH 的文字已隱藏，只保留結構線。
 - SETUP/ARMED/ENTRY/Trade Plan 都是視覺分析層，不使用 `strategy.entry()`；Trade Plan 線與結果不代表實際成交。
