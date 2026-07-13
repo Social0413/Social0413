@@ -22,7 +22,7 @@
 
 - 開發與驗收的預設 TradingView 方案為 Essential，預設研究市場為台股；所有長期 Window 設計必須在此限制下成立。
 - V3 是資料蒐集層，目標為無交易細節繪圖的 M30/H1/H4 三引擎統計；V1 是檢查層，保留單一時框的視覺交易鏈與逐筆 Trade Plan，兩者不得為了共用畫面而重新耦合。
-- 長期研究 Window 固定為 1095D、1825D、2555D，不開發 3650D。Essential 下，台股 1095D 約 6,750 根 M30，通常可在 M30 chart 執行；1825D 與 2555D 約需 11,250 與 15,750 根 M30，應以 H4 chart 承載主資料集，再請求 M30/H1 intrabars。完成標準必須包含實際覆蓋起點與 warm-up，不得只因輸入顯示指定天數就宣告完整。
+- 現行研究 Window 強制固定為 1095D。V3 可使用 M30/H1/H4 chart；V4 以 H4 chart 承載主資料集，再請求 H1/M30 intrabars。完成標準必須包含實際覆蓋起點與 warm-up，不得只因表格顯示 1095D 就宣告完整。
 
 - V1 僅維護一套狀態，Entry timeframe 直接跟隨目前 H4/H1/M30 chart；切換 chart timeframe 時 Pine 重新執行並計算該週期結果，不保留手動 Entry timeframe input。
 - V1 在有效 Trade Plan 建立時累計 Total，交易結束時累計 TP2 win、TP1→Loss、Direct Loss、Gross Win/Loss 與 Net R；圖形被 `Maximum trade plans` 裁切時，累計值不回退。

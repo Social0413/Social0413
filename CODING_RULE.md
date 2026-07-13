@@ -18,3 +18,12 @@
 - 每次行為變更同步更新 `CHANGELOG.md`、`TEST_RESULT.md` 與必要規格。
 - Commit 應聚焦單一目的，訊息使用可追溯的英文動詞描述。
 - Push 前檢查 `git diff --check`、完整 diff 與工作區狀態。
+
+## 對話收尾
+
+使用者要求「收尾」時，必須完成以下工作：
+
+1. 將本對話的重要決策、功能規格與已知問題整理進 Repository。
+2. 更新 `CHANGELOG.md`；若有完成或新增的待辦，同步更新 `TODO.md`。
+3. 執行必要檢查後 commit，並 push 到 GitHub。
+4. 提供簡短接手摘要，讓下一個新對話只依 Repository 即可繼續。

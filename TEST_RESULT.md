@@ -1,5 +1,21 @@
 # Test Results
 
+## V4 Top-down Model Research Engine
+
+- 狀態：使用者已於 TradingView Pine Editor 成功 compile 並儲存現行 V4。第一版的 consistency warnings 與多 Zone 初版的回傳型別錯誤均已修正；現行版已可在 H4 chart 顯示三套模型資料。
+- 已驗證：2105、1504、2324 的 H4／1095D `SWING W-D-H4` 所有 V1 可比欄位完全一致。
+- 待驗證：完成 candle 邊界、三套模型獨立 state、Unique SETUP conversion，以及 INTRADAY／FAST 的逐筆參考基準。
+
+### 2026-07-13 H4 chart 第一輪三標的實圖（舊單一 Zone V4）
+
+- TWSE:2105：SWING `37/27/11/2/0`、INTRADAY `90/51/42/16/9`、FAST `127/74/57/21/6`（欄位依序為 Raw/Unique/Repl/Armed/Trades）；Net R 分別為 `0R / 3R / -4R`，三列均顯示 `FULL 1095D`。
+- TWSE:1504：SWING `19/18/1/0/0`、INTRADAY `89/50/40/12/4`、FAST `146/99/50/30/12`；Net R 分別為 `0R / -1.5R / 0.5R`，三列均顯示 `FULL 1095D`。
+- TWSE:2324：SWING `46/28/19/1/0`、INTRADAY `101/54/53/17/5`、FAST `149/88/65/26/11`；Net R 分別為 `0R / -3R / -8R`，三列均顯示 `FULL 1095D`。
+- 初步觀察：三套 Top-down models 已呈現明顯不同的訊號密度與績效；SWING 在三檔皆幾乎無交易，INTRADAY 在 2105 相對突出，FAST 在 1504 僅小幅為正，2324 三套模型均無正報酬。
+- 這組結果來自升級前的單一最新 Zone Engine，只保留作歷史對照，不得用於多 Zone V4 模型選擇。
+- V4 已改用與 V1 相同規則的多 Zone arrays；現行版已重新 compile，並完成相同 symbol/H4/1095D 的 V1／V4 SWING 統計對照。
+- 多 Zone 初版曾於 `trimZoneType()` 出現 `series int; void` 分支回傳型別錯誤；現行版已移除不相容結構，純副作用函式固定回傳 `true`，TradingView compile 已通過。
+
 ## 2026-07-12 V3 long-window research mode
 
 - V3 統計 Window 已改為 1095D／1825D／2555D；1825D 與 2555D 在非 H4 chart 顯示 `USE H4 CHART`。
@@ -60,3 +76,18 @@
 | midpoint invalidation 終止位置 | 待測 | 待測 | 待測 | 待測 |
 | 切換 timeframe 後物件保留 | 待測 | 待測 | 待測 | 待測 |
 | 達到物件上限時刪除最舊項目 | 待測 | 待測 | 待測 | 待測 |
+# V1 / V4 exact-reconciliation follow-up (2026-07-13)
+
+- Previous visual result: 2105 matched every comparable V1/V4 SWING field.
+- Previous visual result: 1504 differed by one changed-zone OB SETUP.
+- Previous visual result: 2324 differed by five FVG SETUP events.
+- Code review found and corrected two non-equivalent rules in V4: pivot tie handling and shared bullish/bearish previous-zone state.
+- V4 field names now use the V1 statistics terminology.
+- Static checks pass; TradingView compile and the 2105/1504/2324 visual recount remain required because no local Pine compiler is available.
+
+## TradingView visual verification completed
+
+- 2105 / H4 / 1095D: V1 and V4 SWING both report SETUP 30, SETUP replaced 12, ARMED replaced 0, ARMED 1, Total 0, OB SETUP 17, FVG SETUP 13, Same-zone SETUP 17 and Changed-zone SETUP 13.
+- 1504 / H4 / 1095D: V1 and V4 SWING both report SETUP 62, SETUP replaced 21, ARMED replaced 0, ARMED 5, Total 4, TP2 Rate 25%, Net R -0.5R, Profit Factor 0.75, OB SETUP 35, FVG SETUP 27, Same-zone SETUP 35 and Changed-zone SETUP 27.
+- 2324 / H4 / 1095D: V1 and V4 SWING both report SETUP 45, SETUP replaced 20, ARMED replaced 1, ARMED 1, Total 0, OB SETUP 22, FVG SETUP 23, Same-zone SETUP 27 and Changed-zone SETUP 18.
+- Result: all V1-comparable fields match in all three validation symbols. V4-only UNIQUE SETUP, U>A and A>T fields are additional diagnostics and have no V1 counterpart.

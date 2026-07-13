@@ -1,0 +1,596 @@
+//@version=5
+indicator("CODEX SMC Top-down Models v4", overlay=true, max_boxes_count=1, max_lines_count=1, max_labels_count=1)
+
+// V4 is independent from V3. Load it on an H4 chart for the intended 3-year study.
+const int LOOKBACK_DAYS = 1095
+const int DAY_MS = 24 * 60 * 60 * 1000
+
+useWicks = input.bool(true, "Use full candle wick for OB range")
+maxZones = input.int(40, "Maximum zones per type", minval=10, maxval=120)
+structureLookback = input.int(8, "OB structure lookback", minval=3, maxval=30)
+obSearchBack = input.int(8, "OB candle searchback", minval=1, maxval=30)
+minFvgPct = input.float(3.0, "Minimum FVG size (%)", minval=0.0, step=0.25)
+mssSwingLen = input.int(5, "D MSS swing length", minval=2, maxval=20)
+mssAtrLen = input.int(14, "D MSS ATR length", minval=1, maxval=100)
+mssBodyAtrMult = input.float(1.0, "D MSS body ATR multiplier", minval=0.0, step=0.1)
+armedSwingLen = input.int(3, "ARMED swing length", minval=1, maxval=10)
+armedAtrLen = input.int(14, "ARMED ATR length", minval=1, maxval=100)
+armedBodyAtrMult = input.float(1.0, "ARMED body ATR multiplier", minval=0.0, step=0.1)
+setupExpiryHours = input.int(24, "SETUP expiry hours", minval=1, maxval=720)
+entryExpiryBars = input.int(0, "ENTRY retest expiry bars (0 = off)", minval=0, maxval=100)
+tradeTp1R = input.float(1.0, "TP1 (R)", minval=0.25, step=0.25)
+tradeTp2R = input.float(2.0, "TP2 (R)", minval=0.5, step=0.25)
+tradeTp1ExitPct = input.float(50.0, "TP1 exit size (%)", minval=0.0, maxval=100.0, step=5.0)
+
+chartIsH4 = timeframe.in_seconds(timeframe.period) == 14400
+windowStart = last_bar_time - LOOKBACK_DAYS * DAY_MS
+
+// Multi-zone stores mirror V1 numerically: type, direction, midpoint, active,
+// source time, top, bottom and stable key. Each context owns its own arrays.
+trimZoneType(_type, _types, _dirs, _mids, _active, _times, _tops, _bottoms, _keys) =>
+    typeCount = 0
+    if array.size(_types) > 0
+        for i = 0 to array.size(_types) - 1
+            if array.get(_types, i) == _type
+                typeCount += 1
+    while typeCount > maxZones
+        removeIndex = -1
+        if array.size(_types) > 0
+            for i = 0 to array.size(_types) - 1
+                if array.get(_types, i) == _type
+                    removeIndex := i
+                    break
+        array.remove(_types, removeIndex)
+        array.remove(_dirs, removeIndex)
+        array.remove(_mids, removeIndex)
+        array.remove(_active, removeIndex)
+        array.remove(_times, removeIndex)
+        array.remove(_tops, removeIndex)
+        array.remove(_bottoms, removeIndex)
+        array.remove(_keys, removeIndex)
+        typeCount -= 1
+    true
+
+zoneExists(_type, _dir, _sourceTime, _types, _dirs, _times) =>
+    exists = false
+    if array.size(_types) > 0
+        for i = 0 to array.size(_types) - 1
+            if array.get(_types, i) == _type and array.get(_dirs, i) == _dir and array.get(_times, i) == _sourceTime
+                exists := true
+    exists
+
+addZone(_type, _dir, _sourceTime, _top, _bottom, _types, _dirs, _mids, _active, _times, _tops, _bottoms, _keys) =>
+    if not zoneExists(_type, _dir, _sourceTime, _types, _dirs, _times)
+        array.push(_types, _type)
+        array.push(_dirs, _dir)
+        array.push(_mids, (_top + _bottom) * 0.5)
+        array.push(_active, true)
+        array.push(_times, _sourceTime)
+        array.push(_tops, _top)
+        array.push(_bottoms, _bottom)
+        array.push(_keys, _type + ":" + str.tostring(_dir) + ":" + str.tostring(_sourceTime))
+        trimZoneType(_type, _types, _dirs, _mids, _active, _times, _tops, _bottoms, _keys)
+    true
+
+invalidateZones(_close, _dirs, _mids, _active) =>
+    if array.size(_active) > 0
+        for i = 0 to array.size(_active) - 1
+            if array.get(_active, i)
+                dir = array.get(_dirs, i)
+                mid = array.get(_mids, i)
+                broken = dir == 1 ? _close < mid : _close > mid
+                if broken
+                    array.set(_active, i, false)
+    true
+
+findTouchedZoneKey(_bias, _high, _low, _close, _types, _dirs, _mids, _active, _tops, _bottoms, _keys) =>
+    string found = ""
+    float bestDistance = na
+    if array.size(_active) > 0
+        for typePass = 0 to 1
+            wantedType = typePass == 0 ? "OB" : "FVG"
+            for i = 0 to array.size(_active) - 1
+                if array.get(_types, i) == wantedType and array.get(_active, i) and array.get(_dirs, i) == _bias and _high >= array.get(_bottoms, i) and _low <= array.get(_tops, i)
+                    distance = math.abs(_close - array.get(_mids, i))
+                    if na(bestDistance) or distance < bestDistance
+                        bestDistance := distance
+                        found := array.get(_keys, i)
+    found
+
+zoneKeyIsActive(_key, _active, _keys) =>
+    result = false
+    if _key != "" and array.size(_active) > 0
+        for i = 0 to array.size(_active) - 1
+            if array.get(_keys, i) == _key
+                result := array.get(_active, i)
+    result
+
+processCompletedContext(_time, _open, _high, _low, _close, _histTimes, _histOpens, _histHighs, _histLows, _histCloses, _types, _dirs, _mids, _active, _times, _tops, _bottoms, _keys) =>
+    array.push(_histTimes, _time)
+    array.push(_histOpens, _open)
+    array.push(_histHighs, _high)
+    array.push(_histLows, _low)
+    array.push(_histCloses, _close)
+    if array.size(_histTimes) > 320
+        array.shift(_histTimes)
+        array.shift(_histOpens)
+        array.shift(_histHighs)
+        array.shift(_histLows)
+        array.shift(_histCloses)
+    lastIdx = array.size(_histTimes) - 1
+    enoughStructure = lastIdx > structureLookback
+    float recentHigh = na
+    float recentLow = na
+    if enoughStructure
+        for offset = 1 to structureLookback
+            idx = lastIdx - offset
+            recentHigh := na(recentHigh) ? array.get(_histHighs, idx) : math.max(recentHigh, array.get(_histHighs, idx))
+            recentLow := na(recentLow) ? array.get(_histLows, idx) : math.min(recentLow, array.get(_histLows, idx))
+        bullishOb = _close > recentHigh
+        bearishOb = _close < recentLow
+        if bullishOb
+            for offset = 1 to obSearchBack
+                idx = lastIdx - offset
+                if idx >= 0 and array.get(_histCloses, idx) < array.get(_histOpens, idx)
+                    top = useWicks ? array.get(_histHighs, idx) : array.get(_histOpens, idx)
+                    bottom = useWicks ? array.get(_histLows, idx) : array.get(_histCloses, idx)
+                    addZone("OB", 1, array.get(_histTimes, idx), top, bottom, _types, _dirs, _mids, _active, _times, _tops, _bottoms, _keys)
+                    break
+        if bearishOb
+            for offset = 1 to obSearchBack
+                idx = lastIdx - offset
+                if idx >= 0 and array.get(_histCloses, idx) > array.get(_histOpens, idx)
+                    top = useWicks ? array.get(_histHighs, idx) : array.get(_histCloses, idx)
+                    bottom = useWicks ? array.get(_histLows, idx) : array.get(_histOpens, idx)
+                    addZone("OB", -1, array.get(_histTimes, idx), top, bottom, _types, _dirs, _mids, _active, _times, _tops, _bottoms, _keys)
+                    break
+    if lastIdx >= 2
+        twoBack = lastIdx - 2
+        bullTop = _low
+        bullBottom = array.get(_histHighs, twoBack)
+        bearTop = array.get(_histLows, twoBack)
+        bearBottom = _high
+        bullMid = (bullTop + bullBottom) * 0.5
+        bearMid = (bearTop + bearBottom) * 0.5
+        bullPct = bullMid != 0.0 ? math.abs(bullTop - bullBottom) / bullMid * 100.0 : 0.0
+        bearPct = bearMid != 0.0 ? math.abs(bearTop - bearBottom) / bearMid * 100.0 : 0.0
+        if bullTop > bullBottom and bullPct >= minFvgPct
+            addZone("FVG", 1, _time, bullTop, bullBottom, _types, _dirs, _mids, _active, _times, _tops, _bottoms, _keys)
+        if bearTop > bearBottom and bearPct >= minFvgPct
+            addZone("FVG", -1, _time, bearTop, bearBottom, _types, _dirs, _mids, _active, _times, _tops, _bottoms, _keys)
+    true
+
+biasContext() =>
+    var float lastHigh = na
+    var float lastLow = na
+    var int trend = 0
+    var int bias = 0
+    ph = ta.pivothigh(high, mssSwingLen, mssSwingLen)
+    pl = ta.pivotlow(low, mssSwingLen, mssSwingLen)
+    if not na(ph)
+        lastHigh := ph
+    if not na(pl)
+        lastLow := pl
+    atr = ta.atr(mssAtrLen)
+    displacement = mssBodyAtrMult == 0.0 or math.abs(close - open) >= atr * mssBodyAtrMult
+    if barstate.isconfirmed and displacement
+        if not na(lastHigh) and close > lastHigh
+            bullMss = trend == -1
+            trend := 1
+            if bullMss
+                bias := 1
+        if not na(lastLow) and close < lastLow
+            bearMss = trend == 1
+            trend := -1
+            if bearMss
+                bias := -1
+    bias
+
+arrayPivotHigh(_values, _center, _len) =>
+    result = true
+    centerValue = array.get(_values, _center)
+    for offset = 1 to _len
+        if array.get(_values, _center - offset) >= centerValue or array.get(_values, _center + offset) > centerValue
+            result := false
+    result
+
+arrayPivotLow(_values, _center, _len) =>
+    result = true
+    centerValue = array.get(_values, _center)
+    for offset = 1 to _len
+        if array.get(_values, _center - offset) <= centerValue or array.get(_values, _center + offset) < centerValue
+            result := false
+    result
+
+arrayAverageLast(_values, _len) =>
+    count = math.min(_len, array.size(_values))
+    sum = 0.0
+    if count > 0
+        for offset = 0 to count - 1
+            sum += array.get(_values, array.size(_values) - 1 - offset)
+    count > 0 ? sum / count : na
+
+processCompletedDailyBias(_open, _high, _low, _close, _highs, _lows, _closes, _trs, _stateI, _stateF) =>
+    previousClose = array.size(_closes) > 0 ? array.get(_closes, array.size(_closes) - 1) : _close
+    trueRange = math.max(_high - _low, math.max(math.abs(_high - previousClose), math.abs(_low - previousClose)))
+    array.push(_highs, _high)
+    array.push(_lows, _low)
+    array.push(_closes, _close)
+    array.push(_trs, trueRange)
+    count = array.size(_highs)
+    center = count - 1 - mssSwingLen
+    if count >= mssSwingLen * 2 + 1
+        if arrayPivotHigh(_highs, center, mssSwingLen)
+            array.set(_stateF, 0, array.get(_highs, center))
+        if arrayPivotLow(_lows, center, mssSwingLen)
+            array.set(_stateF, 1, array.get(_lows, center))
+    body = math.abs(_close - _open)
+    atr = arrayAverageLast(_trs, mssAtrLen)
+    displacement = mssBodyAtrMult == 0.0 or (not na(atr) and body >= atr * mssBodyAtrMult)
+    trend = array.get(_stateI, 0)
+    if not na(array.get(_stateF, 0)) and _close > array.get(_stateF, 0) and displacement
+        bullMss = trend == -1
+        trend := 1
+        if bullMss
+            array.set(_stateI, 1, 1)
+    if not na(array.get(_stateF, 1)) and _close < array.get(_stateF, 1) and displacement
+        bearMss = trend == 1
+        trend := -1
+        if bearMss
+            array.set(_stateI, 1, -1)
+    array.set(_stateI, 0, trend)
+    true
+
+// Integer state: setupDir, setupStep, armedDir, armedStep, raw, unique,
+// replaced, armedCount, trades, wins, tp1Loss, directLoss, firstTime,
+// OB raw, FVG raw, same-zone raw, changed-zone raw, ARMED replaced.
+newIntState() => array.from(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+// Float state: setupBreak, retest, protect, lastPH, lastPL, net, grossWin,
+// grossLoss, previous execution close.
+newFloatState() => array.from(float(na), float(na), float(na), float(na), float(na), 0.0, 0.0, 0.0, float(na))
+// String state: setupKey, armedKey, previous active touch key, last SETUP zone key.
+// String state: SETUP zone, ARMED zone, previous bull active zone,
+// last SETUP zone, previous bear active zone.
+newStringState() => array.from("", "", "", "", "")
+
+addTrade(_dir, _entry, _stop, _step, _dirs, _entries, _stops, _tp1s, _tp2s, _starts, _statuses) =>
+    valid = not na(_stop) and (_dir == 1 ? _stop < _entry : _stop > _entry)
+    if valid
+        risk = math.abs(_entry - _stop)
+        array.push(_dirs, _dir)
+        array.push(_entries, _entry)
+        array.push(_stops, _stop)
+        array.push(_tp1s, _dir == 1 ? _entry + risk * tradeTp1R : _entry - risk * tradeTp1R)
+        array.push(_tp2s, _dir == 1 ? _entry + risk * tradeTp2R : _entry - risk * tradeTp2R)
+        array.push(_starts, _step)
+        array.push(_statuses, 0)
+    valid
+
+updateTrades(_high, _low, _step, _ints, _floats, _dirs, _entries, _stops, _tp1s, _tp2s, _starts, _statuses) =>
+    if array.size(_statuses) > 0
+        for i = 0 to array.size(_statuses) - 1
+            status = array.get(_statuses, i)
+            if (status == 0 or status == 1) and _step > array.get(_starts, i)
+                dir = array.get(_dirs, i)
+                stop = array.get(_stops, i)
+                tp1 = array.get(_tp1s, i)
+                tp2 = array.get(_tp2s, i)
+                stopHit = dir == 1 ? _low <= stop : _high >= stop
+                tp1Hit = dir == 1 ? _high >= tp1 : _low <= tp1
+                tp2Hit = dir == 1 ? _high >= tp2 : _low <= tp2
+                if stopHit
+                    fraction = tradeTp1ExitPct / 100.0
+                    resultR = status == 1 ? fraction * tradeTp1R - (1.0 - fraction) : -1.0
+                    array.set(_statuses, i, -1)
+                    array.set(_ints, status == 1 ? 10 : 11, array.get(_ints, status == 1 ? 10 : 11) + 1)
+                    array.set(_floats, 5, array.get(_floats, 5) + resultR)
+                    if resultR >= 0.0
+                        array.set(_floats, 6, array.get(_floats, 6) + resultR)
+                    else
+                        array.set(_floats, 7, array.get(_floats, 7) + math.abs(resultR))
+                else if tp2Hit
+                    fraction = tradeTp1ExitPct / 100.0
+                    resultR = fraction * tradeTp1R + (1.0 - fraction) * tradeTp2R
+                    array.set(_statuses, i, 2)
+                    array.set(_ints, 9, array.get(_ints, 9) + 1)
+                    array.set(_floats, 5, array.get(_floats, 5) + resultR)
+                    array.set(_floats, 6, array.get(_floats, 6) + resultR)
+                else if tp1Hit and status == 0
+                    array.set(_statuses, i, 1)
+    true
+
+processModelBar(_time, _open, _high, _low, _close, _pivotHigh, _pivotLow, _atr, _bias, _zTypes, _zDirs, _zMids, _zActive, _zTops, _zBottoms, _zKeys, _expiryBars, _ints, _floats, _strings, _tradeDirs, _entries, _stops, _tp1s, _tp2s, _starts, _statuses) =>
+    step = array.get(_ints, 1) + 1
+    array.set(_ints, 1, step)
+    if array.get(_ints, 12) == 0
+        array.set(_ints, 12, _time)
+    updateTrades(_high, _low, step, _ints, _floats, _tradeDirs, _entries, _stops, _tp1s, _tp2s, _starts, _statuses)
+    invalidateZones(_close, _zDirs, _zMids, _zActive)
+    if not na(_pivotHigh)
+        array.set(_floats, 3, _pivotHigh)
+        if array.get(_ints, 0) == 1
+            array.set(_floats, 0, _pivotHigh)
+    if not na(_pivotLow)
+        array.set(_floats, 4, _pivotLow)
+        if array.get(_ints, 0) == -1
+            array.set(_floats, 0, _pivotLow)
+    bullKey = findTouchedZoneKey(1, _high, _low, _close, _zTypes, _zDirs, _zMids, _zActive, _zTops, _zBottoms, _zKeys)
+    bearKey = findTouchedZoneKey(-1, _high, _low, _close, _zTypes, _zDirs, _zMids, _zActive, _zTops, _zBottoms, _zKeys)
+    bullActiveKey = _time >= windowStart and _bias == 1 ? bullKey : ""
+    bearActiveKey = _time >= windowStart and _bias == -1 ? bearKey : ""
+    bullTouchEvent = bullActiveKey != "" and bullActiveKey != array.get(_strings, 2)
+    bearTouchEvent = bearActiveKey != "" and bearActiveKey != array.get(_strings, 4)
+    touchEvent = bullTouchEvent or bearTouchEvent
+    activeWindowKey = bullTouchEvent ? bullActiveKey : bearActiveKey
+    if touchEvent
+        array.set(_ints, 4, array.get(_ints, 4) + 1)
+        if str.startswith(activeWindowKey, "OB:")
+            array.set(_ints, 13, array.get(_ints, 13) + 1)
+        else if str.startswith(activeWindowKey, "FVG:")
+            array.set(_ints, 14, array.get(_ints, 14) + 1)
+        if array.get(_strings, 3) == activeWindowKey
+            array.set(_ints, 15, array.get(_ints, 15) + 1)
+        else
+            array.set(_ints, 16, array.get(_ints, 16) + 1)
+        array.set(_strings, 3, activeWindowKey)
+        activeSetup = array.get(_ints, 0) != 0
+        activeArmed = array.get(_ints, 2) != 0
+        if activeSetup
+            array.set(_ints, 6, array.get(_ints, 6) + 1)
+        if activeArmed
+            array.set(_ints, 17, array.get(_ints, 17) + 1)
+        if not activeSetup
+            array.set(_ints, 5, array.get(_ints, 5) + 1)
+        array.set(_ints, 0, _bias)
+        array.set(_ints, 3, step)
+        array.set(_strings, 0, activeWindowKey)
+        array.set(_floats, 0, _bias == 1 ? array.get(_floats, 3) : array.get(_floats, 4))
+        array.set(_ints, 2, 0)
+        array.set(_strings, 1, "")
+    array.set(_strings, 2, bullActiveKey)
+    array.set(_strings, 4, bearActiveKey)
+    setupDir = array.get(_ints, 0)
+    setupInvalid = setupDir != 0 and (step - array.get(_ints, 3) > _expiryBars or _bias != setupDir or not zoneKeyIsActive(array.get(_strings, 0), _zActive, _zKeys))
+    if setupInvalid
+        array.set(_ints, 0, 0)
+        array.set(_strings, 0, "")
+        array.set(_floats, 0, na)
+    setupDir := array.get(_ints, 0)
+    breakLevel = array.get(_floats, 0)
+    previousClose = array.get(_floats, 8)
+    displacement = armedBodyAtrMult == 0.0 or math.abs(_close - _open) >= _atr * armedBodyAtrMult
+    armedEvent = setupDir == 1 ? (step > array.get(_ints, 3) and not na(breakLevel) and not na(previousClose) and _close > breakLevel and previousClose <= breakLevel and displacement) : setupDir == -1 ? (step > array.get(_ints, 3) and not na(breakLevel) and not na(previousClose) and _close < breakLevel and previousClose >= breakLevel and displacement) : false
+    if armedEvent
+        array.set(_ints, 7, array.get(_ints, 7) + 1)
+        array.set(_ints, 2, setupDir)
+        array.set(_ints, 3, step)
+        array.set(_strings, 1, array.get(_strings, 0))
+        array.set(_floats, 1, breakLevel)
+        array.set(_floats, 2, setupDir == 1 ? array.get(_floats, 4) : array.get(_floats, 3))
+        array.set(_ints, 0, 0)
+        array.set(_strings, 0, "")
+    armedDir = array.get(_ints, 2)
+    protect = array.get(_floats, 2)
+    armedInvalid = armedDir != 0 and ((entryExpiryBars > 0 and step - array.get(_ints, 3) > entryExpiryBars) or _bias != armedDir or not zoneKeyIsActive(array.get(_strings, 1), _zActive, _zKeys) or (armedDir == 1 ? (not na(protect) and _close < protect) : (not na(protect) and _close > protect)))
+    if armedInvalid
+        array.set(_ints, 2, 0)
+        array.set(_strings, 1, "")
+    armedDir := array.get(_ints, 2)
+    retest = array.get(_floats, 1)
+    entryEvent = armedDir == 1 ? (step > array.get(_ints, 3) and _low <= retest and _close > retest) : armedDir == -1 ? (step > array.get(_ints, 3) and _high >= retest and _close < retest) : false
+    if entryEvent
+        if addTrade(armedDir, _close, protect, step, _tradeDirs, _entries, _stops, _tp1s, _tp2s, _starts, _statuses)
+            array.set(_ints, 8, array.get(_ints, 8) + 1)
+        array.set(_ints, 2, 0)
+        array.set(_strings, 1, "")
+    array.set(_floats, 8, _close)
+    true
+
+// Independent state stores for SWING, INTRADAY and FAST.
+var int[] swingI = newIntState()
+var float[] swingF = newFloatState()
+var string[] swingS = newStringState()
+var int[] intraI = newIntState()
+var float[] intraF = newFloatState()
+var string[] intraS = newStringState()
+var int[] fastI = newIntState()
+var float[] fastF = newFloatState()
+var string[] fastS = newStringState()
+var int[] swingDirs = array.new_int()
+var float[] swingEntries = array.new_float()
+var float[] swingStops = array.new_float()
+var float[] swingTp1s = array.new_float()
+var float[] swingTp2s = array.new_float()
+var int[] swingStarts = array.new_int()
+var int[] swingStatuses = array.new_int()
+var int[] intraDirs = array.new_int()
+var float[] intraEntries = array.new_float()
+var float[] intraStops = array.new_float()
+var float[] intraTp1s = array.new_float()
+var float[] intraTp2s = array.new_float()
+var int[] intraStarts = array.new_int()
+var int[] intraStatuses = array.new_int()
+var int[] fastDirs = array.new_int()
+var float[] fastEntries = array.new_float()
+var float[] fastStops = array.new_float()
+var float[] fastTp1s = array.new_float()
+var float[] fastTp2s = array.new_float()
+var int[] fastStarts = array.new_int()
+var int[] fastStatuses = array.new_int()
+
+// Weekly zone context used by SWING.
+var string[] wZTypes = array.new_string()
+var int[] wZDirs = array.new_int()
+var float[] wZMids = array.new_float()
+var bool[] wZActive = array.new_bool()
+var int[] wZTimes = array.new_int()
+var float[] wZTops = array.new_float()
+var float[] wZBottoms = array.new_float()
+var string[] wZKeys = array.new_string()
+var int[] wHistTimes = array.new_int()
+var float[] wHistOpens = array.new_float()
+var float[] wHistHighs = array.new_float()
+var float[] wHistLows = array.new_float()
+var float[] wHistCloses = array.new_float()
+
+// Daily zone context used by INTRADAY.
+var string[] dZTypes = array.new_string()
+var int[] dZDirs = array.new_int()
+var float[] dZMids = array.new_float()
+var bool[] dZActive = array.new_bool()
+var int[] dZTimes = array.new_int()
+var float[] dZTops = array.new_float()
+var float[] dZBottoms = array.new_float()
+var string[] dZKeys = array.new_string()
+var int[] dHistTimes = array.new_int()
+var float[] dHistOpens = array.new_float()
+var float[] dHistHighs = array.new_float()
+var float[] dHistLows = array.new_float()
+var float[] dHistCloses = array.new_float()
+
+// H4 zone context used by FAST.
+var string[] h4ZTypes = array.new_string()
+var int[] h4ZDirs = array.new_int()
+var float[] h4ZMids = array.new_float()
+var bool[] h4ZActive = array.new_bool()
+var int[] h4ZTimes = array.new_int()
+var float[] h4ZTops = array.new_float()
+var float[] h4ZBottoms = array.new_float()
+var string[] h4ZKeys = array.new_string()
+var int[] h4HistTimes = array.new_int()
+var float[] h4HistOpens = array.new_float()
+var float[] h4HistHighs = array.new_float()
+var float[] h4HistLows = array.new_float()
+var float[] h4HistCloses = array.new_float()
+
+var int currentWeekTime = na
+var float currentWeekOpen = na
+var float currentWeekHigh = na
+var float currentWeekLow = na
+var float currentWeekClose = na
+var int currentDayTime = na
+var float currentDayOpen = na
+var float currentDayHigh = na
+var float currentDayLow = na
+var float currentDayClose = na
+var float[] dailyBiasHighs = array.new_float()
+var float[] dailyBiasLows = array.new_float()
+var float[] dailyBiasCloses = array.new_float()
+var float[] dailyBiasTrs = array.new_float()
+var int[] dailyBiasStateI = array.from(0, 0)
+var float[] dailyBiasStateF = array.from(float(na), float(na))
+
+h4Bias = biasContext()
+
+[h1Ts, h1Os, h1Hs, h1Ls, h1Cs, h1PHs, h1PLs, h1ATRs, h1Biases] = request.security_lower_tf(syminfo.tickerid, "60", [time, open, high, low, close, ta.pivothigh(high, armedSwingLen, armedSwingLen), ta.pivotlow(low, armedSwingLen, armedSwingLen), ta.atr(armedAtrLen), biasContext()], calc_bars_count=100000)
+[m30Ts, m30Os, m30Hs, m30Ls, m30Cs, m30PHs, m30PLs, m30ATRs] = request.security_lower_tf(syminfo.tickerid, "30", [time, open, high, low, close, ta.pivothigh(high, armedSwingLen, armedSwingLen), ta.pivotlow(low, armedSwingLen, armedSwingLen), ta.atr(armedAtrLen)], calc_bars_count=100000)
+
+var int fastH1Bias = 0
+
+h4PH = ta.pivothigh(high, armedSwingLen, armedSwingLen)
+h4PL = ta.pivotlow(low, armedSwingLen, armedSwingLen)
+h4ATR = ta.atr(armedAtrLen)
+
+if chartIsH4 and barstate.isconfirmed
+    weekTime = time("W")
+    dayTime = time("D")
+    weekChanged = not na(currentWeekTime) and weekTime != currentWeekTime
+    dayChanged = not na(currentDayTime) and dayTime != currentDayTime
+    if na(currentWeekTime)
+        currentWeekTime := weekTime
+        currentWeekOpen := open
+        currentWeekHigh := high
+        currentWeekLow := low
+        currentWeekClose := close
+    else if not weekChanged
+        currentWeekHigh := math.max(currentWeekHigh, high)
+        currentWeekLow := math.min(currentWeekLow, low)
+        currentWeekClose := close
+    if na(currentDayTime)
+        currentDayTime := dayTime
+        currentDayOpen := open
+        currentDayHigh := high
+        currentDayLow := low
+        currentDayClose := close
+    else if not dayChanged
+        currentDayHigh := math.max(currentDayHigh, high)
+        currentDayLow := math.min(currentDayLow, low)
+        currentDayClose := close
+    if dayChanged
+        processCompletedDailyBias(currentDayOpen, currentDayHigh, currentDayLow, currentDayClose, dailyBiasHighs, dailyBiasLows, dailyBiasCloses, dailyBiasTrs, dailyBiasStateI, dailyBiasStateF)
+    swingDailyBias = array.get(dailyBiasStateI, 1)
+    processModelBar(time, open, high, low, close, h4PH, h4PL, h4ATR, swingDailyBias, wZTypes, wZDirs, wZMids, wZActive, wZTops, wZBottoms, wZKeys, math.max(1, int(math.ceil(setupExpiryHours / 4.0))), swingI, swingF, swingS, swingDirs, swingEntries, swingStops, swingTp1s, swingTp2s, swingStarts, swingStatuses)
+    if array.size(h1Ts) > 0
+        for i = 0 to array.size(h1Ts) - 1
+            processModelBar(array.get(h1Ts, i), array.get(h1Os, i), array.get(h1Hs, i), array.get(h1Ls, i), array.get(h1Cs, i), array.get(h1PHs, i), array.get(h1PLs, i), array.get(h1ATRs, i), h4Bias[1], dZTypes, dZDirs, dZMids, dZActive, dZTops, dZBottoms, dZKeys, math.max(1, setupExpiryHours), intraI, intraF, intraS, intraDirs, intraEntries, intraStops, intraTp1s, intraTp2s, intraStarts, intraStatuses)
+    if array.size(m30Ts) > 0
+        h1BiasCursor = 0
+        for i = 0 to array.size(m30Ts) - 1
+            m30Time = array.get(m30Ts, i)
+            while h1BiasCursor < array.size(h1Ts) and m30Time >= array.get(h1Ts, h1BiasCursor) + 60 * 60 * 1000
+                fastH1Bias := array.get(h1Biases, h1BiasCursor)
+                h1BiasCursor += 1
+            processModelBar(m30Time, array.get(m30Os, i), array.get(m30Hs, i), array.get(m30Ls, i), array.get(m30Cs, i), array.get(m30PHs, i), array.get(m30PLs, i), array.get(m30ATRs, i), fastH1Bias, h4ZTypes, h4ZDirs, h4ZMids, h4ZActive, h4ZTops, h4ZBottoms, h4ZKeys, math.max(1, setupExpiryHours * 2), fastI, fastF, fastS, fastDirs, fastEntries, fastStops, fastTp1s, fastTp2s, fastStarts, fastStatuses)
+        if array.size(h1Biases) > 0
+            fastH1Bias := array.get(h1Biases, array.size(h1Biases) - 1)
+    if weekChanged
+        processCompletedContext(currentWeekTime, currentWeekOpen, currentWeekHigh, currentWeekLow, currentWeekClose, wHistTimes, wHistOpens, wHistHighs, wHistLows, wHistCloses, wZTypes, wZDirs, wZMids, wZActive, wZTimes, wZTops, wZBottoms, wZKeys)
+        currentWeekTime := weekTime
+        currentWeekOpen := open
+        currentWeekHigh := high
+        currentWeekLow := low
+        currentWeekClose := close
+    if dayChanged
+        processCompletedContext(currentDayTime, currentDayOpen, currentDayHigh, currentDayLow, currentDayClose, dHistTimes, dHistOpens, dHistHighs, dHistLows, dHistCloses, dZTypes, dZDirs, dZMids, dZActive, dZTimes, dZTops, dZBottoms, dZKeys)
+        currentDayTime := dayTime
+        currentDayOpen := open
+        currentDayHigh := high
+        currentDayLow := low
+        currentDayClose := close
+    processCompletedContext(time, open, high, low, close, h4HistTimes, h4HistOpens, h4HistHighs, h4HistLows, h4HistCloses, h4ZTypes, h4ZDirs, h4ZMids, h4ZActive, h4ZTimes, h4ZTops, h4ZBottoms, h4ZKeys)
+
+var table results = table.new(position.bottom_right, 17, 5, bgcolor=color.new(color.black, 10), frame_color=color.new(color.gray, 45), frame_width=1)
+cell(_col, _row, _text, _color) => table.cell(results, _col, _row, _text, text_color=_color, text_size=size.tiny)
+modelRow(_row, _name, _i, _f) =>
+    raw = array.get(_i, 4)
+    unique = array.get(_i, 5)
+    replaced = array.get(_i, 6)
+    armed = array.get(_i, 7)
+    trades = array.get(_i, 8)
+    wins = array.get(_i, 9)
+    closed = wins + array.get(_i, 10) + array.get(_i, 11)
+    ua = unique > 0 ? armed * 100.0 / unique : na
+    at = armed > 0 ? trades * 100.0 / armed : na
+    tp2 = closed > 0 ? wins * 100.0 / closed : na
+    net = array.get(_f, 5)
+    grossLoss = array.get(_f, 7)
+    pf = grossLoss > 0.0 ? array.get(_f, 6) / grossLoss : na
+    coverage = array.get(_i, 12) > 0 and array.get(_i, 12) <= windowStart ? "FULL" : "PART"
+    cell(0, _row, _name + " " + coverage, color.white)
+    cell(1, _row, str.tostring(raw), color.white)
+    cell(2, _row, str.tostring(unique), color.white)
+    cell(3, _row, str.tostring(replaced), color.orange)
+    cell(4, _row, str.tostring(array.get(_i, 17)), color.orange)
+    cell(5, _row, str.tostring(armed), color.white)
+    cell(6, _row, str.tostring(trades), color.white)
+    cell(7, _row, na(ua) ? "-" : str.tostring(ua, "#.0") + "%", color.white)
+    cell(8, _row, na(at) ? "-" : str.tostring(at, "#.0") + "%", color.white)
+    cell(9, _row, na(tp2) ? "-" : str.tostring(tp2, "#.0") + "%", color.white)
+    cell(10, _row, str.tostring(net, "#.##") + "R", net >= 0.0 ? color.lime : color.red)
+    cell(11, _row, na(pf) ? "-" : str.tostring(pf, "#.##"), color.white)
+    cell(12, _row, str.tostring(array.get(_i, 13)), color.white)
+    cell(13, _row, str.tostring(array.get(_i, 14)), color.white)
+    cell(14, _row, str.tostring(array.get(_i, 15)), color.white)
+    cell(15, _row, str.tostring(array.get(_i, 16)), color.white)
+    cell(16, _row, str.tostring(LOOKBACK_DAYS) + "D", color.silver)
+
+if barstate.islast
+    table.clear(results, 0, 0, 16, 4)
+    table.cell(results, 0, 0, chartIsH4 ? "V4 TOP-DOWN" : "USE H4 CHART", text_color=color.white, bgcolor=chartIsH4 ? color.new(color.navy, 10) : color.new(color.orange, 10), text_size=size.tiny)
+    headers = array.from("MODEL", "SETUP", "UNIQUE SETUP", "SETUP replaced", "ARMED replaced", "ARMED", "Total", "U>A", "A>T", "TP2 Rate", "Net R", "Profit Factor", "OB SETUP", "FVG SETUP", "Same-zone SETUP", "Changed-zone SETUP", "Window")
+    for c = 0 to 16
+        cell(c, 1, array.get(headers, c), color.silver)
+    if chartIsH4
+        modelRow(2, "SWING W-D-H4", swingI, swingF)
+        modelRow(3, "INTRA D-H4-H1", intraI, intraF)
+        modelRow(4, "FAST H4-H1-M30", fastI, fastF)

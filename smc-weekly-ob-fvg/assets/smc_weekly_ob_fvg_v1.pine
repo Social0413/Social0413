@@ -35,7 +35,7 @@ tradeTp2R = input.float(2.0, "Trade plan TP2 (R)", minval=0.5, step=0.25)
 tradeTp1ExitPct = input.float(50.0, "TP1 exit size (%)", minval=0.0, maxval=100.0, step=5.0)
 maxTradePlans = input.int(20, "Maximum trade plans", minval=1, maxval=20)
 showTradeStats = input.bool(true, "Show trade statistics")
-statsLookbackDays = input.int(365, "Statistics lookback days", options=[90, 180, 365, 730])
+const int statsLookbackDays = 1095
 
 bullObColor = input.color(color.new(color.lime, 90), "Bullish OB fill")
 bullObBorder = input.color(color.new(color.lime, 20), "Bullish OB border")

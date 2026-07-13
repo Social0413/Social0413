@@ -1,8 +1,19 @@
 # Changelog
 
+## Unreleased
+
+- 新增獨立 V4 Top-down Model Research Engine 開發規格；保留 V3 不覆蓋。
+- V4 將比較 `W→D→H4`、`D→H4→H1`、`H4→H1→M30` 三套完整模型，並拆分 Raw/Unique/Replacement funnel。
+- 將 V4 Weekly／Daily／H4 Zone Engine 由單一最新 Zone 升級為與 V1 規則一致的多 Zone arrays；OB/FVG 每類最多 40 個，使用相同 structure breakout、opposite-candle searchback、三 candle FVG、midpoint invalidation 與最近 midpoint touch 選擇。
+- 對齊 V4 SWING 與 V1 的 Daily MSS bias：由 H4 bars 聚合完成 Daily candles，使用相同 confirmed pivot、True Range 平均、ATR displacement 與 reversal-only bias 更新。
+- 對齊 V1/V4 的 1095D Window 起點 touch state與 OB-first/FVG-second Zone 選擇順序；V4 新增 S-RPL、A-RPL、OB、FVG、SAME、CHG 診斷欄供逐欄核對。
+- 修正 V4 array pivot 的同高／同低優先規則，並將 bullish／bearish previous-zone state 分開保存，使 SETUP event 邊界與 V1 相同。
+- V4 統計欄位改用 V1 名稱；2105、1504、2324 的 V1 與 V4 `SWING W-D-H4` 所有可比欄位已在 TradingView H4／1095D 實圖逐欄一致。
+- 新增三引擎架構圖，並建立 W-D-H4 五階段微調待辦：Weekly Zone、Daily MSS、SETUP、ARMED、ENTRY；本階段暫不調整 SL／TP。
+
 本文件依現有 Git history 與 `PROJECT_HISTORY.md` 整理；早期版本未使用正式 release tag。
 
-## Unreleased
+## Prior development history
 
 - V3 長期研究 Window 改為 1095D／1825D／2555D；以 TradingView Essential 與台股為資源基準，5 年與 7 年要求在 H4 chart 執行，並以 `calc_bars_count=100000` 取得 M30/H1 intrabars。
 - V3 固定關閉 Weekly zone、Daily structure、SETUP/ARMED/ENTRY 與 Trade Plan 繪圖，只保留純數值狀態與 H4/H1/M30 統計表；V1 保留為單引擎交易細節檢查工具。

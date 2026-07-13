@@ -26,14 +26,16 @@
 - 目前研究市場為**台股**；長期資料量應按台股交易日與交易時段估算，不以 24/7 加密貨幣 bars 數量估算。
 - V3 定位為多週期批次統計引擎：一次取得 M30、H1、H4 統計；程式已固定關閉交易細節與 zone/structure 繪圖，只保留統計表，以降低長 Window 的物件、記憶體與執行時間壓力。此修改仍待 Pine Editor compile 與實圖驗收。
 - V1 定位為單引擎細部檢查工具：當 V3 某個 symbol、timeframe 或結果值得研究時，再以 V1 檢查 SETUP、ARMED、ENTRY、SL/TP 與逐筆交易細節。
-- 長期統計 Window 固定規劃為 3 年／5 年／7 年（1095D／1825D／2555D），不開發 10 年選項。Essential 的 M30 chart 約 10,000 根 intraday bars：台股 3 年約 6,750 根 M30，通常可直接執行；5 年約 11,250 根、7 年約 15,750 根，可能超過圖表歷史上限，因此 5 年與 7 年 V3 應以 H4 chart 執行，再透過 `request.security_lower_tf()` 取得 M30/H1。上述 intrabar 數量仍低於 Essential 的 100,000 request 上限，但必須以實際 symbol 的資料起點、缺失 bars 與 V3 coverage 檢查確認完整性。
+- V1、V3 與 V4 的統計 Window 現行規格均固定為 3 年（1095D），設定介面不再提供其他年數。V3 可在 M30/H1/H4 chart 執行；V4 為確保三套 Top-down models 的主資料軸與 lower-timeframe arrays，固定以 H4 chart 作為執行入口。
 - 近期策略開發主流程聚焦最近 3 年：選定多檔流動性與交易特性相近的台股，全部使用同一套規則與參數。V3 比較三引擎及跨股票一致性；V1 抽樣檢查好、中、差交易的 SETUP → ARMED → ENTRY → SL/TP 是否合理。規則修改後必須重跑完整股票池，不依單一股票建立專用參數。
-- V3 的 5 年／7 年結果保留作輔助穩健性觀察；目前不要求 V1 在 Essential 下完整繪製早期 M30 交易，也不以無法視覺稽核的早期交易直接驅動規則優化。
+- 舊版 V3 曾做過 5 年／7 年 coverage 研究；現行版本已依最新決定移除這些選項，不再作為可選 Window。
 
 - `smc-weekly-ob-fvg/assets/smc_weekly_ob_fvg_v1.pine`：目前圖表週期即為 Entry timeframe；在 H4、H1、M30 顯示該週期的詳細交易統計與訊號漏斗。
 - `smc-weekly-ob-fvg/assets/smc_weekly_ob_fvg_compare_v2.pine`：固定在 M30 圖表執行，並在同一張表比較 H4、H1、M30 的 SETUP、ARMED、交易數、TP1/TP2 命中率、Net R、Avg R 與 Profit Factor。
 - V2 目前不是跨圖表週期固定計算版本；切換到非 M30 圖表時只顯示 `USE M30 CHART`。
 - `smc-weekly-ob-fvg/assets/smc_weekly_ob_fvg_cross_tf_v3.pine`：獨立的 Cross-Timeframe Stats 版本；以 M30 為基礎資料流，在 M30/H1/H4 圖表逐筆回放完成 M30 bars，右下角固定顯示 H4、H1、M30 三列統計與資料覆蓋狀態。
+- `smc-weekly-ob-fvg/assets/smc_top_down_models_v4.pine`：獨立的 Top-down Model Research 版，不覆蓋 V3；在 H4 chart 比較 `W→D→H4`、`D→H4→H1`、`H4→H1→M30` 三套完整模型。Weekly／Daily／H4 context 均使用多 Zone arrays，並分開顯示 SETUP、Unique SETUP 與 replacement。V4 已完成 Pine Editor compile；其中 `SWING W-D-H4` 已用 2105、1504、2324 驗證所有 V1 可比統計完全一致，可搭配 V1 完整繪圖進行策略微調。
+- `smc-weekly-ob-fvg/assets/smc_three_engines_architecture.svg`：三套 Top-down models 的架構與 timeframe 關係圖。
 - V3 已在 TradingView 完成 Pine Editor compile，並以相同 symbol、365D Window 比對 M30/H1/H4 圖表；三列 SETUP、ARMED、Trades 與績效欄位一致。表格出現 `3TF PARTIAL` 時仍不可視為完整 Window 結果。
 
 ## 目前功能

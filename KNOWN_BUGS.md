@@ -1,5 +1,11 @@
 # Known Bugs and Limitations
 
+## V4 Top-down models
+
+- `SWING W-D-H4` 已與 V1 在 2105、1504、2324 的 H4／1095D 統計完全一致；目前確認的是引擎判定與統計，不代表 V4 會重畫 V1 的全部 SETUP／ARMED／ENTRY、Trade Plan 與詳細 funnel 視覺物件。策略逐筆檢查仍使用 V1。
+- V4 的 `INTRADAY D-H4-H1` 與 `FAST H4-H1-M30` 尚無各自的完整繪圖參考版本可逐筆對答案；目前結果只能作模型研究，不能宣稱已達到與外部基準完全一致。
+- completed-candle 邊界與 lower-timeframe arrays 的 intrabar lookahead 仍列為正式驗收項目；不得只因三列顯示 `FULL` 就視為此項已完成。
+
 ## 已知限制
 
 - V3 的 `FULL` 目前只檢查各引擎第一筆可用資料是否早於統計 Window 起點，尚未顯示實際起訖日期、warm-up 狀態或偵測 Window 中間的缺失 bars；`FULL` 不等同資料供應商逐根無缺漏保證。
