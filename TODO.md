@@ -7,6 +7,10 @@
 > 以 V1 作為完整繪圖與逐筆檢查工具，以 V4 `SWING W-D-H4` 作為統計核對引擎。以下五項後續分成獨立對話，依順序逐項討論、修改及回歸測試；本階段先不調整 SL／TP。
 
 - [ ] 1. Weekly Zone：檢查與微調 Weekly OB／FVG 的建立、篩選、寬度、有效性及 midpoint invalidation。
+  - [x] V1／V4 同步加入來源時框 Wilder ATR(14) × 1.0 OB displacement，並固定 Hybrid Range。
+  - [x] Pine Editor compile，並以 2105、1504、2324 核對新版 OB 圖形及 V1／V4 SWING 所有可比欄位；三個標的均一致。
+  - [x] V1／V4 同步將 FVG 收斂為標準 wick-to-wick gap，加上同方向 1 ATR 中間 displacement；移除 gap 寬度與確認 K 額外條件。
+  - [x] Pine Editor compile，並以 2105、1504、2324 重新核對現行 FVG 圖形及 V1／V4 SWING 所有可比欄位；三個標的均一致。
 - [ ] 2. Daily MSS：檢查與微調 Daily Pivot、MSS、ATR displacement 與多空 Bias 的敏感度及延遲。
 - [ ] 3. SETUP：檢查與微調 Daily Bias 配合 Weekly Zone、Zone touch、重入、替換及有效期限。
 - [ ] 4. ARMED：檢查與微調 H4 Pivot 突破、ATR displacement、保護條件及失效原因。

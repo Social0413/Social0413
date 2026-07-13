@@ -1,5 +1,25 @@
 # Test Results
 
+## 2026-07-13 FVG ATR filtering
+
+- 現行規則已同步收斂為：標準三根完成 K 的 wick-to-wick gap，不設最小 gap 寬度；中間 candle 必須與 FVG 同方向且 body 至少為來源時框 Wilder ATR(14) × 1.0。V1 Weekly 與 V4 SWING Weekly 共用相同 geometry、ATR、方向與 middle displacement 公式。
+- 先前測試的 ATR × 0.5 gap 寬度與確認 K 順向半部條件，因圖表上排除大量肉眼可辨識的標準 FVG 而移除；下列 2105／1504／2324 數據只保留為該過嚴版本的歷史對照，不代表現行規則結果。
+- 過嚴版本歷史結果：2105／1504／2324 的 FVG SETUP 為 3／4／17，總數 24；三檔 SWING 均無 ARMED／Trade。
+- 使用者已在 TradingView H4／1095D 載入現行簡化版 V1 與 V4，兩版均成功顯示結果，視為 Pine Editor compile／執行通過。
+- 2105：V1 與 V4 SWING 同為 SETUP 17、SETUP replaced 6、ARMED replaced 0、ARMED 0、Total 0、OB SETUP 6、FVG SETUP 11、Same-zone SETUP 9、Changed-zone SETUP 8、Net R 0R。
+- 1504：V1 與 V4 SWING 同為 SETUP 22、SETUP replaced 7、ARMED replaced 0、ARMED 1、Total 1、OB SETUP 4、FVG SETUP 18、Same-zone SETUP 14、Changed-zone SETUP 8、TP2 Rate 0%、Net R -1R、Profit Factor 0。
+- 2324：V1 與 V4 SWING 同為 SETUP 19、SETUP replaced 10、ARMED replaced 0、ARMED 0、Total 0、OB SETUP 2、FVG SETUP 17、Same-zone SETUP 15、Changed-zone SETUP 4、Net R 0R。
+- 現行結果：三個固定標的的所有 V1 可比欄位均與 V4 SWING 一致。相較只完成 OB 修改、尚未加入 FVG displacement 的 13／27／23，現行 FVG SETUP 為 11／18／17，總數由 63 降至 46，約減少 27%；1504 恢復 1 次 ARMED、1 次交易。這只能證明篩選程度較前版溫和且兩版一致，策略品質仍需完整股票池統計判斷。
+
+## 2026-07-13 OB displacement and Hybrid Range
+
+- 已同步修改 V1 與 V4：OB 結構突破 candle body 固定要求來源時框 Wilder ATR(14) × 1.0，並固定使用 Hybrid Range；V1 Weekly 與 V4 SWING Weekly 的 ATR、displacement、來源 candle 搜尋及上下界公式相同。
+- 已完成 Repository 靜態交叉檢查與 `git diff --check`；舊的 `Use full candle wick for OB range`／`useWicks` 路徑已移除。使用者已在 TradingView H4／1095D 載入新版 V1 與 V4，兩版均成功顯示結果，視為 Pine Editor compile／執行通過。
+- 2105：V1 與 V4 SWING 同為 SETUP 19、SETUP replaced 7、ARMED replaced 0、ARMED 0、Total 0、OB SETUP 6、FVG SETUP 13、Same-zone SETUP 10、Changed-zone SETUP 9、Net R 0R。
+- 1504：V1 與 V4 SWING 同為 SETUP 31、SETUP replaced 11、ARMED replaced 0、ARMED 1、Total 1、OB SETUP 4、FVG SETUP 27、Same-zone SETUP 21、Changed-zone SETUP 10、TP2 Rate 0%、Net R -1R、Profit Factor 0。
+- 2324：V1 與 V4 SWING 同為 SETUP 25、SETUP replaced 12、ARMED replaced 1、ARMED 1、Total 0、OB SETUP 2、FVG SETUP 23、Same-zone SETUP 17、Changed-zone SETUP 8、Net R 0R。
+- 結果：三個固定標的的所有 V1 可比欄位均與 V4 SWING 一致，新版 OB displacement／Hybrid Range 的程式交叉核對通過。OB 圖形品質是否達到策略需求仍屬視覺與後續統計評估，不由欄位一致性單獨判定。
+
 ## V4 Top-down Model Research Engine
 
 - 狀態：使用者已於 TradingView Pine Editor 成功 compile 並儲存現行 V4。第一版的 consistency warnings 與多 Zone 初版的回傳型別錯誤均已修正；現行版已可在 H4 chart 顯示三套模型資料。

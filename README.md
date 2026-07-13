@@ -84,10 +84,11 @@ smc-weekly-ob-fvg/assets/smc_weekly_ob_fvg_v1.pine
 - 看多 OB 用綠色。
 - 看空 OB 用紅色。
 - FVG 使用黃色系：做多 FVG 較亮，做空 FVG 較暗。
-- FVG 區間必須大於價格中位數的 3%。
+- FVG 使用標準三根完成 K 的 wick-to-wick gap；不設最小 gap 寬度，中間 K 必須與 FVG 同方向且實體至少為來源時框 Wilder ATR(14) × 1.0。
 - OB 使用結構突破規則：
-  - 週收盤突破近期結構高，回找最近 bearish 週 K 當 bullish OB。
-  - 週收盤跌破近期結構低，回找最近 bullish 週 K 當 bearish OB。
+  - 週收盤突破近期結構高且突破實體至少為完成週線 Wilder ATR(14) × 1.0，回找該 displacement 前最近 bearish 週 K 當 bullish OB。
+  - 週收盤跌破近期結構低且突破實體至少為完成週線 Wilder ATR(14) × 1.0，回找該 displacement 前最近 bullish 週 K 當 bearish OB。
+- OB 固定使用 Hybrid Range：Bullish 為來源 K 的 `low → open`，Bearish 為來源 K 的 `open → high`。
 - 同一方向、同一根週 K 只能生成一次 OB。
 - OB/FVG 過中線後停止延伸。
 - OB/FVG 文字永遠顯示。

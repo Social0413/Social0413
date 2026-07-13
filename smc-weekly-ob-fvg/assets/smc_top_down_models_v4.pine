@@ -5,11 +5,12 @@ indicator("CODEX SMC Top-down Models v4", overlay=true, max_boxes_count=1, max_l
 const int LOOKBACK_DAYS = 1095
 const int DAY_MS = 24 * 60 * 60 * 1000
 
-useWicks = input.bool(true, "Use full candle wick for OB range")
 maxZones = input.int(40, "Maximum zones per type", minval=10, maxval=120)
 structureLookback = input.int(8, "OB structure lookback", minval=3, maxval=30)
 obSearchBack = input.int(8, "OB candle searchback", minval=1, maxval=30)
-minFvgPct = input.float(3.0, "Minimum FVG size (%)", minval=0.0, step=0.25)
+const int zoneAtrLen = 14
+const float obBodyAtrMult = 1.0
+const float fvgBodyAtrMult = 1.0
 mssSwingLen = input.int(5, "D MSS swing length", minval=2, maxval=20)
 mssAtrLen = input.int(14, "D MSS ATR length", minval=1, maxval=100)
 mssBodyAtrMult = input.float(1.0, "D MSS body ATR multiplier", minval=0.0, step=0.1)
@@ -105,6 +106,25 @@ zoneKeyIsActive(_key, _active, _keys) =>
                 result := array.get(_active, i)
     result
 
+completedContextAtr(_highs, _lows, _closes, _length) =>
+    float atr = na
+    float seedSum = 0.0
+    int trCount = 0
+    if array.size(_highs) > 1
+        for i = 1 to array.size(_highs) - 1
+            currentHigh = array.get(_highs, i)
+            currentLow = array.get(_lows, i)
+            previousClose = array.get(_closes, i - 1)
+            trueRange = math.max(currentHigh - currentLow, math.max(math.abs(currentHigh - previousClose), math.abs(currentLow - previousClose)))
+            if trCount < _length
+                seedSum += trueRange
+                trCount += 1
+                if trCount == _length
+                    atr := seedSum / _length
+            else
+                atr := (atr * (_length - 1) + trueRange) / _length
+    atr
+
 processCompletedContext(_time, _open, _high, _low, _close, _histTimes, _histOpens, _histHighs, _histLows, _histCloses, _types, _dirs, _mids, _active, _times, _tops, _bottoms, _keys) =>
     array.push(_histTimes, _time)
     array.push(_histOpens, _open)
@@ -118,6 +138,7 @@ processCompletedContext(_time, _open, _high, _low, _close, _histTimes, _histOpen
         array.shift(_histLows)
         array.shift(_histCloses)
     lastIdx = array.size(_histTimes) - 1
+    contextAtr = completedContextAtr(_histHighs, _histLows, _histCloses, zoneAtrLen)
     enoughStructure = lastIdx > structureLookback
     float recentHigh = na
     float recentLow = na
@@ -126,37 +147,40 @@ processCompletedContext(_time, _open, _high, _low, _close, _histTimes, _histOpen
             idx = lastIdx - offset
             recentHigh := na(recentHigh) ? array.get(_histHighs, idx) : math.max(recentHigh, array.get(_histHighs, idx))
             recentLow := na(recentLow) ? array.get(_histLows, idx) : math.min(recentLow, array.get(_histLows, idx))
-        bullishOb = _close > recentHigh
-        bearishOb = _close < recentLow
+        obDisplacement = not na(contextAtr) and math.abs(_close - _open) >= contextAtr * obBodyAtrMult
+        bullishOb = obDisplacement and _close > recentHigh
+        bearishOb = obDisplacement and _close < recentLow
         if bullishOb
             for offset = 1 to obSearchBack
                 idx = lastIdx - offset
                 if idx >= 0 and array.get(_histCloses, idx) < array.get(_histOpens, idx)
-                    top = useWicks ? array.get(_histHighs, idx) : array.get(_histOpens, idx)
-                    bottom = useWicks ? array.get(_histLows, idx) : array.get(_histCloses, idx)
+                    top = array.get(_histOpens, idx)
+                    bottom = array.get(_histLows, idx)
                     addZone("OB", 1, array.get(_histTimes, idx), top, bottom, _types, _dirs, _mids, _active, _times, _tops, _bottoms, _keys)
                     break
         if bearishOb
             for offset = 1 to obSearchBack
                 idx = lastIdx - offset
                 if idx >= 0 and array.get(_histCloses, idx) > array.get(_histOpens, idx)
-                    top = useWicks ? array.get(_histHighs, idx) : array.get(_histCloses, idx)
-                    bottom = useWicks ? array.get(_histLows, idx) : array.get(_histOpens, idx)
+                    top = array.get(_histHighs, idx)
+                    bottom = array.get(_histOpens, idx)
                     addZone("OB", -1, array.get(_histTimes, idx), top, bottom, _types, _dirs, _mids, _active, _times, _tops, _bottoms, _keys)
                     break
     if lastIdx >= 2
         twoBack = lastIdx - 2
+        middleIdx = lastIdx - 1
         bullTop = _low
         bullBottom = array.get(_histHighs, twoBack)
         bearTop = array.get(_histLows, twoBack)
         bearBottom = _high
-        bullMid = (bullTop + bullBottom) * 0.5
-        bearMid = (bearTop + bearBottom) * 0.5
-        bullPct = bullMid != 0.0 ? math.abs(bullTop - bullBottom) / bullMid * 100.0 : 0.0
-        bearPct = bearMid != 0.0 ? math.abs(bearTop - bearBottom) / bearMid * 100.0 : 0.0
-        if bullTop > bullBottom and bullPct >= minFvgPct
+        middleOpen = array.get(_histOpens, middleIdx)
+        middleClose = array.get(_histCloses, middleIdx)
+        middleBody = math.abs(middleClose - middleOpen)
+        bullMiddleDisplacement = not na(contextAtr) and middleClose > middleOpen and middleBody >= contextAtr * fvgBodyAtrMult
+        bearMiddleDisplacement = not na(contextAtr) and middleClose < middleOpen and middleBody >= contextAtr * fvgBodyAtrMult
+        if bullTop > bullBottom and bullMiddleDisplacement
             addZone("FVG", 1, _time, bullTop, bullBottom, _types, _dirs, _mids, _active, _times, _tops, _bottoms, _keys)
-        if bearTop > bearBottom and bearPct >= minFvgPct
+        if bearTop > bearBottom and bearMiddleDisplacement
             addZone("FVG", -1, _time, bearTop, bearBottom, _types, _dirs, _mids, _active, _times, _tops, _bottoms, _keys)
     true
 

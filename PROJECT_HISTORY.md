@@ -282,3 +282,13 @@ After testing showed D CHOCH/MSS only appeared on the daily chart, the non-daily
 ### 2026-07-10 - CHOCH/MSS structure-break segment direction
 
 CHOCH/MSS lines were changed from future-facing extension lines into fixed structure-break segments. Each line now starts from the broken daily pivot candle and ends at the candle that confirms the break, with the text placed below the line for readability.
+
+## 2026-07-13 - OB displacement and Hybrid Range
+
+使用者以兩組圖表指出多個紅色／綠色 OB 難以從價格行為直覺解釋。共同原因是弱結構突破也會建立 OB，以及 Full wick 使長影線來源 K 形成過寬 Zone。規則因此收斂為兩項：結構突破 candle body 固定至少為來源時框 Wilder ATR(14) × 1.0，並取 searchback 內該 displacement 前最近的反向 candle；OB 固定使用保留遠端 wick 的 Hybrid Range。V1 與 V4 使用相同公式，FVG、midpoint invalidation 與其他交易流程本次不變。
+
+## 2026-07-13 - FVG ATR filtering
+
+FVG 規則依相同的簡單化原則收斂：移除固定 3% 門檻，改為 gap 至少為來源時框 Wilder ATR(14) × 0.5；中間 candle 必須與 FVG 同方向且 body 至少為 1 ATR；確認 candle close 必須位於自身 range 的順向半部。原先討論的「確認 close 保持在 gap midpoint 外側」因三 candle gap 定義必然成立，實作交叉檢查時改為可實際過濾的 candle range half 條件。V1 與 V4 使用相同公式，midpoint invalidation 與其他交易流程本次不變。
+
+實圖回歸後發現上述版本排除大量肉眼可辨識的標準 FVG，尤其 2105 與 1504 的 FVG SETUP 大幅下降。規則因此再次簡化：保留標準三根完成 K 的 wick-to-wick gap，以及同方向、body 至少 1 ATR 的中間 displacement；移除 ATR × 0.5 gap 寬度與確認 K 順向半部條件。該過嚴版本的三標的結果僅保留為歷史對照。

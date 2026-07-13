@@ -9,6 +9,8 @@
 1. 圖表 bars 聚合成完成的 Weekly candles，供 OB/FVG 使用。
 2. Daily chart 直接用 chart candles；Intraday chart 聚合完成的 Daily candles。
 3. OB/FVG 建立後保存在平行 arrays，逐 bar 檢查 midpoint invalidation。
+   OB 僅在來源時框結構突破 candle body 通過 Wilder ATR(14) × 1.0 displacement 後建立；來源取 searchback 內最近反向 candle，範圍固定為保留遠端 wick 的 Hybrid Range。
+   FVG 使用三根完成來源時框 candles 的標準 wick-to-wick gap，不設最小 gap 寬度；中間 candle 必須為同方向且 body 至少為 Wilder ATR(14) × 1.0。
 4. CHOCH/MSS 各自維護 pivot、trend 與物件 arrays，事件成立時建立固定線段及透明文字 box。
 5. 超過使用者設定上限時，從 arrays 前端刪除最舊物件。
 6. SETUP 使用最新 Daily MSS bias 與目前 K 棒對有效 Weekly zone 的重疊狀態；重疊狀態由 false 轉為 true 時顯示一次。
@@ -35,6 +37,7 @@
 ## 關鍵設計決策
 
 - Weekly OB/FVG 不依賴 `request.security()` 歷史繪圖，避免切換 timeframe 或 Replay 時物件不一致。
+- V1 Weekly Zone 與 V4 各來源時框 Zone 共用同一 Wilder ATR、OB displacement／Hybrid Range 與 FVG geometry／middle displacement 公式；V1／V4 SWING 必須逐欄一致。
 - Intraday 的 Daily CHOCH/MSS 不採用已證實不穩定的 `request.security("D")` 顯示路徑，而由 intraday bars 重建完成日線。
 - CHOCH 與 MSS 使用不同 pivot 長度；MSS 另加 ATR body displacement，避免兩者退化成同一訊號。
 - 結構線是「pivot 到 breakout」的事實區段，而不是 future-facing ray。

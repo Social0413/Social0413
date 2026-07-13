@@ -2,11 +2,12 @@
 indicator("CODEX SMC Weekly OB FVG v1", overlay=true, max_boxes_count=500, max_lines_count=500, max_labels_count=200)
 
 htf = input.timeframe("W", "High timeframe")
-useWicks = input.bool(true, "Use full candle wick for OB range")
 maxZones = input.int(40, "Maximum zones per type", minval=10, maxval=120)
 structureLookback = input.int(8, "OB structure lookback", minval=3, maxval=30)
 obSearchBack = input.int(8, "OB candle searchback", minval=1, maxval=30)
-minFvgPct = input.float(3.0, "Minimum FVG size (%)", minval=0.0, step=0.25)
+const int zoneAtrLen = 14
+const float obBodyAtrMult = 1.0
+const float fvgBodyAtrMult = 1.0
 showOb = input.bool(true, "Show weekly OB")
 showFvg = input.bool(true, "Show weekly FVG")
 showMidline = input.bool(true, "Show zone midpoint")
@@ -410,6 +411,25 @@ obExists(_dir, _sourceTime) =>
             if array.get(obSourceTimes, i) == _sourceTime and array.get(obSourceDirs, i) == _dir
                 exists := true
     exists
+
+completedContextAtr(_highs, _lows, _closes, _length) =>
+    float atr = na
+    float seedSum = 0.0
+    int trCount = 0
+    if array.size(_highs) > 1
+        for i = 1 to array.size(_highs) - 1
+            currentHigh = array.get(_highs, i)
+            currentLow = array.get(_lows, i)
+            previousClose = array.get(_closes, i - 1)
+            trueRange = math.max(currentHigh - currentLow, math.max(math.abs(currentHigh - previousClose), math.abs(currentLow - previousClose)))
+            if trCount < _length
+                seedSum += trueRange
+                trCount += 1
+                if trCount == _length
+                    atr := seedSum / _length
+            else
+                atr := (atr * (_length - 1) + trueRange) / _length
+    atr
 
 addFvg(_dir, _leftTime, _top, _bottom) =>
     _mid = (_top + _bottom) / 2.0
@@ -931,6 +951,7 @@ else if newWeek
         array.shift(weekCloses)
 
     ready = not na(w1C) and not na(w2C) and not na(w3H)
+    weeklyAtr = completedContextAtr(weekHighs, weekLows, weekCloses, zoneAtrLen)
     if ready and showOb
         lastIdx = array.size(weekTimes) - 1
         enoughStructure = lastIdx > structureLookback
@@ -944,14 +965,15 @@ else if newWeek
                 recentHigh := na(recentHigh) ? h : math.max(recentHigh, h)
                 recentLow := na(recentLow) ? l : math.min(recentLow, l)
 
-        bullishOb = enoughStructure and w1C > recentHigh
-        bearishOb = enoughStructure and w1C < recentLow
+        obDisplacement = not na(weeklyAtr) and math.abs(w1C - w1O) >= weeklyAtr * obBodyAtrMult
+        bullishOb = enoughStructure and obDisplacement and w1C > recentHigh
+        bearishOb = enoughStructure and obDisplacement and w1C < recentLow
         if bullishOb
             for offset = 1 to obSearchBack
                 idx = lastIdx - offset
                 if idx >= 0 and array.get(weekCloses, idx) < array.get(weekOpens, idx)
-                    top = useWicks ? array.get(weekHighs, idx) : array.get(weekOpens, idx)
-                    bottom = useWicks ? array.get(weekLows, idx) : array.get(weekCloses, idx)
+                    top = array.get(weekOpens, idx)
+                    bottom = array.get(weekLows, idx)
                     sourceTime = array.get(weekTimes, idx)
                     if not obExists(1, sourceTime)
                         addOb(1, sourceTime, top, bottom)
@@ -960,8 +982,8 @@ else if newWeek
             for offset = 1 to obSearchBack
                 idx = lastIdx - offset
                 if idx >= 0 and array.get(weekCloses, idx) > array.get(weekOpens, idx)
-                    top = useWicks ? array.get(weekHighs, idx) : array.get(weekCloses, idx)
-                    bottom = useWicks ? array.get(weekLows, idx) : array.get(weekOpens, idx)
+                    top = array.get(weekHighs, idx)
+                    bottom = array.get(weekOpens, idx)
                     sourceTime = array.get(weekTimes, idx)
                     if not obExists(-1, sourceTime)
                         addOb(-1, sourceTime, top, bottom)
@@ -972,11 +994,12 @@ else if newWeek
         bullBottom = w3H
         bearTop = w3L
         bearBottom = w1H
-        bullPct = math.abs(bullTop - bullBottom) / ((bullTop + bullBottom) / 2.0) * 100.0
-        bearPct = math.abs(bearTop - bearBottom) / ((bearTop + bearBottom) / 2.0) * 100.0
-        if bullTop > bullBottom and bullPct >= minFvgPct
+        middleBody = math.abs(w2C - w2O)
+        bullMiddleDisplacement = not na(weeklyAtr) and w2C > w2O and middleBody >= weeklyAtr * fvgBodyAtrMult
+        bearMiddleDisplacement = not na(weeklyAtr) and w2C < w2O and middleBody >= weeklyAtr * fvgBodyAtrMult
+        if bullTop > bullBottom and bullMiddleDisplacement
             addFvg(1, w1T, bullTop, bullBottom)
-        if bearTop > bearBottom and bearPct >= minFvgPct
+        if bearTop > bearBottom and bearMiddleDisplacement
             addFvg(-1, w1T, bearTop, bearBottom)
 
     curT := weekKey

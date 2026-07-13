@@ -9,7 +9,7 @@
   - `INTRADAY`：Daily OB/FVG zone → H4 MSS bias → H1 execution。
   - `FAST`：H4 OB/FVG zone → H1 MSS bias → M30 execution。
 - 每套模型必須擁有獨立的 zone、bias、SETUP、ARMED、ENTRY 與 trade state，不得共用 active SETUP/ARMED。
-- Weekly、Daily、H4 Zone Engine 均採用與 V1 相同的多 Zone arrays：OB/FVG 每類最多 40 個、OB source 去重、所有 active zones 共同參與最近 midpoint touch 選擇，並由 execution bar close 穿越 midpoint 失效。
+- Weekly、Daily、H4 Zone Engine 均採用與 V1 相同的多 Zone arrays：OB/FVG 每類最多 40 個、OB source 去重、OB 結構突破 candle 必須通過來源時框 ATR(14) × 1.0 displacement、OB 固定使用 Hybrid Range；FVG 使用標準三根完成 K 的 wick-to-wick gap，中間 candle 必須為同方向 ATR(14) × 1.0 displacement。所有 active zones 共同參與最近 midpoint touch 選擇，並由 execution bar close 穿越 midpoint 失效。
 - SWING 的 Daily MSS bias 使用與 V1 H4 chart 相同的完成 Daily candle 聚合、confirmed pivot、最近 `ATR length` 根 True Range 平均與 trend-reversal MSS 更新規則，作為 V1↔V4 對答案基準。
 - 相同 symbol、H4 chart、1095D、參數與資料覆蓋下，驗收對應為：V1 `SETUP` = V4 SWING `SETUP`、V1 `ARMED` = V4 SWING `ARMED`、V1 `Total` = V4 SWING `Total`，且 TP2 Rate、Net R、Profit Factor、OB/FVG 與 replacement 分類都必須一致；任何差異都視為待追查，不以模型差異解釋。
 - V4 使用與 V1 相同的統計名稱：SETUP replaced、ARMED replaced、OB SETUP、FVG SETUP、Same-zone SETUP、Changed-zone SETUP。`UNIQUE SETUP`、`U>A`、`A>T` 是 V4 額外研究欄位，沒有 V1 對應欄位。
@@ -28,10 +28,10 @@
 
 ## Order Block (OB)
 
-- Bullish OB：完成的 Weekly close 突破最近 `structureLookback` 根完成週線的結構高點後，向前尋找最近 bearish weekly candle。
-- Bearish OB：完成的 Weekly close 跌破最近 `structureLookback` 根完成週線的結構低點後，向前尋找最近 bullish weekly candle。
+- Bullish OB：完成的 Weekly close 突破最近 `structureLookback` 根完成週線的結構高點，且突破 candle body 至少為完成週線 Wilder ATR(14) × 1.0；之後向前尋找該 displacement 前最近的 bearish weekly candle。
+- Bearish OB：完成的 Weekly close 跌破最近 `structureLookback` 根完成週線的結構低點，且突破 candle body 至少為完成週線 Wilder ATR(14) × 1.0；之後向前尋找該 displacement 前最近的 bullish weekly candle。
 - 搜尋範圍由 `OB candle searchback` 控制，預設 8。
-- `Use full candle wick for OB range` 預設開啟；關閉時使用 candle body 範圍。
+- OB range 固定使用 Hybrid Range，不提供 Wick／Body 切換：Bullish OB 使用來源 bearish candle 的 `low → open`；Bearish OB 使用來源 bullish candle 的 `open → high`。
 - 同一來源 Weekly candle、同一方向最多建立一次 OB。
 - Bullish OB 為綠色；Bearish OB 為紅色；box 內顯示 `OB`。
 - Bullish OB 在收盤價低於 midpoint 時停止向右延伸；Bearish OB 在收盤價高於 midpoint 時停止延伸。
@@ -39,7 +39,8 @@
 ## Fair Value Gap (FVG)
 
 - 使用三根完成 Weekly candle：Bullish FVG 為第三根 low 高於第一根 high；Bearish FVG 為第三根 high 低於第一根 low。
-- Gap 百分比以 gap midpoint 為分母，預設至少 3%。
+- Gap 只要求符合標準 wick-to-wick 幾何條件，不使用價格百分比或 ATR 最小寬度門檻。
+- 中間 Weekly candle 必須與 FVG 同方向，且 candle body 至少為完成週線 Wilder ATR(14) × 1.0：Bullish FVG 要求中間 candle 收紅／上漲，Bearish FVG 要求中間 candle 收黑／下跌。
 - FVG 從確認該 gap 的 Weekly candle 開始繪製。
 - Bullish FVG 使用較亮黃色；Bearish FVG 使用 olive/darker yellow；box 內顯示 `FVG`。
 - Bullish FVG 在收盤價低於 midpoint 時停止延伸；Bearish FVG 在收盤價高於 midpoint 時停止延伸。

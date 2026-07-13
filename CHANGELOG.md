@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- 再次收斂 V1 與 V4 的 FVG 規則：保留標準三根完成 K 的 wick-to-wick gap，以及同方向、body 至少為來源時框 Wilder ATR(14) × 1.0 的中間 displacement；移除過嚴的 ATR × 0.5 gap 寬度與確認 K 順向半部條件。現有 midpoint invalidation 與其他交易流程不變；已在 TradingView H4／1095D 以 2105、1504、2324 完成 V1／V4 SWING 所有可比欄位回歸，三者完全一致。
+- 收斂 V1 與 V4 的 OB 規則：結構突破 candle body 必須至少為來源時框 Wilder ATR(14) × 1.0，才回找 displacement 前最近的反向 candle；OB 範圍固定改為 Hybrid Range，移除 Wick／Body 輸入。V1 使用 Weekly ATR，V4 Weekly／Daily／H4 Zone Engine 分別使用各自來源時框 ATR；已在 TradingView H4／1095D 以 2105、1504、2324 完成 V1／V4 SWING 所有可比欄位回歸，三者完全一致。
 - 新增獨立 V4 Top-down Model Research Engine 開發規格；保留 V3 不覆蓋。
 - V4 將比較 `W→D→H4`、`D→H4→H1`、`H4→H1→M30` 三套完整模型，並拆分 Raw/Unique/Replacement funnel。
 - 將 V4 Weekly／Daily／H4 Zone Engine 由單一最新 Zone 升級為與 V1 規則一致的多 Zone arrays；OB/FVG 每類最多 40 個，使用相同 structure breakout、opposite-candle searchback、三 candle FVG、midpoint invalidation 與最近 midpoint touch 選擇。
