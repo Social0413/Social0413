@@ -1,5 +1,12 @@
 # Test Results
 
+## Weekly Zone 視覺證據（2026-07-13）
+
+- 修改前難以解釋的寬大／重疊 OB：[ob-before.png](docs/images/weekly-zone-2026-07-13/ob-before.png)
+- FVG 過度篩選、肉眼可辨識 gap 未顯示：[fvg-overfiltered.png](docs/images/weekly-zone-2026-07-13/fvg-overfiltered.png)
+- 現行版 H4／1095D 最終驗收：[2105](docs/images/weekly-zone-2026-07-13/final-2105.png)、[1504](docs/images/weekly-zone-2026-07-13/final-1504.png)、[2324](docs/images/weekly-zone-2026-07-13/final-2324.png)
+- 圖片只保留能說明規則變更原因與最終結果的代表案例；精確統計仍以下方文字紀錄為準。
+
 ## 2026-07-13 Daily Bias responsiveness and structural invalidation
 
 - V1 與 V4 SWING 的 Daily MSS 預設 swing length 已由 5 改為 4；ATR(14) × 1.0 displacement 與 trend-reversal MSS 條件不變。

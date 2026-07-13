@@ -1,4 +1,6 @@
 *.png
+!docs/images/
+!docs/images/**/*.png
 *.jpg
 *.jpeg
 *.gif
