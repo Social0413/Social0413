@@ -4,6 +4,12 @@
 
 ## Unreleased
 
+- V3 長期研究 Window 改為 1095D／1825D／2555D；以 TradingView Essential 與台股為資源基準，5 年與 7 年要求在 H4 chart 執行，並以 `calc_bars_count=100000` 取得 M30/H1 intrabars。
+- V3 固定關閉 Weekly zone、Daily structure、SETUP/ARMED/ENTRY 與 Trade Plan 繪圖，只保留純數值狀態與 H4/H1/M30 統計表；V1 保留為單引擎交易細節檢查工具。
+- V3 分別追蹤 M30、H1、H4 資料起點，逐列顯示 `FULL`／`PART`；三列皆涵蓋統計起點時才顯示 `3TF V3 FULL`。
+- 使用者已在 TWSE:2317 H4 chart 完成實圖檢查：1825D 與 2555D 均顯示 H4/H1/M30 `FULL`。此結果只證明該 symbol 與本次環境的資料覆蓋，不代表其他台股均有相同 intraday 歷史。
+- 策略研究方向調整為最近三年、多檔流動性與交易特性相近的台股、同一套規則與參數；V3 用於三引擎及跨股票一致性比較，V1 用於好／中／差交易的抽樣稽核。5 年／7 年保留為輔助穩健性觀察，不作為近期主要調參資料。
+
 - V1 移除手動 `Entry timeframe` 選項；H4、H1、M30 chart 自動以目前圖表週期作為 Entry timeframe，其他週期不建立新候選並顯示切換提示。
 - V1 將 Trade Plan 計算與顯示解耦；關閉 `Show SL/TP trade plans` 只隱藏 lines/labels，不再停止交易與績效統計。
 - 新增獨立 `smc_weekly_ob_fvg_cross_tf_v3.pine`：以完成 M30 bars 作為基礎資料流，維護 M30/H1/H4 三套獨立狀態；H1/H4 chart 使用 lower-timeframe arrays 回放，表格固定顯示 H4、H1、M30 三列。

@@ -1,5 +1,14 @@
 # Test Results
 
+## 2026-07-12 V3 long-window research mode
+
+- V3 統計 Window 已改為 1095D／1825D／2555D；1825D 與 2555D 在非 H4 chart 顯示 `USE H4 CHART`。
+- V3 已固定關閉 zone、structure、SETUP/ARMED/ENTRY 與 Trade Plan 繪圖；OB/FVG 仍以純數值 arrays 維護，供三套統計引擎判斷。
+- `request.security_lower_tf()` 已明確使用 Essential 可用的 `calc_bars_count=100000`。
+- M30、H1、H4 已分別追蹤第一筆資料時間並顯示 `FULL`／`PART`；全部通過才顯示 `3TF V3 FULL`。
+- 已完成 Repository 靜態檢查。使用者實圖確認修改後的 V3 可在 TWSE:2317 H4 chart 執行，1825D 與 2555D 均顯示 H4/H1/M30 `FULL`，可視為本次 symbol/方案/圖表的 compile 與 coverage 顯示通過。
+- 本次尚未驗證：1095D、其他台股、實際資料起訖日期、warm-up、中間缺失 bars、執行時間與記憶體壓力，以及修改後 V3 與 V1 的逐筆／統計一致性；不可由 2317 單一結果推廣至所有台股。
+
 ## 2026-07-11 V1 chart-driven Entry timeframe
 
 - V1 已將 Trade Plan 計算與繪圖解耦；靜態檢查確認有效 ENTRY 無條件建立數值 Trade Plan，顯示開關只包住 line/label 建立與更新。尚待 Pine Editor compile，以及開關前後統計數值一致性確認。

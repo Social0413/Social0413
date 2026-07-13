@@ -1,5 +1,18 @@
 # TODO
 
+## 長期研究模式（已確認方向）
+
+- [x] 以 TradingView Essential 與台股為基準，為 V3 增加 1095D、1825D、2555D 統計 Window；不開發 3650D。
+- [x] 將 V3 改為純統計用途，取消所有非必要 box、line、label 與單週期 Trade Plan 繪圖；保留 V1 作為單引擎交易細節檢查工具。尚待 Pine Editor 驗收。
+- [x] 1095D 可在資料完整時使用 M30 chart；1825D／2555D V3 以 H4 chart 為標準執行入口，從 H4 chart 取得 M30/H1 intrabars。
+- [ ] 顯示 requested Window start、實際第一根 M30/H1/H4 時間與 warm-up 狀態；三列獨立 FULL/PARTIAL 判斷已完成，日期與 warm-up 顯示仍待開發。
+- [ ] 選擇至少一個具有七年以上 intraday 歷史的台股，在 Pine Editor 實測 1095D／1825D／2555D compile、執行時間、記憶體、M30/H1/H4 coverage 與 V1 抽樣一致性。
+- [ ] 建立固定的三年台股研究股票池與納入條件（流動性、資料完整性、交易特性）；所有股票使用同一套規則與參數。
+- [ ] 建立跨股票彙總紀錄：每檔 H4/H1/M30 Trades、Net R、Avg R、PF、正負 Avg R 股票數，以及移除最佳單一股票後的結果。
+- [ ] 使用 V1 抽查表現好／中／差的股票與 Win/Loss 交易；只有跨多檔股票重複且有市場理由的問題才提出規則修改。
+- [ ] 每次規則修改後以 V3 重跑完整股票池，避免只改善觸發修改的單一股票。
+- [ ] 策略與參數凍結後，先以 paper trade 或極小部位累積實際交易，記錄成交、滑價與模擬差異，再決定是否增加部位。
+
 - [x] 新增 V1 進場後統計表、R 模型與訊號漏斗。
 - [x] 新增固定統計 Window 與按小時換算的 SETUP expiry。
 - [x] 新增 V2 M30 圖表內的 H4/H1/M30 自動比較表。

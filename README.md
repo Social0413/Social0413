@@ -20,6 +20,16 @@
 
 ## 統計版本
 
+### 研究環境與版本分工
+
+- 使用者目前使用 TradingView **Essential** 方案；後續資料覆蓋、Pine request、圖表歷史與效能評估均以 Essential 限制為預設，不應以 Premium、Expert 或 Ultimate 能力推定可行。
+- 目前研究市場為**台股**；長期資料量應按台股交易日與交易時段估算，不以 24/7 加密貨幣 bars 數量估算。
+- V3 定位為多週期批次統計引擎：一次取得 M30、H1、H4 統計；程式已固定關閉交易細節與 zone/structure 繪圖，只保留統計表，以降低長 Window 的物件、記憶體與執行時間壓力。此修改仍待 Pine Editor compile 與實圖驗收。
+- V1 定位為單引擎細部檢查工具：當 V3 某個 symbol、timeframe 或結果值得研究時，再以 V1 檢查 SETUP、ARMED、ENTRY、SL/TP 與逐筆交易細節。
+- 長期統計 Window 固定規劃為 3 年／5 年／7 年（1095D／1825D／2555D），不開發 10 年選項。Essential 的 M30 chart 約 10,000 根 intraday bars：台股 3 年約 6,750 根 M30，通常可直接執行；5 年約 11,250 根、7 年約 15,750 根，可能超過圖表歷史上限，因此 5 年與 7 年 V3 應以 H4 chart 執行，再透過 `request.security_lower_tf()` 取得 M30/H1。上述 intrabar 數量仍低於 Essential 的 100,000 request 上限，但必須以實際 symbol 的資料起點、缺失 bars 與 V3 coverage 檢查確認完整性。
+- 近期策略開發主流程聚焦最近 3 年：選定多檔流動性與交易特性相近的台股，全部使用同一套規則與參數。V3 比較三引擎及跨股票一致性；V1 抽樣檢查好、中、差交易的 SETUP → ARMED → ENTRY → SL/TP 是否合理。規則修改後必須重跑完整股票池，不依單一股票建立專用參數。
+- V3 的 5 年／7 年結果保留作輔助穩健性觀察；目前不要求 V1 在 Essential 下完整繪製早期 M30 交易，也不以無法視覺稽核的早期交易直接驅動規則優化。
+
 - `smc-weekly-ob-fvg/assets/smc_weekly_ob_fvg_v1.pine`：目前圖表週期即為 Entry timeframe；在 H4、H1、M30 顯示該週期的詳細交易統計與訊號漏斗。
 - `smc-weekly-ob-fvg/assets/smc_weekly_ob_fvg_compare_v2.pine`：固定在 M30 圖表執行，並在同一張表比較 H4、H1、M30 的 SETUP、ARMED、交易數、TP1/TP2 命中率、Net R、Avg R 與 Profit Factor。
 - V2 目前不是跨圖表週期固定計算版本；切換到非 M30 圖表時只顯示 `USE M30 CHART`。

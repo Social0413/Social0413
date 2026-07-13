@@ -2,6 +2,10 @@
 
 ## 已知限制
 
+- V3 的 `FULL` 目前只檢查各引擎第一筆可用資料是否早於統計 Window 起點，尚未顯示實際起訖日期、warm-up 狀態或偵測 Window 中間的缺失 bars；`FULL` 不等同資料供應商逐根無缺漏保證。
+- Essential 的 M30 chart 約 10,000 根 intraday bars，無法保證直接顯示台股 5 年／7 年全部 M30 細節；V3 可在 H4 chart 以 lower-timeframe arrays 統計，但 V1 不一定能視覺重現早期 M30 交易。因此近期規則開發聚焦可完整檢查的最近三年。
+- V3 純統計模式仍保留部分不會被呼叫的舊繪圖函式與單引擎狀態程式；目前以固定 false 開關避免建立物件，尚未完成完整 dead-code 移除與執行效能量測。
+
 - V2 Compare 目前僅支援 M30 圖表。Pine 切換圖表週期會重新執行腳本；尚未完成以 M30 intrabar arrays 在 H1/H4 圖表重建完全相同統計。
 - 曾嘗試以 `request.security(..., "30", compareSnapshot())` 固定計算，但 Pine Editor 回報 `line.set_x2 cannot be used with any parameter of security()`；該路徑已移除，不能視為跨週期支援。
 - V2 保留 V1 的繪圖與單週期程式，再追加 Compare 引擎；雖然 V2 預設關閉單週期標籤、Trade Plan 與詳細表格，仍有額外計算與物件配額壓力，尚未完成長時間 Replay 壓力測試。

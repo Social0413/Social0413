@@ -1,5 +1,8 @@
 //@version=5
-indicator("CODEX SMC Cross-Timeframe Stats v3", overlay=true, max_boxes_count=500, max_lines_count=500, max_labels_count=200)
+indicator("CODEX SMC Cross-Timeframe Stats v3", overlay=true, max_boxes_count=1, max_lines_count=1, max_labels_count=1)
+
+// V3 is the batch research engine. It keeps numerical state only; use V1 for chart drawings and trade inspection.
+renderDetails = false
 
 htf = input.timeframe("W", "High timeframe")
 useWicks = input.bool(true, "Use full candle wick for OB range")
@@ -7,36 +10,36 @@ maxZones = input.int(40, "Maximum zones per type", minval=10, maxval=120)
 structureLookback = input.int(8, "OB structure lookback", minval=3, maxval=30)
 obSearchBack = input.int(8, "OB candle searchback", minval=1, maxval=30)
 minFvgPct = input.float(3.0, "Minimum FVG size (%)", minval=0.0, step=0.25)
-showOb = input.bool(true, "Show weekly OB")
-showFvg = input.bool(true, "Show weekly FVG")
-showMidline = input.bool(true, "Show zone midpoint")
+showOb = true
+showFvg = true
+showMidline = false
 stableReplayExtend = input.bool(true, "Stable replay extension")
-showChoch = input.bool(true, "Show D CHOCH")
-showMss = input.bool(true, "Show D MSS")
+showChoch = false
+showMss = false
 chochSwingLen = input.int(2, "D CHOCH swing length", minval=1, maxval=10)
 mssSwingLen = input.int(5, "D MSS swing length", minval=2, maxval=20)
 mssAtrLen = input.int(14, "D MSS ATR length", minval=1, maxval=100)
 mssBodyAtrMult = input.float(1.0, "D MSS body ATR multiplier", minval=0.0, step=0.1)
 maxStructureLines = input.int(120, "Maximum CHOCH/MSS lines", minval=20, maxval=300)
-showSetup = input.bool(false, "Show SETUP")
+showSetup = false
 maxSetupLabels = input.int(40, "Maximum SETUP labels", minval=5, maxval=40)
-showArmed = input.bool(false, "Show ARMED")
+showArmed = false
 armedSwingLen = input.int(3, "ARMED swing length", minval=1, maxval=10)
 armedAtrLen = input.int(14, "ARMED ATR length", minval=1, maxval=100)
 armedBodyAtrMult = input.float(1.0, "ARMED body ATR multiplier", minval=0.0, step=0.1)
 setupExpiryHours = input.int(24, "SETUP expiry hours", minval=1, maxval=720)
 maxArmedLabels = input.int(40, "Maximum ARMED labels", minval=5, maxval=40)
-showEntry = input.bool(false, "Show ENTRY")
+showEntry = false
 entryTimeframe = input.timeframe("240", "Entry timeframe", options=["240", "60", "30"])
 entryExpiryBars = input.int(0, "ENTRY retest expiry bars (0 = off)", minval=0, maxval=100)
 maxEntryLabels = input.int(40, "Maximum ENTRY labels", minval=5, maxval=40)
-showTradePlans = input.bool(false, "Show SL/TP trade plans")
+showTradePlans = false
 tradeTp1R = input.float(1.0, "Trade plan TP1 (R)", minval=0.25, step=0.25)
 tradeTp2R = input.float(2.0, "Trade plan TP2 (R)", minval=0.5, step=0.25)
 tradeTp1ExitPct = input.float(50.0, "TP1 exit size (%)", minval=0.0, maxval=100.0, step=5.0)
 maxTradePlans = input.int(20, "Maximum trade plans", minval=1, maxval=20)
-showTradeStats = input.bool(false, "Show single-timeframe statistics")
-statsLookbackDays = input.int(365, "Statistics lookback days", options=[90, 180, 365, 730])
+showTradeStats = false
+statsLookbackDays = input.int(1095, "Statistics lookback days", options=[1095, 1825, 2555])
 
 bullObColor = input.color(color.new(color.lime, 90), "Bullish OB fill")
 bullObBorder = input.color(color.new(color.lime, 20), "Bullish OB border")
@@ -381,11 +384,8 @@ addStructureLine(_dir, _text, _level, _lineColor, _leftTime, _rightTime) =>
 
 addOb(_dir, _leftTime, _top, _bottom) =>
     _mid = (_top + _bottom) / 2.0
-    _fill = _dir == 1 ? bullObColor : bearObColor
-    _border = _dir == 1 ? bullObBorder : bearObBorder
-    _extend = stableReplayExtend ? extend.right : extend.none
-    _box = box.new(_leftTime, _top, time, _bottom, xloc=xloc.bar_time, extend=_extend, bgcolor=_fill, border_color=_border, text="OB", text_color=_border, text_size=size.tiny)
-    _line = line.new(_leftTime, _mid, time, _mid, xloc=xloc.bar_time, extend=_extend, color=showMidline ? midColor : color.new(midColor, 100), style=line.style_dashed, width=1)
+    box _box = na
+    line _line = na
     array.push(obBoxes, _box)
     array.push(obMidLines, _line)
     array.push(obDirs, _dir)
@@ -408,11 +408,8 @@ obExists(_dir, _sourceTime) =>
 
 addFvg(_dir, _leftTime, _top, _bottom) =>
     _mid = (_top + _bottom) / 2.0
-    _fill = _dir == 1 ? bullFvgColor : bearFvgColor
-    _border = _dir == 1 ? color.new(color.yellow, 10) : color.new(color.olive, 30)
-    _extend = stableReplayExtend ? extend.right : extend.none
-    _box = box.new(_leftTime, _top, time, _bottom, xloc=xloc.bar_time, extend=_extend, bgcolor=_fill, border_color=_border, text="FVG", text_color=_border, text_size=size.tiny)
-    _line = line.new(_leftTime, _mid, time, _mid, xloc=xloc.bar_time, extend=_extend, color=showMidline ? midColor : color.new(midColor, 100), style=line.style_dotted, width=1)
+    box _box = na
+    line _line = na
     array.push(fvgBoxes, _box)
     array.push(fvgMidLines, _line)
     array.push(fvgDirs, _dir)
@@ -430,18 +427,7 @@ if array.size(obBoxes) > 0
             mid = array.get(obMids, i)
             broken = dir == 1 ? close < mid : close > mid
             if broken
-                bx = array.get(obBoxes, i)
-                ln = array.get(obMidLines, i)
-                box.set_extend(bx, extend.none)
-                box.set_right(bx, time)
-                line.set_extend(ln, extend.none)
-                line.set_x2(ln, time)
                 array.set(obActive, i, false)
-            else if not stableReplayExtend
-                bx = array.get(obBoxes, i)
-                ln = array.get(obMidLines, i)
-                box.set_right(bx, time + barMs)
-                line.set_x2(ln, time + barMs)
 
 if array.size(fvgBoxes) > 0
     for i = 0 to array.size(fvgBoxes) - 1
@@ -450,18 +436,7 @@ if array.size(fvgBoxes) > 0
             mid = array.get(fvgMids, i)
             broken = dir == 1 ? close < mid : close > mid
             if broken
-                bx = array.get(fvgBoxes, i)
-                ln = array.get(fvgMidLines, i)
-                box.set_extend(bx, extend.none)
-                box.set_right(bx, time)
-                line.set_extend(ln, extend.none)
-                line.set_x2(ln, time)
                 array.set(fvgActive, i, false)
-            else if not stableReplayExtend
-                bx = array.get(fvgBoxes, i)
-                ln = array.get(fvgMidLines, i)
-                box.set_right(bx, time + barMs)
-                line.set_x2(ln, time + barMs)
 
 if array.size(structureLines) > 0
     for i = 0 to array.size(structureLines) - 1
@@ -989,10 +964,11 @@ chartIsM30 = timeframe.in_seconds(timeframe.period) == 1800
 chartIsH1 = timeframe.in_seconds(timeframe.period) == 3600
 chartIsH4 = timeframe.in_seconds(timeframe.period) == 14400
 compareChartOk = chartIsM30 or chartIsH1 or chartIsH4
+longWindowChartOk = statsLookbackDays == 1095 ? compareChartOk : chartIsH4
 m30RequestTf = chartIsM30 ? "15" : "30"
 h1RequestTf = chartIsH4 ? "60" : "15"
-[m30Ts, m30Os, m30Hs, m30Ls, m30Cs, m30PHs, m30PLs, m30ATRs] = request.security_lower_tf(syminfo.tickerid, m30RequestTf, [time, open, high, low, close, ta.pivothigh(high, armedSwingLen, armedSwingLen), ta.pivotlow(low, armedSwingLen, armedSwingLen), ta.atr(armedAtrLen)])
-[h1Ts, h1Os, h1Hs, h1Ls, h1Cs, h1PHs, h1PLs, h1ATRs] = request.security_lower_tf(syminfo.tickerid, h1RequestTf, [time, open, high, low, close, ta.pivothigh(high, armedSwingLen, armedSwingLen), ta.pivotlow(low, armedSwingLen, armedSwingLen), ta.atr(armedAtrLen)])
+[m30Ts, m30Os, m30Hs, m30Ls, m30Cs, m30PHs, m30PLs, m30ATRs] = request.security_lower_tf(syminfo.tickerid, m30RequestTf, [time, open, high, low, close, ta.pivothigh(high, armedSwingLen, armedSwingLen), ta.pivotlow(low, armedSwingLen, armedSwingLen), ta.atr(armedAtrLen)], calc_bars_count=100000)
+[h1Ts, h1Os, h1Hs, h1Ls, h1Cs, h1PHs, h1PLs, h1ATRs] = request.security_lower_tf(syminfo.tickerid, h1RequestTf, [time, open, high, low, close, ta.pivothigh(high, armedSwingLen, armedSwingLen), ta.pivotlow(low, armedSwingLen, armedSwingLen), ta.atr(armedAtrLen)], calc_bars_count=100000)
 chartM30PH = ta.pivothigh(high, armedSwingLen, armedSwingLen)
 chartM30PL = ta.pivotlow(low, armedSwingLen, armedSwingLen)
 chartM30ATR = ta.atr(armedAtrLen)
@@ -1082,6 +1058,8 @@ h4ATR = request.security(syminfo.tickerid, "240", ta.atr(armedAtrLen), lookahead
 
 var int cmpM30Step = 0
 var int cmpFirstM30Time = na
+var int cmpFirstH1Time = na
+var int cmpFirstH4Time = na
 var string cmpM30LastTouch = ""
 var int cmpM30SetupDir = 0
 var int cmpM30SetupStep = na
@@ -1239,6 +1217,7 @@ if cmpH1Count > 0
     for cmpH1Index = 0 to cmpH1Count - 1
         cmpH1Step += 1
         cmpH1T = chartIsH4 ? array.get(h1Ts, cmpH1Index) : time("60")
+        cmpFirstH1Time := na(cmpFirstH1Time) ? cmpH1T : cmpFirstH1Time
         cmpH1O = chartIsH4 ? array.get(h1Os, cmpH1Index) : h1O
         cmpH1H = chartIsH4 ? array.get(h1Hs, cmpH1Index) : h1H
         cmpH1L = chartIsH4 ? array.get(h1Ls, cmpH1Index) : h1L
@@ -1358,6 +1337,7 @@ var int[] cmpH4TradeStatuses = array.new_int()
 cmpH4Process = compareChartOk and h4CloseEvent and barstate.isconfirmed
 if cmpH4Process
     cmpH4Step += 1
+    cmpFirstH4Time := na(cmpFirstH4Time) ? time : cmpFirstH4Time
     cmpH4O = h4O
     cmpH4H = h4H
     cmpH4L = h4L
@@ -1465,9 +1445,12 @@ compareRow(_row, _name, _setups, _armed, _total, _wins, _tp1Losses, _directLosse
 
 if barstate.islast
     table.clear(compareTable, 0, 0, 8, 4)
-    compareCoverageOk = not na(cmpFirstM30Time) and cmpFirstM30Time <= statsWindowStartTime
-    compareHeader = not compareChartOk ? "USE M30/H1/H4" : compareCoverageOk ? "3TF V3" : "3TF PARTIAL"
-    table.cell(compareTable, 0, 0, compareHeader, text_color=color.white, bgcolor=compareChartOk and compareCoverageOk ? color.new(color.navy, 10) : color.new(color.orange, 10))
+    m30CoverageOk = not na(cmpFirstM30Time) and cmpFirstM30Time <= statsWindowStartTime
+    h1CoverageOk = not na(cmpFirstH1Time) and cmpFirstH1Time <= statsWindowStartTime
+    h4CoverageOk = not na(cmpFirstH4Time) and cmpFirstH4Time <= statsWindowStartTime
+    compareCoverageOk = m30CoverageOk and h1CoverageOk and h4CoverageOk
+    compareHeader = not longWindowChartOk ? (statsLookbackDays == 1095 ? "USE M30/H1/H4" : "USE H4 CHART") : compareCoverageOk ? "3TF V3 FULL" : "3TF PARTIAL"
+    table.cell(compareTable, 0, 0, compareHeader, text_color=color.white, bgcolor=longWindowChartOk and compareCoverageOk ? color.new(color.navy, 10) : color.new(color.orange, 10))
     compareCell(1, 0, "SETUP", color.silver)
     compareCell(2, 0, "ARMED", color.silver)
     compareCell(3, 0, "TRADES", color.silver)
@@ -1476,10 +1459,10 @@ if barstate.islast
     compareCell(6, 0, "NET R", color.silver)
     compareCell(7, 0, "AVG R", color.silver)
     compareCell(8, 0, "PF", color.silver)
-    if compareChartOk
-        compareRow(1, "H4", cmpH4Setups, cmpH4Armed, cmpH4Total, cmpH4Wins, cmpH4Tp1Losses, cmpH4DirectLosses, cmpH4GrossWin, cmpH4GrossLoss, cmpH4Net)
-        compareRow(2, "H1", cmpH1Setups, cmpH1Armed, cmpH1Total, cmpH1Wins, cmpH1Tp1Losses, cmpH1DirectLosses, cmpH1GrossWin, cmpH1GrossLoss, cmpH1Net)
-        compareRow(3, "M30", cmpM30Setups, cmpM30Armed, cmpM30Total, cmpM30Wins, cmpM30Tp1Losses, cmpM30DirectLosses, cmpM30GrossWin, cmpM30GrossLoss, cmpM30Net)
+    if longWindowChartOk
+        compareRow(1, "H4 " + (h4CoverageOk ? "FULL" : "PART"), cmpH4Setups, cmpH4Armed, cmpH4Total, cmpH4Wins, cmpH4Tp1Losses, cmpH4DirectLosses, cmpH4GrossWin, cmpH4GrossLoss, cmpH4Net)
+        compareRow(2, "H1 " + (h1CoverageOk ? "FULL" : "PART"), cmpH1Setups, cmpH1Armed, cmpH1Total, cmpH1Wins, cmpH1Tp1Losses, cmpH1DirectLosses, cmpH1GrossWin, cmpH1GrossLoss, cmpH1Net)
+        compareRow(3, "M30 " + (m30CoverageOk ? "FULL" : "PART"), cmpM30Setups, cmpM30Armed, cmpM30Total, cmpM30Wins, cmpM30Tp1Losses, cmpM30DirectLosses, cmpM30GrossWin, cmpM30GrossLoss, cmpM30Net)
         table.cell(compareTable, 0, 4, "Window", text_color=color.silver)
         table.cell(compareTable, 1, 4, str.tostring(statsLookbackDays) + "D", text_color=color.white)
         table.cell(compareTable, 2, 4, "Expiry", text_color=color.silver)

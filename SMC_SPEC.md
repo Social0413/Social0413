@@ -93,6 +93,9 @@
 - V3 Cross-Timeframe Stats 以完成的 M30 bars 作為唯一基礎資料流；M30 圖表直接逐 bar 計算，H1/H4 圖表使用 `request.security_lower_tf()` 取得每根圖表 K 棒內依時間排序的 M30 intrabars 並逐筆回放。
 - V3 必須由 M30 基礎資料流分別驅動 M30、完成 H1 K、完成 H4 K 三套獨立 SETUP/ARMED/ENTRY 與交易狀態，表格固定顯示 M30、H1、H4 三列。圖表週期不得改變任何一列結果；非 M30/H1/H4 圖表顯示切換提示，不宣告支援。
 - V3 只納入已完成的 M30 bars；即時尚未完成的 M30 bar 不得提前計入。若 TradingView intrabar 歷史覆蓋不足，表格必須顯示資料覆蓋警告，不能把部分歷史結果標示為完整同步。
+- V3 長期研究 Window 固定為 1095D、1825D、2555D；以 TradingView Essential 與台股為設計基準。1825D／2555D 必須在 H4 chart 執行，1095D 可在 M30/H1/H4 執行。
+- V3 為純統計版本，不建立 Weekly zone、CHOCH/MSS、SETUP/ARMED/ENTRY 或 Trade Plan 的 box、line、label；上述規則仍以純數值狀態驅動 M30/H1/H4 三套統計。逐筆視覺檢查使用 V1。
+- V3 必須分別檢查 M30、H1、H4 的第一筆可用資料是否涵蓋 Window 起點；三列全部通過才顯示 `3TF V3 FULL`，否則顯示 `3TF PARTIAL` 並在列名標記 `PART`。
 
 ## Trade Plan（進場開發第四階段）
 
