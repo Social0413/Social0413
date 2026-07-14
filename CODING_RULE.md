@@ -32,7 +32,8 @@
 
 1. 將本對話的重要決策、功能規格與已知問題整理進 Repository。
 2. 更新 `CHANGELOG.md`；若有完成或新增的待辦，同步更新 `TODO.md`。
-3. 執行必要檢查後 commit，並 push 到 GitHub。
+3. 執行必要檢查；只有使用者明確要求時才 commit／push。
 4. 提供簡短接手摘要，讓下一個新對話只依 Repository 即可繼續。
 5. 若對話使用圖表截圖發現視覺問題或完成實圖驗收，挑選少量關鍵圖片存入 `docs/images/<topic-date>/`，並由 `TEST_RESULT.md` 連結；不保存重複角度或可完全由文字取代的中間截圖。
 6. 圖片用來保留視覺脈絡，參數、規則、逐欄數據與通過／未通過結論仍必須以 Markdown 文字記錄，不能只留下圖片。
+7. 依 `CLOSEOUT_CHECKLIST.md` 記錄整段對話中的錯誤假設、失敗修改、rollback、證據與學習。

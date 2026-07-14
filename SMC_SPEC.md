@@ -1,22 +1,22 @@
 # SMC 功能規格
 
+> 狀態說明：本文件同時包含已驗證規格與 SETUP 目標規格。目前可驗證基準為 V1 `V1-PZ-01 / PZ OFF`、V4 `V4-PZ-02 / PZ OFF`；每個 Weekly Zone 的獨立 SETUP／ARMED／ENTRY 流程仍是待完成目標，不是已驗證現況。
+
 ## V4 Top-down Model Research Engine（開發版）
 
 - V4 必須是獨立 Pine 檔，不覆蓋 V3；V3 保留作為同一 Weekly context 下的 H4/H1/M30 比較基準。
-- V4 固定使用 `1095D`（3 年）統計 Window，建議載入於 H4 chart，以 H4 主時間軸搭配 lower-timeframe arrays 重建 H1/M30。
-- V4 比較三套完整模型，而不是只替換 Entry timeframe：
-  - `SWING`：Weekly OB/FVG zone → Daily MSS bias → H4 execution。
-  - `INTRADAY`：Daily OB/FVG zone → H4 MSS bias → H1 execution。
-  - `FAST`：H4 OB/FVG zone → H1 MSS bias → M30 execution。
-- 每套模型必須擁有獨立的 zone、bias、SETUP、ARMED、ENTRY 與 trade state，不得共用 active SETUP/ARMED。
-- Weekly、Daily、H4 Zone Engine 均採用與 V1 相同的多 Zone arrays：OB/FVG 每類最多 40 個、OB source 去重、OB 結構突破 candle 必須通過來源時框 ATR(14) × 1.0 displacement、OB 固定使用 Hybrid Range；FVG 使用標準三根完成 K 的 wick-to-wick gap，中間 candle 必須為同方向 ATR(14) × 1.0 displacement。所有 active zones 共同參與最近 midpoint touch 選擇，並由 execution bar close 穿越 midpoint 失效。
-- SWING 的 Daily MSS bias 使用與 V1 H4 chart 相同的完成 Daily candle 聚合、confirmed pivot、最近 `ATR length` 根 True Range 平均、trend-reversal MSS 更新規則與固定結構失效位，作為 V1↔V4 對答案基準。
-- 相同 symbol、H4 chart、1095D、參數與資料覆蓋下，驗收對應為：V1 `SETUP` = V4 SWING `SETUP`、V1 `ARMED` = V4 SWING `ARMED`、V1 `Total` = V4 SWING `Total`，且 TP2 Rate、Net R、Profit Factor、OB/FVG 與 replacement 分類都必須一致；任何差異都視為待追查，不以模型差異解釋。
+- V4 固定使用 `1095D`（3 年）統計 Window，並固定載入 H1 chart；PRIMARY 直接使用完成的圖表 H1 bars，不透過 H4 data carrier 或 lower-timeframe arrays。
+- V4 目前以 `PRIMARY W-D-H1` 作為台股正式核對模型：Weekly OB/FVG zone → Daily MSS bias → H1 execution。
+- 原 `INTRADAY D-H4-H1` 與 `FAST H4-H1-M30` 暫時保留為 `LEGACY` 統計列，不參與本輪策略判斷或 V1 一致性驗收；是否重構於 PRIMARY 驗證完成後再決定。
+- PRIMARY 內每個 Weekly zone 必須擁有獨立的 SETUP、ARMED、ENTRY state；不得以新的 zone touch 清除其他 zone 的候選。
+- Weekly Zone Engine 採用與 V1 相同的多 Zone arrays：OB/FVG 每類最多 40 個、OB source 去重、OB 結構突破 candle 必須通過來源時框 ATR(14) × 1.0 displacement、OB 固定使用 Hybrid Range；FVG 使用標準三根完成 K 的 wick-to-wick gap，中間 candle 必須為同方向 ATR(14) × 1.0 displacement。每個 active zone 獨立判斷 H1 touch，並由 H1 close 穿越 midpoint 失效。
+- PRIMARY 的 Daily MSS bias 使用與 V1 H1 chart 相同的完成 Daily candle 聚合、confirmed pivot、最近 `ATR length` 根 True Range 平均、trend-reversal MSS 更新規則與固定結構失效位；SETUP、ARMED 與 ENTRY 則逐根回放完成 H1 bars。
+- 相同 symbol、H1 chart、1095D、參數與資料覆蓋下，驗收對應為：V1 `SETUP` = V4 PRIMARY `SETUP`、V1 `ARMED` = V4 PRIMARY `ARMED`、V1 `Total` = V4 PRIMARY `Total`，且 TP2 Rate、Net R、Profit Factor、OB/FVG 與 replacement 分類都必須一致；任何差異都視為待追查。
 - V4 使用與 V1 相同的統計名稱：SETUP replaced、ARMED replaced、OB SETUP、FVG SETUP、Same-zone SETUP、Changed-zone SETUP。`UNIQUE SETUP`、`U>A`、`A>T` 是 V4 額外研究欄位，沒有 V1 對應欄位。
 - 完成的高週期 context 才能供低週期模型使用；不得將同一高週期 candle 的最終值回填至其內部較早 intrabars。
 - Funnel 分開顯示 `Raw SETUP`、`Unique SETUP`、`Replaced`、`ARMED`、`TRADES`；轉換率使用 `Unique SETUP` 作為分母。
-- `Unique SETUP` 定義為沒有 active SETUP 時建立的新 SETUP episode；active SETUP 期間的新 zone touch 只計入 `Raw SETUP` 與 `Replaced`。若新 SETUP 取代 active ARMED，該 SETUP 是新的 episode，並同時計入 replacement。
-- V4 已完成 Pine Editor compile 與 H4／1095D 實圖驗證；2105、1504、2324 的 `SWING W-D-H4` 所有 V1 可比欄位完全一致。INTRADAY 與 FAST 尚未與各自的完整繪圖基準逐筆核對。
+- `Unique SETUP` 定義為該 zone 沒有未完成流程時建立的新 episode；同 zone re-entry 替換尚未 ARMED 的流程時另計入 `SETUP replaced`。已 ARMED 的同 zone touch 不建立新 SETUP，也不計 replacement。
+- per-zone 改寫前的 H1 直接執行版曾以 2105、1504、2324 核對 V1 並一致；目前 per-zone engine 尚未驗證，不能沿用該結論宣告現行 `FULL` 通過。兩個 LEGACY 模型仍停用。
 
 本文件是 `smc-weekly-ob-fvg/assets/smc_weekly_ob_fvg_v1.pine` 的現行行為基準。若文件與程式不一致，以待確認的需求為準，不應直接把差異視為新規格。
 
@@ -59,6 +59,7 @@
 - 除結構突破與 trend 反轉外，突破 candle body 必須符合 ATR displacement filter。
 - ATR length 預設 14，body multiplier 預設 1.0；設為 0 可停用 displacement 門檻。
 - 線段範圍同 CHOCH，但 MSS 保留 `MSS` 文字；Bullish 使用亮綠、Bearish 使用亮紅。
+- Daily CHOCH/MSS 線與文字只在 Daily chart 繪製；H4/H1/M30 仍以完成的 Daily candles 更新相同結構狀態與 SETUP Bias，但不顯示 Daily 結構物件，避免被誤認為目前圖表時框訊號。
 
 ## 顯示與資源限制
 
@@ -76,8 +77,11 @@
 - Bullish bias 與 bullish zone 同時成立時顯示綠色 `B SETUP`；Bearish bias 與 bearish zone 同時成立時顯示紅色 `S SETUP`。
 - 同一次連續停留在 zone 內只顯示一次；離開後再次進入可重新顯示。
 - 每個確切 Weekly zone 只保留最新一個尚未 ARMED 的 SETUP；重新進入同一 zone 時刪除該 zone 舊的等待中標籤並建立新標籤。不同 zone 的 SETUP 互不刪除。
-- OB/FVG 重疊時，SETUP 歸屬於 midpoint 距目前收盤價最近的有效 zone。
-- 價格持續與多個重疊 zone 接觸時，若依上述規則選出的 zone key 改變，視為進入另一個 zone，可產生新的 SETUP。
+- 每個有效 Weekly zone 都有獨立的 SETUP → ARMED → ENTRY 流程；同一根 H1 可同時為多個重疊 OB/FVG 建立 SETUP，後續也可各自形成 ARMED、ENTRY 與 Trade Plan。
+- 每個 zone 同時最多一條未完成流程。連續接觸不重複建立；至少一根 H1 完全沒有接觸該 zone，之後再次進入才算 re-entry。
+- Re-entry 只替換仍停在 SETUP 的同 zone 流程；若該 zone 已 ARMED，新的 touch 不建立 SETUP，也不取消 ARMED。
+- SETUP expiry 固定預設 15 根 H1，約三個台股交易日；到期只取消尚未 ARMED 的流程。
+- Zone 失效時刪除該 zone 尚未完成的 SETUP／ARMED 標籤，並取消等待 SETUP、ARMED 或 ENTRY 的候選；已完成 ENTRY／Trade Plan 的歷史與統計保留。
 - SETUP 標籤最多保留最新 40 個，可由 `Maximum SETUP labels` 向下調整；超限時刪除最舊標籤，不影響訊號判定。
 
 ## ARMED（進場開發第二階段）
@@ -104,16 +108,16 @@
 
 ## 交易統計與週期比較
 
-- V1 不提供 `Entry timeframe` 選項；目前圖表週期即為 Entry timeframe。H4、H1、M30 圖表分別直接計算該週期 SETUP/ARMED/ENTRY，其他圖表不建立新候選並顯示切換提示。
+- V1 不提供 `Entry timeframe` 選項，正式研究入口固定為 H1 chart；只有 H1 直接計算 SETUP/ARMED/ENTRY，其他圖表不建立新候選並顯示 `Use H1 chart`。
 - 統計期間由 `Statistics lookback days` 控制，可選 90、180、365、730 天；期間開始前不建立候選交易。
-- `SETUP expiry hours` 預設 24 小時，依 Entry timeframe 換算 bars；H4/H1/M30 分別為 6/24/48 bars。
+- `SETUP expiry H1 bars` 預設 15；只適用於尚未 ARMED 的 SETUP。
 - 預設 TP1 平倉比例為 50%；預設 TP1=1R、TP2=2R 時，WIN TP2=+1.5R、TP1→LOSS=0R、Direct Loss=-1R。
 - 同一根 K 同時觸及 SL/TP 時維持 SL 優先。
 - V2 只在 M30 圖表計算；內部分別以 M30、完成 H1 K、完成 H4 K 維護三套獨立 SETUP/ARMED/ENTRY 與交易結果，表格僅做比較顯示。
 - V3 Cross-Timeframe Stats 以完成的 M30 bars 作為唯一基礎資料流；M30 圖表直接逐 bar 計算，H1/H4 圖表使用 `request.security_lower_tf()` 取得每根圖表 K 棒內依時間排序的 M30 intrabars 並逐筆回放。
 - V3 必須由 M30 基礎資料流分別驅動 M30、完成 H1 K、完成 H4 K 三套獨立 SETUP/ARMED/ENTRY 與交易狀態，表格固定顯示 M30、H1、H4 三列。圖表週期不得改變任何一列結果；非 M30/H1/H4 圖表顯示切換提示，不宣告支援。
 - V3 只納入已完成的 M30 bars；即時尚未完成的 M30 bar 不得提前計入。若 TradingView intrabar 歷史覆蓋不足，表格必須顯示資料覆蓋警告，不能把部分歷史結果標示為完整同步。
-- V1、V3 與 V4 現行統計 Window 均強制固定為 1095D；V1/V3 不再顯示 Window 選項。V3 可在 M30/H1/H4 執行，V4 固定使用 H4 chart。
+- V1、V3 與 V4 現行統計 Window 均強制固定為 1095D；V1/V3 不再顯示 Window 選項。V3 可在 M30/H1/H4 執行，V1 與 V4 PRIMARY 固定使用 H1 chart。
 - V3 為純統計版本，不建立 Weekly zone、CHOCH/MSS、SETUP/ARMED/ENTRY 或 Trade Plan 的 box、line、label；上述規則仍以純數值狀態驅動 M30/H1/H4 三套統計。逐筆視覺檢查使用 V1。
 - V3 必須分別檢查 M30、H1、H4 的第一筆可用資料是否涵蓋 Window 起點；三列全部通過才顯示 `3TF V3 FULL`，否則顯示 `3TF PARTIAL` 並在列名標記 `PART`。
 

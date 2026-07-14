@@ -1,5 +1,44 @@
 # Test Results
 
+## 2026-07-14 Per-zone SETUP flows（驗證失敗，待定位）
+
+- V1 與 V4 PRIMARY 曾加入依 Weekly zone key 保存多候選平行 arrays 的草稿；這是目標實作，不代表 TradingView 已可正常執行。
+- SETUP expiry 預設改為 15 根 H1；re-entry 只替換同 zone 尚在 SETUP 的流程，已 ARMED 不受新 touch 影響。
+- Zone 失效或其他候選失效會刪除尚未完成的 SETUP／ARMED；完成 ENTRY 後的 Trade Plan 與統計保留。
+- Repository 靜態內容檢查與 `git diff --check` 已執行；仍需 TradingView Pine Editor compile，以及 2105、1504、2324 的 V1/V4 逐欄核對。
+- 第一輪 V1 在 1504 H1 沒有顯示任何物件或表格，TradingView 未提供可見錯誤；限制 touch-state 數量後仍未恢復。
+- 第二輪改用 Zone 同索引 touch state 與較少搜尋後，H1 `FULL` 仍完全不顯示。這證明先前的效能根因只是推測，不是已確認結論；相關 PZ-02/PZ-03 嘗試已撤回。
+
+## 2026-07-14 V4 H1 direct execution
+
+- V4 PRIMARY 已由 H4 data carrier + H1 arrays 改為直接在 H1 chart 使用完成圖表 bars；V1 與 V4 現可設在同一 H1 畫面。
+- 兩個 LEGACY 模型已停止計算，表格只顯示 `OFF`；本次沒有重構其 H4 context。
+- Repository 靜態檢查與 `git diff --check` 已通過：V4 僅允許 H1、PRIMARY 直接使用圖表 OHLC/pivot/ATR、lower-timeframe requests 與 H4 gate 均已移除。
+- 使用者已在同一張 H1 chart 同時顯示 V1 與 V4，並完成 2105、1504、2324 重新核對；三個標的的所有 V1 可比欄位均與 V4 PRIMARY 完全一致。
+- 2105：SETUP 8、SETUP replaced 0、ARMED replaced 0、ARMED 2、Total 1、TP2 Rate 0%、Net R -1R、Profit Factor 0、OB/FVG 4/4、Same/Changed 1/7。
+- 1504：SETUP 20、SETUP replaced 10、ARMED replaced 1、ARMED 2、Total 1、TP2 Rate 0%、Net R -1R、Profit Factor 0、OB/FVG 6/14、Same/Changed 11/9。
+- 2324：SETUP 8、SETUP replaced 2、ARMED replaced 0、ARMED 1、Total 1、TP2 Rate 0%、Net R -1R、Profit Factor 0、OB/FVG 2/6、Same/Changed 3/5。
+- 結果：V4 H1 直接執行版成功執行並通過三標的一致性驗收；V1/V4 現可在同一 H1 畫面直接比較。LEGACY OFF 不在驗收範圍內。
+
+## 2026-07-14 W-D-H1 primary migration
+
+- V1 已限制為只在 H1 chart 建立 SETUP／ARMED／ENTRY；其他 chart 顯示 `Use H1 chart`。
+- V4 第一列已由 H4 execution 改為逐根回放 H1 arrays 的 `PRIMARY W-D-H1`；H4 chart 僅作 data carrier。另兩列標記為 LEGACY，不列入本輪一致性結論。
+- Repository 靜態檢查與 `git diff --check` 已通過；確認 V1 只允許 H1、V4 PRIMARY 使用 H1 arrays、舊 H4 SWING 呼叫已移除、PRIMARY 的 24 小時 expiry 換算為 24 根 H1。TradingView Pine Editor compile 及 2105、1504、2324 的逐欄一致性尚未驗證。
+- 使用者已在 TradingView 成功載入新版 V1 與 V4；2105／1095D 的 V1 H1 與 V4 H4 data-carrier `PRIMARY W-D-H1` 完全一致：SETUP 8、SETUP replaced 0、ARMED replaced 0、ARMED 2、Total 1、TP2 Rate 0%、Net R -1R、Profit Factor 0、OB SETUP 4、FVG SETUP 4、Same-zone SETUP 1、Changed-zone SETUP 7。V4 額外欄位為 UNIQUE SETUP 8、U>A 25%、A>T 50%。
+- 2105 畫面亦確認 V1 在 H4 顯示 `Use H1 chart`，而 V4 在 H1 顯示 `USE H4 CHART`，兩支程式的正式執行入口提示正確。
+- 2324／1095D 的 V1 H1 與 V4 `PRIMARY W-D-H1` 完全一致：SETUP 8、SETUP replaced 2、ARMED replaced 0、ARMED 1、Total 1、TP2 Rate 0%、Net R -1R、Profit Factor 0、OB SETUP 2、FVG SETUP 6、Same-zone SETUP 3、Changed-zone SETUP 5。V4 額外欄位為 UNIQUE SETUP 6、U>A 16.7%、A>T 100%。
+- 2324 的 V1 詳細 funnel 另顯示 Valid ENTRY 1、Direct Loss 1、SETUP bias flip 1、SETUP zone invalid 5，與上述 PRIMARY 統計流程相符。
+- 1504／1095D 的 V1 H1 與 V4 `PRIMARY W-D-H1` 完全一致：SETUP 20、SETUP replaced 10、ARMED replaced 1、ARMED 2、Total 1、TP2 Rate 0%、Net R -1R、Profit Factor 0、OB SETUP 6、FVG SETUP 14、Same-zone SETUP 11、Changed-zone SETUP 9。V4 額外欄位為 UNIQUE SETUP 10、U>A 20%、A>T 50%。
+- 1504 的 V1 詳細 funnel另顯示 Valid ENTRY 1、Direct Loss 1、SETUP bias flip 2、SETUP zone invalid 6，與上述 PRIMARY 統計流程相符。
+- 結果：新版 V1 與 V4 均成功在 TradingView 執行；2105、1504、2324 的所有 V1 可比欄位均與 V4 `PRIMARY W-D-H1` 一致。本輪 W-D-H1 遷移與一致性驗收通過；兩列 LEGACY 不在結論範圍內。
+
+## 2026-07-14 Daily structure display scope
+
+- V1 已停止在 H4/H1/M30 繪製聚合 Daily CHOCH/MSS 線與文字；intraday 聚合、Daily Bias 更新及 SETUP 判定保留不變。
+- 已完成 Repository 靜態檢查；使用者提供的 TWSE:2324 TradingView 截圖確認 Daily chart 仍正常顯示 Daily MSS。
+- H4 chart 不再顯示 Daily CHOCH/MSS，以及修改前後 H4 SETUP 統計一致性，仍需以修改後畫面／數據獨立確認。
+
 ## Weekly Zone 視覺證據（2026-07-13）
 
 - 修改前難以解釋的寬大／重疊 OB：[ob-before.png](docs/images/weekly-zone-2026-07-13/ob-before.png)
@@ -131,3 +170,35 @@
 - 1504 / H4 / 1095D: V1 and V4 SWING both report SETUP 62, SETUP replaced 21, ARMED replaced 0, ARMED 5, Total 4, TP2 Rate 25%, Net R -0.5R, Profit Factor 0.75, OB SETUP 35, FVG SETUP 27, Same-zone SETUP 35 and Changed-zone SETUP 27.
 - 2324 / H4 / 1095D: V1 and V4 SWING both report SETUP 45, SETUP replaced 20, ARMED replaced 1, ARMED 1, Total 0, OB SETUP 22, FVG SETUP 23, Same-zone SETUP 27 and Changed-zone SETUP 18.
 - Result: all V1-comparable fields match in all three validation symbols. V4-only UNIQUE SETUP, U>A and A>T fields are additional diagnostics and have no V1 counterpart.
+
+## 2026-07-14 per-zone H1 diagnostic
+
+- V1 per-zone build showed Weekly zones and the unsupported table on H4, but rendered nothing on H1; TradingView showed no visible error text.
+- Added visible build IDs: `V1-PZ-01` and `V4-PZ-01`.
+- V1 now has `Per-zone engine diagnostic`: `OFF` renders without the new engine, `TOUCH` runs zone touch/SETUP creation only, and `FULL` also runs ARMED/ENTRY processing.
+- First retest: use H1 with `OFF`. If visible, test `TOUCH`, then `FULL` to isolate the failing stage.
+- H1 retest confirmed V1 `V1-PZ-01 / PZ OFF` renders zones and its stats table. Therefore the V1 blank output is inside the per-zone engine, not the base H1/Weekly-zone path.
+- V4 `V4-PZ-01` rendered its unsupported prompt on H4 but disappeared on H1. Added `V4-PZ-02` with its per-zone engine defaulted to `OFF` so both base tables can first be verified together on H1.
+- The attempted `V1-PZ-02 / V4-PZ-03` optimization did not restore H1 `FULL` execution and was rolled back; it must not be treated as a validated fix.
+
+### 2026-07-14 穩定基準驗證
+
+- `1504 / H1`、`2105 / H1`、`2324 / H1`：V1 `V1-PZ-01 / PZ OFF` 與 V4 `V4-PZ-02 / PZ OFF` 均可同時正常顯示。
+- `1504 / Daily`：V1 的 Weekly Zone 與 Daily MSS 正常顯示；V1/V4 均顯示應使用 H1 的提示。
+- 結論：H1 判斷、Weekly Zone、Daily MSS、表格與兩個指標同時載入均不是根因；問題已縮小到 per-zone SETUP engine。
+
+### 本次除錯教訓
+
+- 不可把靜態 code review 的推測直接當成已確認根因。
+- 不可在 V1 尚未單獨通過前，同時修改 V1 與 V4 並預設啟用 `FULL`。
+- `OFF` 能顯示只證明基礎路徑正常，不代表 per-zone 功能完成。
+- 每次測試必須記錄版號、symbol、timeframe、diagnostic mode 與畫面結果。
+- 後續必須依序驗證 V1 `OFF -> TOUCH -> FULL`；V1 穩定後才將相同核心移植到 V4。
+
+### 2026-07-14 正式收尾
+
+- 程式版號確認：V1 `V1-PZ-01`、V4 `V4-PZ-02`。
+- 穩定模式確認：兩者均預設 `PZ OFF`；這是可顯示的診斷基準，不代表 per-zone 功能完成。
+- Repository 文件已重新分工並修正互相矛盾的完成狀態；所有 Markdown 相對連結檢查通過。
+- Repository 靜態檢查 `git diff --check` 通過；本機沒有 Pine compiler，因此沒有新增 TradingView compile 通過宣告。
+- 下一個對話只處理 V1 `TOUCH` 驗證，不同步修改 V4。

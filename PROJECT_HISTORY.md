@@ -1,5 +1,15 @@
 # TradingView SMC Replay Toolkit - Development History
 
+## 2026-07-14 - Per-zone engine rollback and debugging discipline
+
+Per-zone SETUP/ARMED/ENTRY 同時加入 V1 與 V4 後，兩個指標在 H1 出現完全不顯示的問題。第一次處理錯誤地把重複搜尋與 touch-state 結構視為已確認根因，建立 `V1-PZ-02 / V4-PZ-03` 並預設啟用 `FULL`；TradingView 驗證證明問題仍存在，因此該嘗試已撤回。
+
+目前回到可驗證基準：V1 `V1-PZ-01 / PZ OFF`、V4 `V4-PZ-02 / PZ OFF`。1504、2105、2324 的 H1 均確認兩者可以同時顯示。後續先只測 V1 `TOUCH`，再測 V1 `FULL`；找出確切失敗階段並完成 V1 後，才同步 V4。版號與 diagnostic mode 必須保留在表格標題，避免截圖與程式版本無法對應。
+
+本次事件也建立固定收尾規則：每段開發對話結束前，必須記錄錯誤假設、失敗修改、rollback、驗證證據與可重用教訓，並更新對應 MD。標準流程見 `CLOSEOUT_CHECKLIST.md`。
+
+正式收尾時進一步整理全部 Repository MD：README 成為現況與閱讀入口，TODO 只保留可執行工作，Known Bugs 只保留現行問題，Roadmap 只保留中長期方向；Spec、Design、Changelog、Test 明確區分 per-zone 目標、草稿與已驗證基準。
+
 > 本文件保留開發歷程；現行可執行規格請以 [SMC_SPEC.md](SMC_SPEC.md) 為準，設計決策見 [DESIGN.md](DESIGN.md)，未驗證事項見 [TEST_RESULT.md](TEST_RESULT.md) 與 [KNOWN_BUGS.md](KNOWN_BUGS.md)。
 
 本文記錄目前專案的發展過程與重要決策。

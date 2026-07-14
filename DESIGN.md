@@ -1,5 +1,7 @@
 # 設計說明
 
+> 目前狀態：第 1～5 項為穩定基礎；第 6～8 項是 per-zone 目標架構，程式雖有草稿但 H1 `FULL` 尚未通過，不能視為完成設計。
+
 ## 目標
 
 本專案把高週期 SMC 區域與 Daily 結構事件呈現在 TradingView Daily、H4、M15 等圖表，並優先維持 Bar Replay 的可見性與穩定性。
@@ -13,9 +15,9 @@
    FVG 使用三根完成來源時框 candles 的標準 wick-to-wick gap，不設最小 gap 寬度；中間 candle 必須為同方向且 body 至少為 Wilder ATR(14) × 1.0。
 4. CHOCH/MSS 各自維護 pivot、trend 與物件 arrays，事件成立時建立固定線段及透明文字 box。
 5. 超過使用者設定上限時，從 arrays 前端刪除最舊物件。
-6. SETUP 使用最新 Daily MSS bias 與目前 K 棒對有效 Weekly zone 的重疊狀態；重疊狀態由 false 轉為 true 時顯示一次。
-   SETUP label 與 zone key 使用平行 arrays；同 key 新訊號先刪除仍在等待的舊 label 再移到 arrays 尾端。ARMED 成立時將 key 改為 archived key，使完成流程的 SETUP 不會被後續同 zone 訊號刪除。
-7. ARMED 保存 SETUP 方向、來源 zone、起始 bar 與待突破 pivot；zone 失效、bias 反轉、逾期或突破成立時清除狀態。
+6. SETUP 使用最新 Daily MSS bias 與 H1 對每個有效 Weekly zone 的獨立重疊狀態；每個 zone 的 false → true 分別產生一次訊號。
+   每個 zone 以平行 arrays 保存 stage、SETUP/ARMED bar、break/retest/protect level。Re-entry 只替換同 zone 尚在 SETUP 的流程；已 ARMED 不受新 touch 影響。
+7. 每個 ARMED 分別保存方向、來源 zone、起始 bar、突破位及保護位；同一次 H1 breakout 可讓多個 zone 各自 ARMED。Zone 失效會刪除該 zone 尚未完成的 SETUP／ARMED 視覺物件與候選。
    ARMED 成立前以 active zone key 查找平行 SETUP label arrays，只暗化同 key 最新 SETUP，再清除候選狀態。
 8. ENTRY 保存 ARMED 的方向、來源 zone、突破位、保護 swing 與起始 bar；首次有效回踩、取消或新 SETUP 後清除候選。
 9. Trade Plan 使用平行 arrays 保存三條線、資訊 label、方向、四個價格、起始 bar 與狀態；狀態 0 為等待、1 為 TP1、2 為 WIN、-1 為 LOSS。
@@ -24,9 +26,10 @@
 
 - 開發與驗收的預設 TradingView 方案為 Essential，預設研究市場為台股；所有長期 Window 設計必須在此限制下成立。
 - V3 是資料蒐集層，目標為無交易細節繪圖的 M30/H1/H4 三引擎統計；V1 是檢查層，保留單一時框的視覺交易鏈與逐筆 Trade Plan，兩者不得為了共用畫面而重新耦合。
-- 現行研究 Window 強制固定為 1095D。V3 可使用 M30/H1/H4 chart；V4 以 H4 chart 承載主資料集，再請求 H1/M30 intrabars。完成標準必須包含實際覆蓋起點與 warm-up，不得只因表格顯示 1095D 就宣告完整。
+- 現行研究 Window 強制固定為 1095D。V3 可使用 M30/H1/H4 chart；V4 PRIMARY 固定直接在 H1 chart 執行，與 V1 共用相同圖表資料邊界。完成標準必須包含實際覆蓋起點與 warm-up，不得只因表格顯示 1095D 就宣告完整。
 
-- V1 僅維護一套狀態，Entry timeframe 直接跟隨目前 H4/H1/M30 chart；切換 chart timeframe 時 Pine 重新執行並計算該週期結果，不保留手動 Entry timeframe input。
+- V1 僅維護一套 W-D-H1 狀態，正式入口固定為 H1 chart；H4/M30 與其他圖表不建立 SETUP/ARMED/ENTRY 候選。
+- V4 PRIMARY 直接由 H1 chart bars 執行 W-D-H1，不再使用 H4 data carrier 或 H1 lower-timeframe arrays；另外兩列顯示為 LEGACY OFF，且不再執行。
 - V1 在有效 Trade Plan 建立時累計 Total，交易結束時累計 TP2 win、TP1→Loss、Direct Loss、Gross Win/Loss 與 Net R；圖形被 `Maximum trade plans` 裁切時，累計值不回退。
 - 訊號漏斗另外記錄 SETUP、ARMED、Valid ENTRY、失效原因、SETUP/ARMED replacement、same/changed zone 與 OB/FVG 來源。
 - V2 共用 Weekly zone 與 Daily bias，但 H4、H1、M30 各自保存 active SETUP、ARMED、pivot、交易 arrays 與績效累計，避免不同 Entry timeframe 互相清除狀態。
@@ -39,6 +42,7 @@
 - Weekly OB/FVG 不依賴 `request.security()` 歷史繪圖，避免切換 timeframe 或 Replay 時物件不一致。
 - V1 Weekly Zone 與 V4 各來源時框 Zone 共用同一 Wilder ATR、OB displacement／Hybrid Range 與 FVG geometry／middle displacement 公式；V1／V4 SWING 必須逐欄一致。
 - Intraday 的 Daily CHOCH/MSS 不採用已證實不穩定的 `request.security("D")` 顯示路徑，而由 intraday bars 重建完成日線。
+- Intraday chart 只使用重建的 Daily CHOCH/MSS 狀態更新 Bias，不繪製 Daily 結構線與文字；結構物件只在 Daily chart 顯示。
 - CHOCH 與 MSS 使用不同 pivot 長度；MSS 另加 ATR body displacement，避免兩者退化成同一訊號。
 - Daily MSS 預設 pivot length 為 4。MSS 建立 Bias 時固定保存當下反方向 confirmed Daily pivot；完成 Daily close 穿越該位置後 Bias 轉為 Neutral，且失效位不 trailing。
 - 結構線是「pivot 到 breakout」的事實區段，而不是 future-facing ray。

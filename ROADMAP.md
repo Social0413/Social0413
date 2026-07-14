@@ -1,21 +1,23 @@
 # Roadmap
 
-Roadmap 只列尚未完成或需要確認的方向，不代表已承諾版本或日期。
+Roadmap 只列中長期方向；當前工作以 `TODO.md` 為準。
 
 ## 近期
 
-- 在 TradingView 對 Daily、H4、M15 執行同一期間的視覺比對，確認 Daily CHOCH/MSS 對齊。
-- 補齊 Replay 測試矩陣：逐 bar 前進、切換 timeframe、midpoint invalidation、物件上限。
-- 建立可重複的 release checklist，將 Pine Editor compile 與圖表截圖結果記錄於 `TEST_RESULT.md`。
-- 釐清 `High timeframe` 是否保留為可調參數，或正式限定 Weekly。
+- 完成並驗證 per-zone SETUP engine。
+- 在 V1 穩定後同步 V4 PRIMARY，維持同一 W-D-H1 核心。
+- 完成 ARMED 與 ENTRY 規則核對。
+- 建立 OB/FVG 分組交易統計。
 
-## 中期候選
+## 中期
 
-- 將訊號判定與繪圖物件管理進一步拆分，降低修改規格時的回歸風險。
-- 評估 alert conditions；必須先定義事件只觸發一次的規則。
-- 評估效能診斷開關，但不得恢復會造成大量 label 的舊 debug 作法。
+- 用 V3 對多檔台股進行三年跨週期統計。
+- 分析跨股票一致性、移除最佳單一股票後的結果與參數穩健度。
+- 將訊號判定與繪圖管理進一步分離，降低回歸風險。
+- 策略凍結後才進行 paper trade／極小部位驗證。
 
 ## 暫不納入
 
-- 自動交易與績效保證。
-- 未經規格確認的 Python、MT5 或 MultiCharts 移植。
+- 自動下單或券商連線。
+- 績效保證。
+- 未經規格確認的其他平台移植。

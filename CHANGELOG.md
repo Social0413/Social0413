@@ -1,7 +1,22 @@
 # Changelog
 
-## Unreleased
+## 2026-07-14 V1-PZ-01 / V4-PZ-02 stable diagnostic baseline
 
+- Added visible build IDs to both indicator names and result-table headers.
+- Added V1 `OFF / TOUCH / FULL` per-zone diagnostic stages to isolate the H1 blank-output problem.
+- Defaulted V1 diagnostic mode to `OFF`, so Weekly zones and the stats table can be verified before enabling the new SETUP engine.
+- Follow-up `V4-PZ-02` adds an `OFF / FULL` engine switch, default `OFF`, after V4 was confirmed to disappear only on H1.
+- Verified 1504、2105、2324 on H1 with V1/V4 loaded together in `PZ OFF`; Weekly zones and both tables render normally.
+- Rolled back the unverified `V1-PZ-02 / V4-PZ-03` optimization after `FULL` still caused blank H1 output.
+- Reorganized Repository MD ownership and added `CLOSEOUT_CHECKLIST.md`; current status, target specification, tests, bugs and next actions are now explicitly separated.
+
+## Unreleased（目標已實作成草稿，但尚未通過 H1 驗證）
+
+- V1/V4 PRIMARY 曾加入 per-zone 獨立流程草稿，但 H1 `FULL` 會停止顯示，目前以 diagnostic `OFF` 作為穩定基準。此項不得視為已完成；目標仍為每個 Weekly OB/FVG 各自形成 SETUP、ARMED、ENTRY 與 Trade Plan。
+- V4 PRIMARY 執行入口由 H4 data carrier 改為 H1 chart，直接使用圖表 H1 bars；移除 PRIMARY 的 H1 lower-timeframe replay，並停止執行兩個 LEGACY 模型，使 V1/V4 可在同一 H1 畫面比較。H1 直接執行版已用 2105、1504、2324 驗證所有可比欄位一致。
+- 台股主要模型由 `W-D-H4` 改為 `W-D-H1`：V1 只在 H1 chart 建立 SETUP／ARMED／ENTRY；其他圖表顯示 `Use H1 chart`。
+- V4 第一列改為 `PRIMARY W-D-H1`，在 H4 data-carrier chart 逐根回放 H1 arrays 執行 Weekly zone、Daily Bias 與 H1 execution；原另外兩列標記為 LEGACY。新版 V1/V4 已在 2105、1504、2324 完成所有可比欄位一致性驗證。
+- V1 的 Daily CHOCH/MSS 結構線與文字改為只在 Daily chart 繪製；H4/H1/M30 仍由完成的 Daily candles 更新結構狀態與 SETUP Bias，策略判定不變。
 - 將 V1 與 V4 SWING 的 Daily MSS 預設 swing length 由 5 改為 4；MSS 成立時固定保存反方向 confirmed Daily pivot，完成 Daily close 穿越後 Bias 轉為 Neutral。失效位不 trailing，也不使用 CHOCH 或時間期限取消 Bias。
 - 再次收斂 V1 與 V4 的 FVG 規則：保留標準三根完成 K 的 wick-to-wick gap，以及同方向、body 至少為來源時框 Wilder ATR(14) × 1.0 的中間 displacement；移除過嚴的 ATR × 0.5 gap 寬度與確認 K 順向半部條件。現有 midpoint invalidation 與其他交易流程不變；已在 TradingView H4／1095D 以 2105、1504、2324 完成 V1／V4 SWING 所有可比欄位回歸，三者完全一致。
 - 收斂 V1 與 V4 的 OB 規則：結構突破 candle body 必須至少為來源時框 Wilder ATR(14) × 1.0，才回找 displacement 前最近的反向 candle；OB 範圍固定改為 Hybrid Range，移除 Wick／Body 輸入。V1 使用 Weekly ATR，V4 Weekly／Daily／H4 Zone Engine 分別使用各自來源時框 ATR；已在 TradingView H4／1095D 以 2105、1504、2324 完成 V1／V4 SWING 所有可比欄位回歸，三者完全一致。
