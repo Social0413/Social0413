@@ -1,6 +1,6 @@
 # SMC 功能規格
 
-> 狀態說明：本文件同時包含已驗證規格與 SETUP 目標規格。目前可驗證基準為 V1 `V1-PZ-01 / PZ OFF`、V4 `V4-PZ-02 / PZ OFF`；每個 Weekly Zone 的獨立 SETUP／ARMED／ENTRY 流程仍是待完成目標，不是已驗證現況。
+> 狀態說明：本文件同時包含已驗證規格與後續目標。V1 `V1-PZ-04 / FULL` 與 V4 `V4-PZ-04 / FULL` 已通過 1504、2105、2324/H1 的 SETUP 顯示、執行與共通統計對齊驗證。ARMED／ENTRY 尚未精修完成。
 
 ## V4 Top-down Model Research Engine（開發版）
 
@@ -12,11 +12,14 @@
 - Weekly Zone Engine 採用與 V1 相同的多 Zone arrays：OB/FVG 每類最多 40 個、OB source 去重、OB 結構突破 candle 必須通過來源時框 ATR(14) × 1.0 displacement、OB 固定使用 Hybrid Range；FVG 使用標準三根完成 K 的 wick-to-wick gap，中間 candle 必須為同方向 ATR(14) × 1.0 displacement。每個 active zone 獨立判斷 H1 touch，並由 H1 close 穿越 midpoint 失效。
 - PRIMARY 的 Daily MSS bias 使用與 V1 H1 chart 相同的完成 Daily candle 聚合、confirmed pivot、最近 `ATR length` 根 True Range 平均、trend-reversal MSS 更新規則與固定結構失效位；SETUP、ARMED 與 ENTRY 則逐根回放完成 H1 bars。
 - 相同 symbol、H1 chart、1095D、參數與資料覆蓋下，驗收對應為：V1 `SETUP` = V4 PRIMARY `SETUP`、V1 `ARMED` = V4 PRIMARY `ARMED`、V1 `Total` = V4 PRIMARY `Total`，且 TP2 Rate、Net R、Profit Factor、OB/FVG 與 replacement 分類都必須一致；任何差異都視為待追查。
+- V1 與 V4 PRIMARY 必須共用同一份行為規格：Weekly Zone 建立與失效、Daily MSS Bias、1095D Window 邊界、per-zone touch transition、SETUP／ARMED／ENTRY lifecycle、expiry、Trade Plan 結果與績效公式都必須使用相同條件及執行順序。V1 可保留完整視覺物件，V4 可只保留統計；顯示差異不得改變訊號結果。
+- 核心邏輯的修改順序固定為：先修改 V1、由使用者完成 TradingView 驗證，再將同一核心原樣移植到 V4，最後用固定標的核對所有共通欄位。V1 尚未通過前，不同步猜測性修改 V4。
+- 1095D Window 的第一根 H1 是正式觀察起點，不做 Window 前 touch-state warm-up。若第一根 H1 已與有效同方向 zone 重疊，V1 與 V4 都將其計為 Window 內第一筆 touch；這是兩支程式共同的統計邊界定義，不視為額外污染。
 - V4 使用與 V1 相同的統計名稱：SETUP replaced、ARMED replaced、OB SETUP、FVG SETUP、Same-zone SETUP、Changed-zone SETUP。`UNIQUE SETUP`、`U>A`、`A>T` 是 V4 額外研究欄位，沒有 V1 對應欄位。
 - 完成的高週期 context 才能供低週期模型使用；不得將同一高週期 candle 的最終值回填至其內部較早 intrabars。
 - Funnel 分開顯示 `Raw SETUP`、`Unique SETUP`、`Replaced`、`ARMED`、`TRADES`；轉換率使用 `Unique SETUP` 作為分母。
 - `Unique SETUP` 定義為該 zone 沒有未完成流程時建立的新 episode；同 zone re-entry 替換尚未 ARMED 的流程時另計入 `SETUP replaced`。已 ARMED 的同 zone touch 不建立新 SETUP，也不計 replacement。
-- per-zone 改寫前的 H1 直接執行版曾以 2105、1504、2324 核對 V1 並一致；目前 per-zone engine 尚未驗證，不能沿用該結論宣告現行 `FULL` 通過。兩個 LEGACY 模型仍停用。
+- 現行 per-zone `FULL` 已以 1504、2105、2324/H1 驗證 V1/V4 所有共通欄位一致；兩個 LEGACY 模型仍停用，不在本次驗收範圍。
 
 本文件是 `smc-weekly-ob-fvg/assets/smc_weekly_ob_fvg_v1.pine` 的現行行為基準。若文件與程式不一致，以待確認的需求為準，不應直接把差異視為新規格。
 
@@ -76,12 +79,12 @@
 - 目前圖表 K 棒的 high/low 與仍有效、同方向的 Weekly OB 或 FVG 重疊時，視為進入 zone。
 - Bullish bias 與 bullish zone 同時成立時顯示綠色 `B SETUP`；Bearish bias 與 bearish zone 同時成立時顯示紅色 `S SETUP`。
 - 同一次連續停留在 zone 內只顯示一次；離開後再次進入可重新顯示。
-- 每個確切 Weekly zone 只保留最新一個尚未 ARMED 的 SETUP；重新進入同一 zone 時刪除該 zone 舊的等待中標籤並建立新標籤。不同 zone 的 SETUP 互不刪除。
+- 每個確切 Weekly zone 同時只保留一個尚未 ARMED 的 SETUP flow；重新進入同一 zone 時取代舊 flow，但 V1 保留舊的歷史 SETUP 標籤。不同 zone 的 SETUP flow 互不刪除。
 - 每個有效 Weekly zone 都有獨立的 SETUP → ARMED → ENTRY 流程；同一根 H1 可同時為多個重疊 OB/FVG 建立 SETUP，後續也可各自形成 ARMED、ENTRY 與 Trade Plan。
 - 每個 zone 同時最多一條未完成流程。連續接觸不重複建立；至少一根 H1 完全沒有接觸該 zone，之後再次進入才算 re-entry。
 - Re-entry 只替換仍停在 SETUP 的同 zone 流程；若該 zone 已 ARMED，新的 touch 不建立 SETUP，也不取消 ARMED。
 - SETUP expiry 固定預設 15 根 H1，約三個台股交易日；到期只取消尚未 ARMED 的流程。
-- Zone 失效時刪除該 zone 尚未完成的 SETUP／ARMED 標籤，並取消等待 SETUP、ARMED 或 ENTRY 的候選；已完成 ENTRY／Trade Plan 的歷史與統計保留。
+- Zone 失效時取消該 zone 尚未完成的 SETUP／ARMED／ENTRY 候選；V1 保留已產生的歷史 SETUP 標籤，ARMED 候選標籤仍依生命週期清理，已完成 ENTRY／Trade Plan 的歷史與統計保留。
 - SETUP 標籤最多保留最新 40 個，可由 `Maximum SETUP labels` 向下調整；超限時刪除最舊標籤，不影響訊號判定。
 
 ## ARMED（進場開發第二階段）

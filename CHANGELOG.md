@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-07-14 V1-PZ-04 FULL default and SETUP history
+
+- 使用者在 `1504/H1`、`2105/H1`、`2324/H1` 確認 `V1-PZ-03 / FULL` 可正常執行，未發生空白或 crash。
+- 定位到 FULL 的 SETUP 計數正常，但舊版會在 expiry、Bias flip、Zone invalid 與 replacement 時刪除歷史 SETUP 標籤。
+- `V1-PZ-04` 保留最近 40 個歷史 SETUP 標籤；flow lifecycle、funnel 計數與交易判定不變，並將 diagnostic 預設改為 `FULL`。
+- 使用者已在 1504、2105、2324/H1 確認歷史 SETUP 顯示正常，且統計未因顯示修正改變。
+- V4 升版為 `V4-PZ-04`，同步 V1 已驗證的兩段式負索引檢查並預設 `FULL`；V4 不新增 V1 的視覺標籤，等待三檔統計對齊驗證。
+- 使用者已在 1504、2105、2324/H1 驗證 `V4-PZ-04 / FULL`，所有 V1/V4 共通欄位一致；SETUP 階段完成，下一步為 ARMED 精修。
+
+## 2026-07-14 V1-PZ-03 TOUCH negative-index fix
+
+- 使用者以 `2324/H1` 確認 V1 `PZ OFF` 正常、`PZ TOUCH` 全部消失，V4 `PZ OFF` 同時保持正常。
+- 修正 V1 Pine v5 在 `fi = -1` 時仍因非 lazy `or` 評估而執行 `array.get(flowStages, fi)` 的負索引 runtime failure。
+- 修正僅套用 V1；V4 未修改。使用者已在 `2324/H1` 與 `1504/H1` 驗證 `V1-PZ-03 / PZ TOUCH` 可正常顯示，SETUP 分別為 8 與 20；`FULL` 尚未驗證。
+
 ## 2026-07-14 V1-PZ-01 / V4-PZ-02 stable diagnostic baseline
 
 - Added visible build IDs to both indicator names and result-table headers.
@@ -10,9 +25,8 @@
 - Rolled back the unverified `V1-PZ-02 / V4-PZ-03` optimization after `FULL` still caused blank H1 output.
 - Reorganized Repository MD ownership and added `CLOSEOUT_CHECKLIST.md`; current status, target specification, tests, bugs and next actions are now explicitly separated.
 
-## Unreleased（目標已實作成草稿，但尚未通過 H1 驗證）
+## Earlier retained development changes
 
-- V1/V4 PRIMARY 曾加入 per-zone 獨立流程草稿，但 H1 `FULL` 會停止顯示，目前以 diagnostic `OFF` 作為穩定基準。此項不得視為已完成；目標仍為每個 Weekly OB/FVG 各自形成 SETUP、ARMED、ENTRY 與 Trade Plan。
 - V4 PRIMARY 執行入口由 H4 data carrier 改為 H1 chart，直接使用圖表 H1 bars；移除 PRIMARY 的 H1 lower-timeframe replay，並停止執行兩個 LEGACY 模型，使 V1/V4 可在同一 H1 畫面比較。H1 直接執行版已用 2105、1504、2324 驗證所有可比欄位一致。
 - 台股主要模型由 `W-D-H4` 改為 `W-D-H1`：V1 只在 H1 chart 建立 SETUP／ARMED／ENTRY；其他圖表顯示 `Use H1 chart`。
 - V4 第一列改為 `PRIMARY W-D-H1`，在 H4 data-carrier chart 逐根回放 H1 arrays 執行 Weekly zone、Daily Bias 與 H1 execution；原另外兩列標記為 LEGACY。新版 V1/V4 已在 2105、1504、2324 完成所有可比欄位一致性驗證。

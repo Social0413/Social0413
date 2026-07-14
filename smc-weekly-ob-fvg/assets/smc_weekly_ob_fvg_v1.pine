@@ -1,5 +1,5 @@
 //@version=5
-indicator("CODEX SMC Weekly OB FVG V1-PZ-01", overlay=true, max_boxes_count=500, max_lines_count=500, max_labels_count=200)
+indicator("CODEX SMC Weekly OB FVG V1-PZ-04", overlay=true, max_boxes_count=500, max_lines_count=500, max_labels_count=200)
 
 htf = input.timeframe("W", "High timeframe")
 maxZones = input.int(40, "Maximum zones per type", minval=10, maxval=120)
@@ -26,7 +26,7 @@ armedSwingLen = input.int(3, "ARMED swing length", minval=1, maxval=10)
 armedAtrLen = input.int(14, "ARMED ATR length", minval=1, maxval=100)
 armedBodyAtrMult = input.float(1.0, "ARMED body ATR multiplier", minval=0.0, step=0.1)
 setupExpiryBars = input.int(15, "SETUP expiry H1 bars", minval=1, maxval=100)
-perZoneDiagnostic = input.string("OFF", "Per-zone engine diagnostic", options=["OFF", "TOUCH", "FULL"])
+perZoneDiagnostic = input.string("FULL", "Per-zone engine diagnostic", options=["OFF", "TOUCH", "FULL"])
 maxArmedLabels = input.int(40, "Maximum ARMED labels", minval=5, maxval=40)
 showEntry = input.bool(true, "Show ENTRY")
 entryExpiryBars = input.int(0, "ENTRY retest expiry bars (0 = off)", minval=0, maxval=100)
@@ -294,8 +294,7 @@ addSetupLabel(_dir, _zoneKey) =>
                 _oldIndex := i
                 break
     if _oldIndex >= 0
-        label.delete(array.remove(setupLabels, _oldIndex))
-        array.remove(setupLabelKeys, _oldIndex)
+        array.set(setupLabelKeys, _oldIndex, "ARCHIVED:" + _key + ":" + str.tostring(bar_index))
     _label = label.new(bar_index, _isBull ? low : high, _isBull ? "B SETUP" : "S SETUP", style=_isBull ? label.style_label_up : label.style_label_down, color=color.new(_isBull ? color.green : color.red, 20), textcolor=color.white, size=size.tiny)
     array.push(setupLabels, _label)
     array.push(setupLabelKeys, _key)
@@ -303,13 +302,6 @@ addSetupLabel(_dir, _zoneKey) =>
         label.delete(array.shift(setupLabels))
         array.shift(setupLabelKeys)
     _label
-
-deleteSetupLabelForZone(_zoneKey) =>
-    if array.size(setupLabelKeys) > 0
-        for i = array.size(setupLabelKeys) - 1 to 0
-            if array.get(setupLabelKeys, i) == _zoneKey or str.startswith(array.get(setupLabelKeys, i), "ARCHIVED:" + _zoneKey + ":")
-                label.delete(array.remove(setupLabels, i))
-                array.remove(setupLabelKeys, i)
 
 dimAndArchiveSetupLabel(_dir, _zoneKey) =>
     if _zoneKey != "" and array.size(setupLabelKeys) > 0
@@ -723,7 +715,10 @@ if perZoneDiagnostic != "OFF" and entryTimeframeMatches and inStatsWindow
                 array.set(fvgTouchedPrev, zi, touched)
             if touched and not priorTouched
                 fi = flowIndex(zoneKey)
-                if fi < 0 or array.get(flowStages, fi) == 1
+                canStartFlow = fi < 0
+                if fi >= 0
+                    canStartFlow := array.get(flowStages, fi) == 1
+                if canStartFlow
                     funnelSetups += 1
                     if isOb
                         funnelObSetups += 1
@@ -731,7 +726,6 @@ if perZoneDiagnostic != "OFF" and entryTimeframeMatches and inStatsWindow
                         funnelFvgSetups += 1
                     if fi >= 0
                         funnelSetupReplaced += 1
-                        deleteSetupLabelForZone(zoneKey)
                         removeFlow(fi)
                     if funnelLastSetupZoneKey == zoneKey
                         funnelSameZoneSetups += 1
@@ -779,7 +773,6 @@ if perZoneDiagnostic == "FULL" and array.size(flowKeys) > 0
                 funnelSetupZoneInvalid += zoneInvalid ? 1 : 0
                 funnelSetupOppositeBias += biasInvalid ? 1 : 0
                 funnelSetupExpired += expired ? 1 : 0
-                deleteSetupLabelForZone(zoneKey)
                 removeFlow(i)
             else
                 breakLevel = array.get(flowBreakLevels, i)
@@ -803,7 +796,6 @@ if perZoneDiagnostic == "FULL" and array.size(flowKeys) > 0
                 funnelArmedOppositeBias += biasInvalid ? 1 : 0
                 funnelArmedExpired += expired ? 1 : 0
                 funnelArmedProtectBroken += protectBroken ? 1 : 0
-                deleteSetupLabelForZone(zoneKey)
                 deleteArmedLabelForZone(zoneKey)
                 removeFlow(i)
             else
@@ -882,7 +874,7 @@ statsProfitFactor = statsGrossLossR > 0.0 ? statsGrossWinR / statsGrossLossR : n
 
 if barstate.islast
     if showTradeStats
-        table.cell(tradeStatsTable, 0, 0, "V1-PZ-01 | SMC " + entryTimeframeName, text_color=color.white, bgcolor=entryTimeframeMatches ? color.new(color.navy, 15) : color.new(color.orange, 15))
+        table.cell(tradeStatsTable, 0, 0, "V1-PZ-04 | SMC " + entryTimeframeName, text_color=color.white, bgcolor=entryTimeframeMatches ? color.new(color.navy, 15) : color.new(color.orange, 15))
         table.cell(tradeStatsTable, 1, 0, entryTimeframeMatches ? "PZ " + perZoneDiagnostic : "Use H1 chart", text_color=entryTimeframeMatches ? color.silver : color.white, bgcolor=entryTimeframeMatches ? color.new(color.navy, 15) : color.new(color.orange, 15))
         table.cell(tradeStatsTable, 0, 1, "Total", text_color=color.silver)
         table.cell(tradeStatsTable, 1, 1, str.tostring(statsTotal), text_color=color.white)

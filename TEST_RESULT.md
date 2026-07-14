@@ -1,5 +1,17 @@
 # Test Results
 
+## 2026-07-14 V1-PZ-04／V4-PZ-04 FULL 對齊通過
+
+- 使用者在 TradingView H1／1095D 啟用 `V1-PZ-03 / FULL`，1504、2105、2324 均正常顯示，未發生空白或 crash。
+- 1504：SETUP 20、ARMED 1、Total 0；2105：SETUP 8、ARMED 1、Total 1；2324：SETUP 8、ARMED 1、Total 1。
+- FULL 畫面的歷史 SETUP 標籤少於 SETUP 計數，已定位為 flow 清理時刪除標籤；不是 SETUP 漏判。
+- 使用者提供 1504、2105、2324/H1 的 `V1-PZ-04 / FULL` 截圖，確認歷史 SETUP 已保留，三檔 SETUP／ARMED／Total 與修改前一致；V1 顯示修正通過。
+- `V4-PZ-04` 已同步 V1 的兩段式負索引檢查並預設 `FULL`；TradingView compile／runtime 通過。
+- 1504：V1/V4 均為 SETUP 20、SETUP replaced 9、ARMED 1、Total 0、OB/FVG 6/14、Same/Changed 11/9、Net R 0R。
+- 2105：V1/V4 均為 SETUP 8、SETUP replaced 0、ARMED 1、Total 1、OB/FVG 4/4、Same/Changed 1/7、Net R -1R。
+- 2324：V1/V4 均為 SETUP 8、SETUP replaced 1、ARMED 1、Total 1、OB/FVG 2/6、Same/Changed 3/5、Net R -1R。
+- 結論：三檔所有 V1/V4 共通欄位一致，SETUP 階段完成，可進入 ARMED 精修。V4 的 UNIQUE SETUP、U>A、A>T 為額外研究欄位。
+
 ## 2026-07-14 Per-zone SETUP flows（驗證失敗，待定位）
 
 - V1 與 V4 PRIMARY 曾加入依 Weekly zone key 保存多候選平行 arrays 的草稿；這是目標實作，不代表 TradingView 已可正常執行。
@@ -178,6 +190,12 @@
 - V1 now has `Per-zone engine diagnostic`: `OFF` renders without the new engine, `TOUCH` runs zone touch/SETUP creation only, and `FULL` also runs ARMED/ENTRY processing.
 - First retest: use H1 with `OFF`. If visible, test `TOUCH`, then `FULL` to isolate the failing stage.
 - H1 retest confirmed V1 `V1-PZ-01 / PZ OFF` renders zones and its stats table. Therefore the V1 blank output is inside the per-zone engine, not the base H1/Weekly-zone path.
+- 使用者提供的 `2324/H1` 對照截圖確認：V1 `V1-PZ-01 / PZ OFF` 可顯示 Weekly zones 與統計表；切換成 `PZ TOUCH` 後 V1 全部消失，而 V4 `V4-PZ-02 / PZ OFF` 仍正常顯示。這將失敗階段確定縮小到 V1 `TOUCH`。
+- 程式定位到 `if fi < 0 or array.get(flowStages, fi) == 1`：V1 使用 Pine v5，`or` 兩側皆會評估；首次遇到新 zone 時 `flowIndex()` 回傳 `-1`，後半段因此讀取負索引並造成 runtime failure。
+- `V1-PZ-03` 已改為先判斷 `fi >= 0` 才讀取 `flowStages`。此修改只套用 V1；TradingView 驗證結果如下。
+- 使用者完成 `V1-PZ-03` TradingView 對照驗證：`2324/H1 / PZ OFF` 正常顯示；切換為 `PZ TOUCH` 後仍正常顯示 zones、表格與 SETUP labels，SETUP 8、SETUP replaced 3、Same/Changed 3/5、OB/FVG 2/6，ARMED 與 Total 均為 0。
+- `1504/H1 / PZ OFF` 正常顯示；切換為 `PZ TOUCH` 後仍正常顯示 zones、表格與 SETUP labels，SETUP 20、SETUP replaced 11、Same/Changed 11/9、OB/FVG 6/14，ARMED 與 Total 均為 0。
+- 四張對照截圖均未顯示 runtime 訊息；V4 `V4-PZ-02 / PZ OFF` 同時保持正常。結論：`V1-PZ-03` 的 TOUCH runtime failure 修正通過 2324、1504/H1 實圖驗證；本結論不包含 `FULL`、ARMED 或 ENTRY。
 - V4 `V4-PZ-01` rendered its unsupported prompt on H4 but disappeared on H1. Added `V4-PZ-02` with its per-zone engine defaulted to `OFF` so both base tables can first be verified together on H1.
 - The attempted `V1-PZ-02 / V4-PZ-03` optimization did not restore H1 `FULL` execution and was rolled back; it must not be treated as a validated fix.
 

@@ -1,5 +1,5 @@
 //@version=5
-indicator("CODEX SMC Top-down Models V4-PZ-02", overlay=true, max_boxes_count=1, max_lines_count=1, max_labels_count=1)
+indicator("CODEX SMC Top-down Models V4-PZ-04", overlay=true, max_boxes_count=1, max_lines_count=1, max_labels_count=1)
 
 // V4 is independent from V3. Load it on an H1 chart beside V1.
 // PRIMARY W-D-H1 runs directly from chart bars; the other two models are disabled legacy rows.
@@ -20,7 +20,7 @@ armedSwingLen = input.int(3, "ARMED swing length", minval=1, maxval=10)
 armedAtrLen = input.int(14, "ARMED ATR length", minval=1, maxval=100)
 armedBodyAtrMult = input.float(1.0, "ARMED body ATR multiplier", minval=0.0, step=0.1)
 setupExpiryBars = input.int(15, "SETUP expiry H1 bars", minval=1, maxval=100)
-perZoneDiagnostic = input.string("OFF", "Per-zone engine diagnostic", options=["OFF", "FULL"])
+perZoneDiagnostic = input.string("FULL", "Per-zone engine diagnostic", options=["OFF", "FULL"])
 entryExpiryBars = input.int(0, "ENTRY retest expiry bars (0 = off)", minval=0, maxval=100)
 tradeTp1R = input.float(1.0, "TP1 (R)", minval=0.25, step=0.25)
 tradeTp2R = input.float(2.0, "TP2 (R)", minval=0.5, step=0.25)
@@ -371,7 +371,10 @@ processModelBar(_time, _open, _high, _low, _close, _pivotHigh, _pivotLow, _atr, 
                 array.set(_touchStates, ti, touched)
             if touched and not priorTouched
                 fi = array.indexof(_flowKeys, key)
-                if fi < 0 or array.get(_flowStages, fi) == 1
+                canStartFlow = fi < 0
+                if fi >= 0
+                    canStartFlow := array.get(_flowStages, fi) == 1
+                if canStartFlow
                     array.set(_ints, 4, array.get(_ints, 4) + 1)
                     array.set(_ints, str.startswith(key, "OB:") ? 13 : 14, array.get(_ints, str.startswith(key, "OB:") ? 13 : 14) + 1)
                     array.set(_ints, array.get(_strings, 3) == key ? 15 : 16, array.get(_ints, array.get(_strings, 3) == key ? 15 : 16) + 1)
@@ -629,7 +632,7 @@ modelRow(_row, _name, _i, _f) =>
 
 if barstate.islast
     table.clear(results, 0, 0, 16, 4)
-    table.cell(results, 0, 0, chartIsH1 ? "V4-PZ-02 | W-D-H1 | PZ " + perZoneDiagnostic : "V4-PZ-02 | USE H1 CHART", text_color=color.white, bgcolor=chartIsH1 ? color.new(color.navy, 10) : color.new(color.orange, 10), text_size=size.tiny)
+    table.cell(results, 0, 0, chartIsH1 ? "V4-PZ-04 | W-D-H1 | PZ " + perZoneDiagnostic : "V4-PZ-04 | USE H1 CHART", text_color=color.white, bgcolor=chartIsH1 ? color.new(color.navy, 10) : color.new(color.orange, 10), text_size=size.tiny)
     headers = array.from("MODEL", "SETUP", "UNIQUE SETUP", "SETUP replaced", "ARMED replaced", "ARMED", "Total", "U>A", "A>T", "TP2 Rate", "Net R", "Profit Factor", "OB SETUP", "FVG SETUP", "Same-zone SETUP", "Changed-zone SETUP", "Window")
     for c = 0 to 16
         cell(c, 1, array.get(headers, c), color.silver)

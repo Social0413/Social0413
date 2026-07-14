@@ -1,10 +1,20 @@
 # TradingView SMC Replay Toolkit - Development History
 
+## 2026-07-14 - Per-zone SETUP 完成與 V1/V4 FULL 對齊
+
+V1 的 `TOUCH` 空白問題最終定位為 Pine v5 `or` 非 lazy evaluation：首次新 zone 的 `fi = -1` 仍會讀取 `array.get(flowStages, -1)`。正確修法是先保存 `fi < 0`，只有 `fi >= 0` 時才讀取 stage。V1 `V1-PZ-03` 先通過 2324、1504/H1 TOUCH 驗證，再以 1504、2105、2324/H1 驗證 FULL 可正常執行。
+
+FULL 初次通過後，畫面標籤少於 SETUP 計數。截圖與 funnel 證明 SETUP 並未漏算；原因是 expiry、Bias flip、Zone invalid 或 replacement 會刪除歷史 SETUP 標籤。`V1-PZ-04` 將此調整為保留最近 40 個歷史 SETUP 標籤，但不改 flow lifecycle、統計或交易判定。使用者已在三個固定標的確認顯示正常且數值不變。
+
+V1 驗證完成後，才將相同負索引修正移植到 `V4-PZ-04`，並把 V1/V4 預設模式設為 `FULL`。最終 TradingView H1／1095D 結果：1504 為 SETUP 20、replaced 9、ARMED 1、Total 0；2105 為 8、0、1、1；2324 為 8、1、1、1。三檔的 OB/FVG、Same/Changed、Net R 與其他共通欄位全部一致。
+
+本輪確認的工作流程是：V1 視覺層先取得實圖證據，再移植相同核心到 V4 統計層；視覺物件差異不得改變訊號結果。Codex 只負責產出 Pine 與本機靜態檢查，TradingView compile／實圖測試由使用者執行。下一階段只處理 ARMED 精修，不同時擴張到 ENTRY 或績效分組。
+
 ## 2026-07-14 - Per-zone engine rollback and debugging discipline
 
 Per-zone SETUP/ARMED/ENTRY 同時加入 V1 與 V4 後，兩個指標在 H1 出現完全不顯示的問題。第一次處理錯誤地把重複搜尋與 touch-state 結構視為已確認根因，建立 `V1-PZ-02 / V4-PZ-03` 並預設啟用 `FULL`；TradingView 驗證證明問題仍存在，因此該嘗試已撤回。
 
-目前回到可驗證基準：V1 `V1-PZ-01 / PZ OFF`、V4 `V4-PZ-02 / PZ OFF`。1504、2105、2324 的 H1 均確認兩者可以同時顯示。後續先只測 V1 `TOUCH`，再測 V1 `FULL`；找出確切失敗階段並完成 V1 後，才同步 V4。版號與 diagnostic mode 必須保留在表格標題，避免截圖與程式版本無法對應。
+當時回到可驗證基準：V1 `V1-PZ-01 / PZ OFF`、V4 `V4-PZ-02 / PZ OFF`。1504、2105、2324 的 H1 均確認兩者可以同時顯示。後續採先測 V1 `TOUCH`、再測 V1 `FULL`，完成 V1 後才同步 V4。版號與 diagnostic mode 必須保留在表格標題，避免截圖與程式版本無法對應。
 
 本次事件也建立固定收尾規則：每段開發對話結束前，必須記錄錯誤假設、失敗修改、rollback、驗證證據與可重用教訓，並更新對應 MD。標準流程見 `CLOSEOUT_CHECKLIST.md`。
 

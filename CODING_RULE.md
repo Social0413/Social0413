@@ -14,10 +14,22 @@
 
 ## 變更與版本控制
 
+- 固定分工：Codex 直接完成 Pine 檔與 Repository 靜態檢查；TradingView compile、載入與實圖驗證由使用者執行。
+- 除非使用者在當次任務明確要求，Codex 不開啟或操作 TradingView。
+- Codex 交付時應明確列出待使用者驗證的 symbol、timeframe、設定、觀察欄位與預期判定方式。
 - 不把未在 TradingView 驗證的結果寫成「已通過」。
+- 只有使用者回報 TradingView 實測結果後，才能把對應證據寫入 `TEST_RESULT.md` 並標記通過或失敗。
 - 每次行為變更同步更新 `CHANGELOG.md`、`TEST_RESULT.md` 與必要規格。
 - Commit 應聚焦單一目的，訊息使用可追溯的英文動詞描述。
 - Push 前檢查 `git diff --check`、完整 diff 與工作區狀態。
+
+## V1／V4 核心對齊
+
+- V1 與 V4 PRIMARY 必須實作同一套策略核心；允許 V1 畫完整物件、V4 只顯示統計，但不允許使用不同的 Zone、Bias、Window、SETUP／ARMED／ENTRY、失效或績效判定。
+- 相同 symbol、H1、1095D、參數及資料覆蓋下，兩支程式的所有共通統計欄位必須一致；V4 額外研究欄位不影響 V1 對齊結論。
+- 修改流程固定為先完成 V1、由使用者在 TradingView 驗證，再把相同核心移植到 V4；不得在 V1 未通過時同時猜測性修改兩支程式。
+- Window 起點、touch state 初始化與 event counting 必須明確採用同一規則。現行規則是不做 Window 前 warm-up，第一根 Window H1 的有效重疊可計為第一筆 touch。
+- 優先保持簡單規則與少量核心統計，不增加逐筆診斷、龐大測試矩陣或大量參數；只有實際錯誤定位需要時才加入暫時 diagnostic，驗證後移除或隱藏。
 
 ## 策略微調與決策
 

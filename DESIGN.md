@@ -1,6 +1,6 @@
 # 設計說明
 
-> 目前狀態：第 1～5 項為穩定基礎；第 6～8 項是 per-zone 目標架構，程式雖有草稿但 H1 `FULL` 尚未通過，不能視為完成設計。
+> 目前狀態：第 1～6 項已在 V1/V4 H1 `FULL` 通過 SETUP 顯示、執行與統計對齊驗證。第 7～8 項 ARMED／ENTRY 尚待精修。
 
 ## 目標
 
@@ -17,7 +17,7 @@
 5. 超過使用者設定上限時，從 arrays 前端刪除最舊物件。
 6. SETUP 使用最新 Daily MSS bias 與 H1 對每個有效 Weekly zone 的獨立重疊狀態；每個 zone 的 false → true 分別產生一次訊號。
    每個 zone 以平行 arrays 保存 stage、SETUP/ARMED bar、break/retest/protect level。Re-entry 只替換同 zone 尚在 SETUP 的流程；已 ARMED 不受新 touch 影響。
-7. 每個 ARMED 分別保存方向、來源 zone、起始 bar、突破位及保護位；同一次 H1 breakout 可讓多個 zone 各自 ARMED。Zone 失效會刪除該 zone 尚未完成的 SETUP／ARMED 視覺物件與候選。
+7. 每個 ARMED 分別保存方向、來源 zone、起始 bar、突破位及保護位；同一次 H1 breakout 可讓多個 zone 各自 ARMED。Zone 失效會取消該 zone 尚未完成的候選；V1 保留歷史 SETUP 標籤，ARMED 視覺物件仍依生命週期清理。
    ARMED 成立前以 active zone key 查找平行 SETUP label arrays，只暗化同 key 最新 SETUP，再清除候選狀態。
 8. ENTRY 保存 ARMED 的方向、來源 zone、突破位、保護 swing 與起始 bar；首次有效回踩、取消或新 SETUP 後清除候選。
 9. Trade Plan 使用平行 arrays 保存三條線、資訊 label、方向、四個價格、起始 bar 與狀態；狀態 0 為等待、1 為 TP1、2 為 WIN、-1 為 LOSS。
@@ -30,6 +30,9 @@
 
 - V1 僅維護一套 W-D-H1 狀態，正式入口固定為 H1 chart；H4/M30 與其他圖表不建立 SETUP/ARMED/ENTRY 候選。
 - V4 PRIMARY 直接由 H1 chart bars 執行 W-D-H1，不再使用 H4 data carrier 或 H1 lower-timeframe arrays；另外兩列顯示為 LEGACY OFF，且不再執行。
+- V1 與 V4 PRIMARY 是同一策略核心的兩種輸出：V1 用於圖形與逐筆檢查，V4 用於統計核對。Zone、Bias、Window、touch、flow stage、expiry、失效、交易結果與績效公式必須逐項相同；不得為了各自程式方便而改成不同判定。
+- 兩者的 1095D Window 都以第一根 Window H1 作為 touch-state 起點，不載入 Window 前的接觸狀態；第一根 H1 與有效 zone 重疊時，兩者都計入第一筆 Window touch。
+- 開發順序固定為 V1 修改與 TradingView 驗證完成後，再移植相同核心到 V4；對齊時以共通統計欄位一致為完成條件。
 - V1 在有效 Trade Plan 建立時累計 Total，交易結束時累計 TP2 win、TP1→Loss、Direct Loss、Gross Win/Loss 與 Net R；圖形被 `Maximum trade plans` 裁切時，累計值不回退。
 - 訊號漏斗另外記錄 SETUP、ARMED、Valid ENTRY、失效原因、SETUP/ARMED replacement、same/changed zone 與 OB/FVG 來源。
 - V2 共用 Weekly zone 與 Daily bias，但 H4、H1、M30 各自保存 active SETUP、ARMED、pivot、交易 arrays 與績效累計，避免不同 Entry timeframe 互相清除狀態。

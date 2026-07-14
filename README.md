@@ -5,10 +5,12 @@
 ## 目前狀態（2026-07-14）
 
 - 正式研究架構：`Weekly Zone → Daily MSS Bias → H1 SETUP / ARMED / ENTRY`。
-- V1 穩定基準：`V1-PZ-01`，H1 使用 `PZ OFF`。
-- V4 穩定基準：`V4-PZ-02`，H1 使用 `PZ OFF`。
+- V1 穩定版本：`V1-PZ-04`；H1 預設直接使用 `FULL`。1504、2105、2324/H1 已確認可執行、保留歷史 SETUP，且統計未受顯示修正影響。
+- V4 目前版本：`V4-PZ-04`；已同步 V1 的 Pine v5 負索引修正並預設 `FULL`，1504、2105、2324/H1 的所有共通統計欄位均與 V1 一致。
 - 1504、2105、2324 已確認 V1/V4 在 H1 可同時顯示。
-- per-zone SETUP engine 尚未完成；下一步只測 V1 `TOUCH`，不先修改 V4。
+- per-zone SETUP 的 V1 顯示與 V4 統計對齊已完成；下一階段進入 ARMED 精修。
+- V1 是視覺檢查層、V4 是統計核對層；兩者的 Weekly Zone、Daily Bias、Window、SETUP／ARMED／ENTRY、失效與績效核心邏輯必須相同，只有顯示方式可以不同。
+- 核心修改固定先在 V1 完成 TradingView 驗證，再原樣移植到 V4 並核對統計；不得讓兩支程式各自演化成不同策略。
 
 ## 建議閱讀順序
 
@@ -30,6 +32,13 @@
 - [ROADMAP.md](ROADMAP.md)：中長期方向，不是當前待辦。
 - [CODING_RULE.md](CODING_RULE.md)：Pine 與版本控制規則。
 - [CLOSEOUT_CHECKLIST.md](CLOSEOUT_CHECKLIST.md)：每段對話固定收尾流程。
+
+## 開發與驗證分工
+
+- Codex 負責依 Repository 規格直接修改 Pine 檔，並完成可在本機執行的靜態檢查。
+- 使用者負責在 TradingView Pine Editor compile、載入圖表及實圖驗證，並將結果回報給 Codex。
+- 除非使用者明確要求，Codex 不開啟或操作 TradingView，也不代替使用者執行圖表測試。
+- 使用者尚未回報 TradingView 結果前，任何修改只能標記為「待 TradingView 驗證」，不得宣稱通過。
 
 ## 主要程式
 
