@@ -1,5 +1,5 @@
 //@version=5
-indicator("CODEX SMC Top-down Models V4-PZ-04", overlay=true, max_boxes_count=1, max_lines_count=1, max_labels_count=1)
+indicator("CODEX SMC Top-down Models V4-LONG-01", overlay=true, max_boxes_count=1, max_lines_count=1, max_labels_count=1)
 
 // V4 is independent from V3. Load it on an H1 chart beside V1.
 // PRIMARY W-D-H1 runs directly from chart bars; the other two models are disabled legacy rows.
@@ -13,25 +13,21 @@ const int zoneAtrLen = 14
 const float obBodyAtrMult = 1.0
 const float fvgBodyAtrMult = 1.0
 mssSwingLen = input.int(4, "D MSS swing length", minval=2, maxval=20)
-lowerBiasMssSwingLen = input.int(5, "H4/H1 MSS swing length", minval=2, maxval=20)
-mssAtrLen = input.int(14, "D MSS ATR length", minval=1, maxval=100)
-mssBodyAtrMult = input.float(1.0, "D MSS body ATR multiplier", minval=0.0, step=0.1)
 armedSwingLen = input.int(3, "ARMED swing length", minval=1, maxval=10)
-armedAtrLen = input.int(14, "ARMED ATR length", minval=1, maxval=100)
-armedBodyAtrMult = input.float(1.0, "ARMED body ATR multiplier", minval=0.0, step=0.1)
 setupExpiryBars = input.int(15, "SETUP expiry H1 bars", minval=1, maxval=100)
 perZoneDiagnostic = input.string("FULL", "Per-zone engine diagnostic", options=["OFF", "FULL"])
-entryExpiryBars = input.int(0, "ENTRY retest expiry bars (0 = off)", minval=0, maxval=100)
+entryExpiryBars = input.int(15, "ENTRY retest expiry bars (0 = off)", minval=0, maxval=100)
 tradeTp1R = input.float(1.0, "TP1 (R)", minval=0.25, step=0.25)
 tradeTp2R = input.float(2.0, "TP2 (R)", minval=0.5, step=0.25)
 tradeTp1ExitPct = input.float(50.0, "TP1 exit size (%)", minval=0.0, maxval=100.0, step=5.0)
+showSignalFunnelStats = input.bool(true, "Show SETUP/ARMED/ENTRY statistics")
 
 chartIsH1 = timeframe.in_seconds(timeframe.period) == 3600
 windowStart = last_bar_time - LOOKBACK_DAYS * DAY_MS
 
 // Multi-zone stores mirror V1 numerically: type, direction, midpoint, active,
-// source time, top, bottom and stable key. Each context owns its own arrays.
-trimZoneType(_type, _types, _dirs, _mids, _active, _times, _tops, _bottoms, _keys) =>
+// traded, source time, top, bottom and stable key. Each context owns its own arrays.
+trimZoneType(_type, _types, _dirs, _mids, _active, _traded, _times, _tops, _bottoms, _keys) =>
     typeCount = 0
     if array.size(_types) > 0
         for i = 0 to array.size(_types) - 1
@@ -48,6 +44,7 @@ trimZoneType(_type, _types, _dirs, _mids, _active, _times, _tops, _bottoms, _key
         array.remove(_dirs, removeIndex)
         array.remove(_mids, removeIndex)
         array.remove(_active, removeIndex)
+        array.remove(_traded, removeIndex)
         array.remove(_times, removeIndex)
         array.remove(_tops, removeIndex)
         array.remove(_bottoms, removeIndex)
@@ -63,17 +60,18 @@ zoneExists(_type, _dir, _sourceTime, _types, _dirs, _times) =>
                 exists := true
     exists
 
-addZone(_type, _dir, _sourceTime, _top, _bottom, _types, _dirs, _mids, _active, _times, _tops, _bottoms, _keys) =>
+addZone(_type, _dir, _sourceTime, _top, _bottom, _types, _dirs, _mids, _active, _traded, _times, _tops, _bottoms, _keys) =>
     if not zoneExists(_type, _dir, _sourceTime, _types, _dirs, _times)
         array.push(_types, _type)
         array.push(_dirs, _dir)
         array.push(_mids, (_top + _bottom) * 0.5)
         array.push(_active, true)
+        array.push(_traded, false)
         array.push(_times, _sourceTime)
         array.push(_tops, _top)
         array.push(_bottoms, _bottom)
         array.push(_keys, _type + ":" + str.tostring(_dir) + ":" + str.tostring(_sourceTime))
-        trimZoneType(_type, _types, _dirs, _mids, _active, _times, _tops, _bottoms, _keys)
+        trimZoneType(_type, _types, _dirs, _mids, _active, _traded, _times, _tops, _bottoms, _keys)
     true
 
 invalidateZones(_close, _dirs, _mids, _active) =>
@@ -128,7 +126,7 @@ completedContextAtr(_highs, _lows, _closes, _length) =>
                 atr := (atr * (_length - 1) + trueRange) / _length
     atr
 
-processCompletedContext(_time, _open, _high, _low, _close, _histTimes, _histOpens, _histHighs, _histLows, _histCloses, _types, _dirs, _mids, _active, _times, _tops, _bottoms, _keys) =>
+processCompletedContext(_time, _open, _high, _low, _close, _histTimes, _histOpens, _histHighs, _histLows, _histCloses, _types, _dirs, _mids, _active, _traded, _times, _tops, _bottoms, _keys) =>
     array.push(_histTimes, _time)
     array.push(_histOpens, _open)
     array.push(_histHighs, _high)
@@ -159,7 +157,7 @@ processCompletedContext(_time, _open, _high, _low, _close, _histTimes, _histOpen
                 if idx >= 0 and array.get(_histCloses, idx) < array.get(_histOpens, idx)
                     top = array.get(_histOpens, idx)
                     bottom = array.get(_histLows, idx)
-                    addZone("OB", 1, array.get(_histTimes, idx), top, bottom, _types, _dirs, _mids, _active, _times, _tops, _bottoms, _keys)
+                    addZone("OB", 1, array.get(_histTimes, idx), top, bottom, _types, _dirs, _mids, _active, _traded, _times, _tops, _bottoms, _keys)
                     break
         if bearishOb
             for offset = 1 to obSearchBack
@@ -167,7 +165,7 @@ processCompletedContext(_time, _open, _high, _low, _close, _histTimes, _histOpen
                 if idx >= 0 and array.get(_histCloses, idx) > array.get(_histOpens, idx)
                     top = array.get(_histHighs, idx)
                     bottom = array.get(_histOpens, idx)
-                    addZone("OB", -1, array.get(_histTimes, idx), top, bottom, _types, _dirs, _mids, _active, _times, _tops, _bottoms, _keys)
+                    addZone("OB", -1, array.get(_histTimes, idx), top, bottom, _types, _dirs, _mids, _active, _traded, _times, _tops, _bottoms, _keys)
                     break
     if lastIdx >= 2
         twoBack = lastIdx - 2
@@ -182,36 +180,10 @@ processCompletedContext(_time, _open, _high, _low, _close, _histTimes, _histOpen
         bullMiddleDisplacement = not na(contextAtr) and middleClose > middleOpen and middleBody >= contextAtr * fvgBodyAtrMult
         bearMiddleDisplacement = not na(contextAtr) and middleClose < middleOpen and middleBody >= contextAtr * fvgBodyAtrMult
         if bullTop > bullBottom and bullMiddleDisplacement
-            addZone("FVG", 1, _time, bullTop, bullBottom, _types, _dirs, _mids, _active, _times, _tops, _bottoms, _keys)
+            addZone("FVG", 1, _time, bullTop, bullBottom, _types, _dirs, _mids, _active, _traded, _times, _tops, _bottoms, _keys)
         if bearTop > bearBottom and bearMiddleDisplacement
-            addZone("FVG", -1, _time, bearTop, bearBottom, _types, _dirs, _mids, _active, _times, _tops, _bottoms, _keys)
+            addZone("FVG", -1, _time, bearTop, bearBottom, _types, _dirs, _mids, _active, _traded, _times, _tops, _bottoms, _keys)
     true
-
-biasContext() =>
-    var float lastHigh = na
-    var float lastLow = na
-    var int trend = 0
-    var int bias = 0
-    ph = ta.pivothigh(high, lowerBiasMssSwingLen, lowerBiasMssSwingLen)
-    pl = ta.pivotlow(low, lowerBiasMssSwingLen, lowerBiasMssSwingLen)
-    if not na(ph)
-        lastHigh := ph
-    if not na(pl)
-        lastLow := pl
-    atr = ta.atr(mssAtrLen)
-    displacement = mssBodyAtrMult == 0.0 or math.abs(close - open) >= atr * mssBodyAtrMult
-    if barstate.isconfirmed and displacement
-        if not na(lastHigh) and close > lastHigh
-            bullMss = trend == -1
-            trend := 1
-            if bullMss
-                bias := 1
-        if not na(lastLow) and close < lastLow
-            bearMss = trend == 1
-            trend := -1
-            if bearMss
-                bias := -1
-    bias
 
 arrayPivotHigh(_values, _center, _len) =>
     result = true
@@ -229,31 +201,9 @@ arrayPivotLow(_values, _center, _len) =>
             result := false
     result
 
-arrayAverageLast(_values, _len) =>
-    count = math.min(_len, array.size(_values))
-    sum = 0.0
-    if count > 0
-        for offset = 0 to count - 1
-            sum += array.get(_values, array.size(_values) - 1 - offset)
-    count > 0 ? sum / count : na
-
-processCompletedDailyBias(_open, _high, _low, _close, _highs, _lows, _closes, _trs, _stateI, _stateF) =>
-    previousClose = array.size(_closes) > 0 ? array.get(_closes, array.size(_closes) - 1) : _close
-    trueRange = math.max(_high - _low, math.max(math.abs(_high - previousClose), math.abs(_low - previousClose)))
+processCompletedDailyBias(_high, _low, _close, _highs, _lows, _stateI, _stateF) =>
     array.push(_highs, _high)
     array.push(_lows, _low)
-    array.push(_closes, _close)
-    array.push(_trs, trueRange)
-    count = array.size(_highs)
-    center = count - 1 - mssSwingLen
-    if count >= mssSwingLen * 2 + 1
-        if arrayPivotHigh(_highs, center, mssSwingLen)
-            array.set(_stateF, 0, array.get(_highs, center))
-        if arrayPivotLow(_lows, center, mssSwingLen)
-            array.set(_stateF, 1, array.get(_lows, center))
-    body = math.abs(_close - _open)
-    atr = arrayAverageLast(_trs, mssAtrLen)
-    displacement = mssBodyAtrMult == 0.0 or (not na(atr) and body >= atr * mssBodyAtrMult)
     trend = array.get(_stateI, 0)
     bias = array.get(_stateI, 1)
     invalidation = array.get(_stateF, 2)
@@ -263,25 +213,34 @@ processCompletedDailyBias(_open, _high, _low, _close, _highs, _lows, _closes, _t
     if bias == -1 and not na(invalidation) and _close > invalidation
         bias := 0
         invalidation := na
-    if not na(array.get(_stateF, 0)) and _close > array.get(_stateF, 0) and displacement
+    if not na(array.get(_stateF, 0)) and _close > array.get(_stateF, 0)
         bullMss = trend == -1
         trend := 1
         if bullMss
             bias := 1
             invalidation := array.get(_stateF, 1)
-    if not na(array.get(_stateF, 1)) and _close < array.get(_stateF, 1) and displacement
+    if not na(array.get(_stateF, 1)) and _close < array.get(_stateF, 1)
         bearMss = trend == 1
         trend := -1
         if bearMss
             bias := -1
             invalidation := array.get(_stateF, 0)
+    // Match V1: today's completed candle breaks only pivots confirmed before
+    // today. A pivot confirmed by today's candle is published afterwards.
+    count = array.size(_highs)
+    center = count - 1 - mssSwingLen
+    if count >= mssSwingLen * 2 + 1
+        if arrayPivotHigh(_highs, center, mssSwingLen)
+            array.set(_stateF, 0, array.get(_highs, center))
+        if arrayPivotLow(_lows, center, mssSwingLen)
+            array.set(_stateF, 1, array.get(_lows, center))
     array.set(_stateI, 0, trend)
     array.set(_stateI, 1, bias)
     array.set(_stateF, 2, invalidation)
     true
 
 // Integer state: setupDir, setupStep, armedDir, armedStep, raw, unique,
-// replaced, armedCount, trades, wins, tp1Loss, directLoss, firstTime,
+// replaced, armedCount, trades, wins, tp1Breakeven, directLoss, firstTime,
 // OB raw, FVG raw, same-zone raw, changed-zone raw, ARMED replaced.
 newIntState() => array.from(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 // Float state: setupBreak, retest, protect, lastPH, lastPL, net, grossWin,
@@ -319,7 +278,7 @@ updateTrades(_high, _low, _step, _ints, _floats, _dirs, _entries, _stops, _tp1s,
                 tp2Hit = dir == 1 ? _high >= tp2 : _low <= tp2
                 if stopHit
                     fraction = tradeTp1ExitPct / 100.0
-                    resultR = status == 1 ? fraction * tradeTp1R - (1.0 - fraction) : -1.0
+                    resultR = status == 1 ? fraction * tradeTp1R : -1.0
                     array.set(_statuses, i, -1)
                     array.set(_ints, status == 1 ? 10 : 11, array.get(_ints, status == 1 ? 10 : 11) + 1)
                     array.set(_floats, 5, array.get(_floats, 5) + resultR)
@@ -335,33 +294,25 @@ updateTrades(_high, _low, _step, _ints, _floats, _dirs, _entries, _stops, _tp1s,
                     array.set(_floats, 5, array.get(_floats, 5) + resultR)
                     array.set(_floats, 6, array.get(_floats, 6) + resultR)
                 else if tp1Hit and status == 0
+                    array.set(_stops, i, array.get(_entries, i))
                     array.set(_statuses, i, 1)
     true
 
-processModelBar(_time, _open, _high, _low, _close, _pivotHigh, _pivotLow, _atr, _bias, _zTypes, _zDirs, _zMids, _zActive, _zTops, _zBottoms, _zKeys, _expiryBars, _ints, _floats, _strings, _flowKeys, _flowDirs, _flowStages, _flowSetupSteps, _flowBreaks, _flowArmedSteps, _flowRetests, _flowProtects, _touchKeys, _touchStates, _tradeDirs, _entries, _stops, _tp1s, _tp2s, _starts, _statuses) =>
+processModelBar(_time, _open, _high, _low, _close, _pivotHigh, _pivotLow, _bias, _zTypes, _zDirs, _zMids, _zActive, _zTraded, _zTops, _zBottoms, _zKeys, _expiryBars, _ints, _floats, _strings, _flowKeys, _flowDirs, _flowStages, _flowSetupSteps, _flowBreaks, _flowArmedSteps, _flowRetests, _flowProtects, _touchKeys, _touchStates, _tradeDirs, _entries, _stops, _tp1s, _tp2s, _starts, _statuses) =>
     step = array.get(_ints, 1) + 1
     array.set(_ints, 1, step)
     if array.get(_ints, 12) == 0
         array.set(_ints, 12, _time)
     updateTrades(_high, _low, step, _ints, _floats, _tradeDirs, _entries, _stops, _tp1s, _tp2s, _starts, _statuses)
     invalidateZones(_close, _zDirs, _zMids, _zActive)
-    if not na(_pivotHigh)
-        array.set(_floats, 3, _pivotHigh)
-        if array.size(_flowKeys) > 0
-            for i = 0 to array.size(_flowKeys) - 1
-                if array.get(_flowStages, i) == 1 and array.get(_flowDirs, i) == 1
-                    array.set(_flowBreaks, i, _pivotHigh)
-    if not na(_pivotLow)
-        array.set(_floats, 4, _pivotLow)
-        if array.size(_flowKeys) > 0
-            for i = 0 to array.size(_flowKeys) - 1
-                if array.get(_flowStages, i) == 1 and array.get(_flowDirs, i) == -1
-                    array.set(_flowBreaks, i, _pivotLow)
     if _time >= windowStart and array.size(_zKeys) > 0
         for z = 0 to array.size(_zKeys) - 1
             key = array.get(_zKeys, z)
             dir = array.get(_zDirs, z)
-            touched = array.get(_zActive, z) and _bias == dir and _high >= array.get(_zBottoms, z) and _low <= array.get(_zTops, z)
+            // Taiwan equity execution is fixed Long-only. Bearish zones and
+            // bearish Daily structure remain in state, but only bullish zones
+            // can create an execution flow or enter model statistics.
+            touched = dir == 1 and array.get(_zActive, z) and not array.get(_zTraded, z) and _bias == 1 and _high >= array.get(_zBottoms, z) and _low <= array.get(_zTops, z)
             ti = array.indexof(_touchKeys, key)
             priorTouched = ti >= 0 ? array.get(_touchStates, ti) : false
             if ti < 0
@@ -402,8 +353,14 @@ processModelBar(_time, _open, _high, _low, _close, _pivotHigh, _pivotLow, _atr, 
         while array.size(_touchKeys) > maxZones * 2
             array.shift(_touchKeys)
             array.shift(_touchStates)
+    // Match V1 ordering: a SETUP created on this bar freezes the pivot that was
+    // confirmed before this bar. Newly confirmed pivots are available only to
+    // later SETUPs and to the protect swing saved if ARMED forms on this bar.
+    if not na(_pivotHigh)
+        array.set(_floats, 3, _pivotHigh)
+    if not na(_pivotLow)
+        array.set(_floats, 4, _pivotLow)
     previousClose = array.get(_floats, 8)
-    displacement = armedBodyAtrMult == 0.0 or math.abs(_close - _open) >= _atr * armedBodyAtrMult
     if array.size(_flowKeys) > 0
         for i = array.size(_flowKeys) - 1 to 0
             key = array.get(_flowKeys, i)
@@ -415,7 +372,7 @@ processModelBar(_time, _open, _high, _low, _close, _pivotHigh, _pivotLow, _atr, 
             if stage == 1
                 remove := zoneInvalid or biasInvalid or step - array.get(_flowSetupSteps, i) > _expiryBars
                 breakLevel = array.get(_flowBreaks, i)
-                armedEvent = not remove and (dir == 1 ? (step > array.get(_flowSetupSteps, i) and not na(breakLevel) and not na(previousClose) and _close > breakLevel and previousClose <= breakLevel and displacement) : (step > array.get(_flowSetupSteps, i) and not na(breakLevel) and not na(previousClose) and _close < breakLevel and previousClose >= breakLevel and displacement))
+                armedEvent = not remove and (dir == 1 ? (step > array.get(_flowSetupSteps, i) and not na(breakLevel) and not na(previousClose) and _close > breakLevel and previousClose <= breakLevel) : (step > array.get(_flowSetupSteps, i) and not na(breakLevel) and not na(previousClose) and _close < breakLevel and previousClose >= breakLevel))
                 if armedEvent
                     array.set(_ints, 7, array.get(_ints, 7) + 1)
                     array.set(_flowStages, i, 2)
@@ -430,6 +387,9 @@ processModelBar(_time, _open, _high, _low, _close, _pivotHigh, _pivotLow, _atr, 
                 if entryEvent
                     if addTrade(dir, _close, protect, step, _tradeDirs, _entries, _stops, _tp1s, _tp2s, _starts, _statuses)
                         array.set(_ints, 8, array.get(_ints, 8) + 1)
+                        zoneIndex = array.indexof(_zKeys, key)
+                        if zoneIndex >= 0
+                            array.set(_zTraded, zoneIndex, true)
                     remove := true
             if remove
                 array.remove(_flowKeys, i)
@@ -490,6 +450,7 @@ var string[] wZTypes = array.new_string()
 var int[] wZDirs = array.new_int()
 var float[] wZMids = array.new_float()
 var bool[] wZActive = array.new_bool()
+var bool[] wZTraded = array.new_bool()
 var int[] wZTimes = array.new_int()
 var float[] wZTops = array.new_float()
 var float[] wZBottoms = array.new_float()
@@ -536,20 +497,16 @@ var float currentWeekHigh = na
 var float currentWeekLow = na
 var float currentWeekClose = na
 var int currentDayTime = na
-var float currentDayOpen = na
 var float currentDayHigh = na
 var float currentDayLow = na
 var float currentDayClose = na
 var float[] dailyBiasHighs = array.new_float()
 var float[] dailyBiasLows = array.new_float()
-var float[] dailyBiasCloses = array.new_float()
-var float[] dailyBiasTrs = array.new_float()
 var int[] dailyBiasStateI = array.from(0, 0)
 var float[] dailyBiasStateF = array.from(float(na), float(na), float(na))
 
 primaryPivotHigh = ta.pivothigh(high, armedSwingLen, armedSwingLen)
 primaryPivotLow = ta.pivotlow(low, armedSwingLen, armedSwingLen)
-primaryAtr = ta.atr(armedAtrLen)
 
 if chartIsH1 and barstate.isconfirmed
     weekTime = time("W")
@@ -568,7 +525,6 @@ if chartIsH1 and barstate.isconfirmed
         currentWeekClose := close
     if na(currentDayTime)
         currentDayTime := dayTime
-        currentDayOpen := open
         currentDayHigh := high
         currentDayLow := low
         currentDayClose := close
@@ -577,12 +533,12 @@ if chartIsH1 and barstate.isconfirmed
         currentDayLow := math.min(currentDayLow, low)
         currentDayClose := close
     if dayChanged
-        processCompletedDailyBias(currentDayOpen, currentDayHigh, currentDayLow, currentDayClose, dailyBiasHighs, dailyBiasLows, dailyBiasCloses, dailyBiasTrs, dailyBiasStateI, dailyBiasStateF)
+        processCompletedDailyBias(currentDayHigh, currentDayLow, currentDayClose, dailyBiasHighs, dailyBiasLows, dailyBiasStateI, dailyBiasStateF)
     primaryDailyBias = array.get(dailyBiasStateI, 1)
     if perZoneDiagnostic == "FULL"
-        processModelBar(time, open, high, low, close, primaryPivotHigh, primaryPivotLow, primaryAtr, primaryDailyBias, wZTypes, wZDirs, wZMids, wZActive, wZTops, wZBottoms, wZKeys, setupExpiryBars, swingI, swingF, swingS, swingFlowKeys, swingFlowDirs, swingFlowStages, swingFlowSetupSteps, swingFlowBreaks, swingFlowArmedSteps, swingFlowRetests, swingFlowProtects, swingTouchKeys, swingTouchStates, swingDirs, swingEntries, swingStops, swingTp1s, swingTp2s, swingStarts, swingStatuses)
+        processModelBar(time, open, high, low, close, primaryPivotHigh, primaryPivotLow, primaryDailyBias, wZTypes, wZDirs, wZMids, wZActive, wZTraded, wZTops, wZBottoms, wZKeys, setupExpiryBars, swingI, swingF, swingS, swingFlowKeys, swingFlowDirs, swingFlowStages, swingFlowSetupSteps, swingFlowBreaks, swingFlowArmedSteps, swingFlowRetests, swingFlowProtects, swingTouchKeys, swingTouchStates, swingDirs, swingEntries, swingStops, swingTp1s, swingTp2s, swingStarts, swingStatuses)
     if weekChanged
-        processCompletedContext(currentWeekTime, currentWeekOpen, currentWeekHigh, currentWeekLow, currentWeekClose, wHistTimes, wHistOpens, wHistHighs, wHistLows, wHistCloses, wZTypes, wZDirs, wZMids, wZActive, wZTimes, wZTops, wZBottoms, wZKeys)
+        processCompletedContext(currentWeekTime, currentWeekOpen, currentWeekHigh, currentWeekLow, currentWeekClose, wHistTimes, wHistOpens, wHistHighs, wHistLows, wHistCloses, wZTypes, wZDirs, wZMids, wZActive, wZTraded, wZTimes, wZTops, wZBottoms, wZKeys)
         currentWeekTime := weekTime
         currentWeekOpen := open
         currentWeekHigh := high
@@ -590,7 +546,6 @@ if chartIsH1 and barstate.isconfirmed
         currentWeekClose := close
     if dayChanged
         currentDayTime := dayTime
-        currentDayOpen := open
         currentDayHigh := high
         currentDayLow := low
         currentDayClose := close
@@ -630,13 +585,35 @@ modelRow(_row, _name, _i, _f) =>
     cell(15, _row, str.tostring(array.get(_i, 16)), color.white)
     cell(16, _row, str.tostring(LOOKBACK_DAYS) + "D", color.silver)
 
+compactModelRow(_row, _name, _i, _f) =>
+    trades = array.get(_i, 8)
+    wins = array.get(_i, 9)
+    closed = wins + array.get(_i, 10) + array.get(_i, 11)
+    tp2 = closed > 0 ? wins * 100.0 / closed : na
+    net = array.get(_f, 5)
+    grossLoss = array.get(_f, 7)
+    pf = grossLoss > 0.0 ? array.get(_f, 6) / grossLoss : na
+    coverage = array.get(_i, 12) > 0 and array.get(_i, 12) <= windowStart ? "FULL" : "PART"
+    cell(0, _row, _name + " " + coverage, color.white)
+    cell(1, _row, str.tostring(trades), color.white)
+    cell(2, _row, na(tp2) ? "-" : str.tostring(tp2, "#.0") + "%", color.white)
+    cell(3, _row, str.tostring(net, "#.##") + "R", net >= 0.0 ? color.lime : color.red)
+    cell(4, _row, na(pf) ? "-" : str.tostring(pf, "#.##"), color.white)
+
 if barstate.islast
     table.clear(results, 0, 0, 16, 4)
-    table.cell(results, 0, 0, chartIsH1 ? "V4-PZ-04 | W-D-H1 | PZ " + perZoneDiagnostic : "V4-PZ-04 | USE H1 CHART", text_color=color.white, bgcolor=chartIsH1 ? color.new(color.navy, 10) : color.new(color.orange, 10), text_size=size.tiny)
-    headers = array.from("MODEL", "SETUP", "UNIQUE SETUP", "SETUP replaced", "ARMED replaced", "ARMED", "Total", "U>A", "A>T", "TP2 Rate", "Net R", "Profit Factor", "OB SETUP", "FVG SETUP", "Same-zone SETUP", "Changed-zone SETUP", "Window")
-    for c = 0 to 16
-        cell(c, 1, array.get(headers, c), color.silver)
-    if chartIsH1
-        modelRow(2, "PRIMARY W-D-H1", swingI, swingF)
-        cell(0, 3, "LEGACY D-H4-H1 OFF", color.gray)
-        cell(0, 4, "LEGACY H4-H1-M30 OFF", color.gray)
+    table.cell(results, 0, 0, chartIsH1 ? (showSignalFunnelStats ? "V4-LONG-01 | W-D-H1 | PZ " + perZoneDiagnostic : "V4-LONG-01 | W-D-H1 | COMPACT") : "V4-LONG-01 | USE H1 CHART", text_color=color.white, bgcolor=chartIsH1 ? color.new(color.navy, 10) : color.new(color.orange, 10), text_size=size.tiny)
+    if showSignalFunnelStats
+        headers = array.from("MODEL", "SETUP", "UNIQUE SETUP", "SETUP replaced", "ARMED replaced", "ARMED", "Total", "U>A", "A>T", "TP2 Rate", "Net R", "Profit Factor", "OB SETUP", "FVG SETUP", "Same-zone SETUP", "Changed-zone SETUP", "Window")
+        for c = 0 to 16
+            cell(c, 1, array.get(headers, c), color.silver)
+        if chartIsH1
+            modelRow(2, "PRIMARY W-D-H1", swingI, swingF)
+            cell(0, 3, "LEGACY D-H4-H1 OFF", color.gray)
+            cell(0, 4, "LEGACY H4-H1-M30 OFF", color.gray)
+    else
+        compactHeaders = array.from("MODEL", "Total", "TP2 Rate", "Net R", "Profit Factor")
+        for c = 0 to 4
+            cell(c, 1, array.get(compactHeaders, c), color.silver)
+        if chartIsH1
+            compactModelRow(2, "PRIMARY W-D-H1", swingI, swingF)

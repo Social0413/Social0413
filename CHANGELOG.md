@@ -1,5 +1,134 @@
 # Changelog
 
+## 2026-07-16 V4-LONG-01 Taiwan equity Long-only execution sync
+
+- V1 `V1-LONG-01` 通過 2105、2324/H1 實圖驗證後，相同 bullish SETUP touch gate 同步至 V4 PRIMARY。
+- Bearish zones 與 bearish Daily structure 繼續維護，但不再建立 flow 或進入 V4 SETUP、ARMED、Total、來源分類及績效統計。
+- midpoint invalidation、ENTRY/TPSL、one-trade-per-zone、compact table 與其餘計算均未修改。
+- Repository 靜態檢查與 `git diff --check` 通過；V1/V4 bullish gate、唯一 flow push、Bearish context、midpoint 與 compact table 已完成交叉核對。
+- 使用者已在 2105、2324/H1 驗證 V1/V4 所有共通欄位一致，Long-only 同步通過。
+
+## 2026-07-16 V1-LONG-01 Taiwan equity Long-only execution
+
+- 只修改 V1；V4 維持 `V4-STATS-01`，待 V1 驗證後才同步。
+- SETUP touch gate 固定要求 bullish zone 與 bullish Daily Bias；Bearish zone 不再建立 execution flow，因此不再產生 S SETUP、S ARMED、S ENTRY、S Trade Plan 或空方統計。
+- Bearish OB/FVG、Daily bearish MSS/CHOCH、Bias 轉空及取消既有多方候選的風險 context 保留。
+- midpoint invalidation、Bullish SETUP／ARMED／ENTRY、ENTRY expiry、TP1→BE、one-trade-per-zone、compact table 與所有績效公式均未修改。
+- Repository 靜態檢查與 `git diff --check` 通過；唯一 flow 入口、Bearish context 保留、midpoint 不變及 V4 未同步均已確認。
+- 使用者在 2105、2324/H1 確認只出現 B SETUP／ARMED／ENTRY／PLAN，Bearish zone 仍顯示且無 S flow；同意同步 V4。
+
+## 2026-07-16 V1-BEARVIS-01 bearish zone light-red palette
+
+- 只修改 V1 Weekly zone 視覺；V4 無 zone 繪圖，不需同步。
+- Bearish OB fill、border 與 `OB` 文字改為淺紅色；Bearish FVG fill、border 與 `FVG` 文字改為更淡的淺紅色，不再使用 olive。
+- Bullish OB/FVG 顏色、midline、zone direction、建立、失效、SETUP／ARMED／ENTRY、Trade Plan 與全部統計均未修改。
+- Repository 靜態檢查與 `git diff --check` 通過；兩階淺紅、olive 移除、Bullish 配色保留及 V4 未修改均已確認。
+- 使用者在 2376/Weekly 確認 Bearish OB/FVG 淺紅配色沒有問題；視覺階段通過。
+
+## 2026-07-16 V4-STATS-01 mobile compact statistics sync
+
+- V1 `V1-STATS-01` 通過使用者視覺確認後，相同 `Show SETUP/ARMED/ENTRY statistics` 開關同步至 V4。
+- 預設開啟時保留原 17 欄完整表格；關閉時表頭顯示 `COMPACT`，只重畫 MODEL、Total、TP2 Rate、Net R、Profit Factor 五欄。
+- `FULL/PART` coverage 併入 MODEL 顯示；LEGACY OFF rows 在 compact 模式隱藏。
+- 只修改 table 顯示，不改 V4 PRIMARY 的 Zone、Bias、SETUP、ARMED、ENTRY、Trade、績效 arrays 或任何計算。
+- Repository 靜態檢查與 `git diff --check` 通過；預設值、full/compact headers、五欄資料來源、coverage 與 table clear 均已確認。
+- 使用者在 2105/H1 確認 V4 COMPACT 正常顯示；V1/V4 同為 Total 1、TP2 Rate 0%、Net R -1R、Profit Factor 0，顯示同步通過。
+
+## 2026-07-16 V1-STATS-01 mobile compact statistics
+
+- 只修改 V1；V4 維持 `V4-ENTRYTPSL-01`。
+- 新增預設開啟的 `Show SETUP/ARMED/ENTRY statistics` 顯示開關。
+- 關閉時清除結果表的 `SIGNAL FUNNEL` 第 11～29 列，表頭顯示 `COMPACT`；保留 Total、Open、Win TP2、TP1→BE、Direct Loss、TP1/TP2 Rate、Net R、Avg R 與 Profit Factor。
+- 開關只影響 table cells，不影響 SETUP／ARMED／ENTRY 圖上標籤、訊號判定、Trade Plan、統計累計或 V1/V4 策略核心。
+- Repository 靜態檢查與 `git diff --check` 通過；預設值、table clear、row scope 與底層計數持續運作均已確認。
+- 使用者已確認 `COMPACT` 模式內容符合手機顯示需求，並同意同步 V4。
+
+## 2026-07-16 V4-ENTRYTPSL-01 ENTRY expiry and TP1 breakeven sync（部分通過）
+
+- V1 `V1-ENTRYTPSL-01` 通過 2376、2324、2609/H1 TradingView 檢查後，相同核心同步至 V4 PRIMARY。
+- `ENTRY retest expiry bars` 預設改為 15 根 H1；TP1 達成後將剩餘部位 stop 更新為 Entry。
+- TP1 後觸及 Entry 的結果改為 `TP1 → BE`，R 值為已實現 TP1 部位的收益；預設 50% 於 1R 出場時為 +0.5R。
+- `SL → TP2 → TP1` 的同 K 保守判定順序維持不變；Weekly zone、Daily MSS、SETUP、ARMED、ENTRY 幾何與 one-trade-per-zone 未修改。
+- Repository 靜態檢查與 `git diff --check` 通過；V1/V4 的 expiry、stop→Entry、TP1→BE R 與 SL 優先順序已完成程式交叉核對。
+- TradingView compile／runtime 通過；2609、2324/H1 的 V1/V4 共通統計完全一致，2376 尚待回歸。
+
+## 2026-07-16 V1-ENTRYTPSL-01 ENTRY expiry and TP1 breakeven
+
+- 只修改 V1；V4 維持已驗證的 `V4-MSS-02`。
+- `ENTRY retest expiry bars` 預設由 0 改為 15 根 H1；到期只取消尚未 ENTRY 的候選，不消耗來源 zone。
+- TP1 達成後，剩餘部位 SL 移到 Entry；後續觸及 Entry 記為 `TP1 → BE`。預設 50% 於 1R 出場時，此結果為 +0.5R。
+- 首次觸及 TP1 的同一根 K 若同時觸及原始 SL，仍維持保守的 SL 優先並記為 Direct Loss。
+- Weekly zone、Daily MSS Bias、SETUP、ARMED、ENTRY retest geometry、one-trade-per-zone、TP1/TP2 價格與其他失效條件均未修改。
+- Repository 靜態檢查與 `git diff --check` 通過；已確認 stop array、SL line、TP1→BE R 計算及 `SL → TP2 → TP1` 判定順序一致。
+- 使用者已在 2376、2324、2609/H1 確認正常執行；2324 與 2609 均出現一筆 TP1→BE，預設 +0.5R 計算正確，因此同意同步 V4。
+
+## 2026-07-15 V4-MSS-02 close-break Daily MSS sync
+
+- V1 `V1-MSS-02` 已由使用者在 2376/D 確認 MSS 圖形結果，相同核心同步至 V4 PRIMARY。
+- 移除 V4 Daily MSS 的 ATR length、body multiplier、True Range arrays、平均計算及未使用的舊 bias helper；MSS 僅由較長 confirmed pivot、完成 Daily close 與 trend reversal 決定。
+- 完成 Daily candle 改為先判斷先前 confirmed pivot，再發布本 candle 新確認的 pivot，與 V1 執行順序一致。
+- Weekly zone ATR、SETUP／ARMED／ENTRY、15 根 H1 expiry、one-trade-per-zone、TPSL 與績效公式未修改。
+- 使用者已在 2376/H1／1095D／FULL 驗證 V1/V4 共通欄位完全一致：SETUP 16、replaced 4、ARMED 3、Total 3、Net R -0.5R、OB/FVG 6/10、Same/Changed 6/10；同步完成。
+
+## 2026-07-15 V1-MSS-02 close-break Daily MSS
+
+- 只修改 V1；V4 維持已驗證的 `V4-ENTRY-01`。
+- Daily MSS 移除 ATR length、body multiplier 與單根 displacement 條件；較長 confirmed pivot、完成 Daily close 正式突破與 trend reversal 直接成立 MSS。
+- H1 聚合 Daily 同步移除專供 MSS ATR 使用的 open、close、True Range arrays 與平均計算，保留與 D chart 相同的純結構規則。
+- 保留 `V1-MSS-01` 的先判斷舊 confirmed pivot、再發布本 candle 新 pivot 順序；Weekly OB/FVG 的 ATR 規則完全不變。
+- 使用者已在 2376/D 確認正式版 MSS 圖形結果；H1 Bias／交易回歸於 V4 同步後共同核對。
+
+## 2026-07-15 V1-MSS-01 prior-pivot breakout ordering
+
+- 只修改 V1；V4 維持已驗證的 `V4-ENTRY-01`，待 V1 TradingView 驗證後才同步。
+- D chart 與 H1 聚合 Daily 兩條路徑改為先用進入完成 candle 前已確認的 CHOCH/MSS pivot 判斷 breakout、事件與 Bias，再寫入本 candle 新確認的 pivot。
+- 修正同一根完成 Daily candle 先把 pivot 更新到較新位置、再判斷突破而可能漏掉 MSS／CHOCH 的執行順序問題。
+- swing length、ATR displacement、MSS reversal、Bias invalidation、Weekly zone 與 SETUP／ARMED／ENTRY／Trade Plan 規則均未修改。
+- TradingView compile 通過，但 2376/D 缺少的 bearish MSS 仍未出現；將 MSS multiplier 暫設 0 後即出現，證明本案例的直接原因是 ATR displacement。ordering 修正保留作為正確事件邊界，MSS ATR 規則另於 `V1-MSS-02` 移除。
+
+## 2026-07-15 V4-ENTRY-01 one trade per exact zone sync
+
+- V1 `V1-ENTRY-01` 已由使用者在 2376/H1 驗證完整交易鏈保留及同 zone 後續 SETUP 排除；V1 SETUP 14、ARMED 3、Total 3、Net R -0.5R。
+- 相同 `traded` zone state 已同步至 V4 PRIMARY；有效 Trade 建立後，同一 exact zone 不再建立第二個 SETUP episode。
+- V4 zone 建立、按類型裁切、touch 與 Trade 成立路徑均同步維護 `traded` 平行 array；LEGACY 模型仍維持關閉。
+- 使用者已在 2376/H1 驗證 V1/V4 共通欄位完全一致：SETUP 21、ARMED 4、Total 3、Net R -0.5R、OB/FVG 11/10、Same/Changed 12/9；V4 同步通過。
+
+## 2026-07-15 V1-ENTRY-01 one trade per exact zone
+
+- 只修改 V1；V4 維持已驗證的 `V4-AR-02R1`，待 TradingView 驗證後才同步。
+- OB/FVG 每個確切 zone 新增獨立 `traded` 狀態；有效 ENTRY 成功建立 Trade Plan 時立即標記 consumed，同 zone 後續 touch 不再建立 SETUP。
+- SETUP expiry、ARMED 失效與無效 Trade Plan 不消耗 zone；不同 key 的重疊 zone 仍可各自形成一筆交易。
+- 有效交易的 SETUP／ARMED／ENTRY 標籤封存為完整歷史鏈，不再被同 zone 後續 SETUP 刪除。
+- 使用者已在 2376/H1 驗證通過：完整交易鏈保留、同 zone 後續 SETUP 排除；SETUP 14、ARMED 3、Total 3、OB/FVG 2/12、Same/Changed 6/8、Net R -0.5R。
+
+## 2026-07-15 V1-AR-02S1 latest SETUP label per zone
+
+- 純 V1 顯示修改；V4 無 SETUP 視覺標籤，不改策略核心。
+- 同一個確切 zone 建立新 SETUP 時，刪除該 zone 先前仍 active 或已封存的 SETUP 標籤，再建立最新標籤；不同 zone 仍可各顯示一個。
+- SETUP、SETUP replaced、ARMED、Total、來源分類、active-flow lifecycle 與績效累計完全不變；尚待 TradingView 視覺與統計回歸。
+- 2376、1504、2105、2324/H1 驗證通過；同 zone 標籤已收斂為最新一個，所有 V1/V4 共通統計維持一致。
+
+## 2026-07-14 V1-AR-02 fixed pre-SETUP structure break
+
+- 只修改 V1；V4 維持已驗證的 `V4-AR-01`。
+- SETUP 建立時固定保存當下最後一個同方向 confirmed H1 pivot 作為 break level；等待期間的新 pivot 只更新全域最近 pivot 與後續 protect swing，不再移動既有 SETUP 的 break level。
+- SETUP 後由 H1 close 正式穿越固定 break level 即成立 ARMED；移除 `ARMED ATR length`、`ARMED body ATR multiplier` 與 candle-body displacement 判定。
+- 15 根 H1 expiry、zone／bias 失效、per-zone replacement、ARMED protect swing 與其他流程維持不變；尚待 TradingView compile、runtime 與訊號位置驗證。
+- TradingView 1504、2105、2324/H1 驗證可正常執行；Net R 由舊版 `0R／-1R／-1R` 改為 `1.5R／0R／0R`，初步正面。仍需逐筆確認 ARMED 是否確實更早且不追高，本版暫不同步 V4。
+- 使用者追加檢視 2376、2002 後接受此 ARMED 邏輯；相同核心已同步為 `V4-AR-02`，尚待 TradingView V1/V4 對齊驗證。
+- `V4-AR-02` 初驗時 1504、2105 對齊，但 2324 的 V1 為 Total 0／0R、V4 為 Total 1／-1R；根因為 V4 在同 bar 先更新 pivot 再建立 SETUP，與 V1 順序相反。
+- V4 改為先依先前 confirmed pivot 建立 SETUP，再寫入當根新 confirmed pivot，build ID 更新為 `V4-AR-02R1`；V1 未修改。
+- `V4-AR-02R1` 已在 2324/H1 對齊 V1：SETUP 8、replaced 1、ARMED 1、Total 0、Net R 0R；待 1504、2105 回歸。
+- 1504、2105 回歸亦完全對齊；`V1-AR-02`／`V4-AR-02R1` 已通過三標的 H1／1095D／FULL 所有共通欄位驗證，fixed pre-SETUP pivot ARMED 本輪完成。
+
+## 2026-07-14 V1-AR-01 ARMED expiry and displacement
+
+- ARMED 第一輪先只修改 V1；V1 通過三標的 TradingView 驗證後，才同步 V4。
+- 將 SETUP → ARMED 等待期限統一為 15 根 H1；程式原已使用 `SETUP expiry H1 bars = 15`，本次同步修正規格中殘留的 20 根描述，不新增第二套 ARMED expiry。
+- 將 V1 `ARMED body ATR multiplier` 預設值由 1.0 降為 0.5；confirmed pivot、close crossover、break level 更新、protect swing、zone／bias 失效與 per-zone lifecycle 均維持不變。
+- `V1-AR-01` 已在 TradingView 1504、2105、2324/H1／1095D／FULL 正常執行；SETUP、ARMED、Total 與 V4 舊基準一致，三檔 ARMED 數量未增加。
+- 相同核心已同步為 `V4-AR-01`；TradingView 1504、2105、2324/H1／1095D／FULL 均正常執行，所有 V1/V4 共通欄位完全一致，ARMED A＋B 本輪驗證完成。
+
 ## 2026-07-14 V1-PZ-04 FULL default and SETUP history
 
 - 使用者在 `1504/H1`、`2105/H1`、`2324/H1` 確認 `V1-PZ-03 / FULL` 可正常執行，未發生空白或 crash。

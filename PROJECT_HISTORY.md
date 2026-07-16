@@ -1,5 +1,27 @@
 # TradingView SMC Replay Toolkit - Development History
 
+## 2026-07-16 - ENTRY/TPSL、手機顯示與台股 Long-only 第一輪收斂
+
+本段對話先重新盤點完整 ENTRY／TPSL：ARMED 後回踩固定 break level 並收盤站回才 ENTRY，SL 使用 ARMED 當下的反方向 confirmed H1 pivot。使用者選定兩項簡單調整：ENTRY retest expiry 預設由不限期改為 15 根 H1；TP1 後剩餘部位 SL 移到 Entry。V1 `V1-ENTRYTPSL-01` 先驗證，2324 與 2609 均出現 TP1→BE，預設 50% 於 1R 出場時正確計為 +0.5R；再同步 V4。2609、2324 的 V1/V4 共通績效完成對齊，2376 的最終 current-build 回歸保留為後續安全基準。
+
+接著新增預設開啟的手機統計開關。V1 關閉後隱藏 SIGNAL FUNNEL、只保留交易績效；V4 關閉後只保留 MODEL、Total、TP2 Rate、Net R、Profit Factor。2105/H1 已確認 V1/V4 COMPACT 顯示正常，且 Total 1、TP2 Rate 0%、Net R -1R、Profit Factor 0 一致。此功能只清除 table cells，所有底層計數與策略流程持續運作。
+
+台股方向正式固定為 Long-only。Bearish Weekly OB/FVG 與 Daily bearish MSS/CHOCH 保留作為圖形與風險 context；Bearish OB/FVG 改成兩階淺紅色，但只有 bullish zone + bullish Daily Bias 能進入 SETUP touch gate。方向限制只放在唯一 flow 入口，下游 ARMED、ENTRY、Trade Plan、funnel 與績效因此自然只含多方。2105、2324/H1 的 V1 `V1-LONG-01` 與 V4 `V4-LONG-01` 所有共通欄位完全一致；2324 為 SETUP 16、replaced 4、ARMED 3、Total 2、Net R -0.5R、PF 0.5、OB/FVG 5/11、Same/Changed 8/8，2105 為 8、2、1、1、-1R、0、3/5、3/5。
+
+本輪沒有策略 rollback。兩次靜態 assertion 初次失敗源自檢查式假設錯誤：一次低估 ternary title 內的 build ID 出現次數，一次使用錯誤的 midpoint 變數名稱；修正 assertion 後全部通過，程式本身未因此修改。可重用教訓是版本檢查應核對 indicator 與 table 的實際位置，不只依固定字串數量；V1/V4 仍必須維持「V1 實圖通過後才同步 V4」。
+
+使用者曾評估將 zone 失效由 midpoint 改成完整 zone edge，但決定本輪保留現行規則。因此目前穩定版仍以正式 H1 收盤跌破 bullish midpoint／突破 bearish midpoint 失效；下一對話若重啟此議題，應先記錄 2376 `LONG-01` 基準，再只做 V1 edge-invalidation 候選，不與其他策略調整同時進行。
+
+## 2026-07-15 - ENTRY/TPSL 與 Daily MSS 第一輪邏輯確認完成
+
+本輪先解決完成交易的 SETUP 被同 zone 後續 re-entry 取代：每個確切 Weekly zone 在有效 Trade Plan 建立時立即標記 `traded`，不論最後 WIN／LOSS，同 zone 都不再建立第二筆 SETUP。V1 先驗證完整 `SETUP → ARMED → ENTRY → PLAN` 歷史鏈保留，再同步 V4；2376/H1 的兩者統計完成對齊。
+
+接著處理 Daily MSS 漏訊號。最初發現 D chart 與 H1 聚合 Daily 都可能在判斷 breakout 前先發布本 candle 新 confirmed pivot，因此先建立 `MSS-01` 修正事件順序。TradingView compile 後，原本缺少的 bearish MSS 仍未出現；將 MSS ATR multiplier 暫設為 0 後訊號才出現，證明 ordering 是應保留的正確事件邊界，但不是該案例的直接根因。
+
+最終規格採簡單結構規則：Daily MSS 使用較長 confirmed pivot、完成 Daily close 與 trend reversal，不再要求單根 candle ATR displacement。理由是 Bias 不應因同一結構跌破由一根大 K 或多根中型 K 完成而得到不同方向。V1 `V1-MSS-02` 先在 2376/D 通過圖形驗證，再同步 V4 `V4-MSS-02`。
+
+最終 2376/H1／1095D／FULL 證據：V1/V4 共通欄位均為 SETUP 16、replaced 4、ARMED 3、Total 3、TP2 Rate 33.3%、Net R -0.5R、Profit Factor 0.75、OB/FVG 6/10、Same/Changed 6/10。V4 額外為 UNIQUE SETUP 12、U>A 25.0%、A>T 100.0%。本輪無未解決阻斷問題；本機仍無 Pine compiler，後續任何新規則修改仍須維持 V1 先驗證、再同步 V4。
+
 ## 2026-07-14 - Per-zone SETUP 完成與 V1/V4 FULL 對齊
 
 V1 的 `TOUCH` 空白問題最終定位為 Pine v5 `or` 非 lazy evaluation：首次新 zone 的 `fi = -1` 仍會讀取 `array.get(flowStages, -1)`。正確修法是先保存 `fi < 0`，只有 `fi >= 0` 時才讀取 stage。V1 `V1-PZ-03` 先通過 2324、1504/H1 TOUCH 驗證，再以 1504、2105、2324/H1 驗證 FULL 可正常執行。

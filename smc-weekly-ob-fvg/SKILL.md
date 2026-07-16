@@ -1,81 +1,76 @@
 ---
 name: smc-weekly-ob-fvg
-description: Create and maintain a TradingView Pine Script indicator for Smart Money Concepts weekly order blocks, weekly fair value gaps, and daily CHOCH/MSS horizontal structure lines. Use when the user asks Codex to draw SMC, weekly OB, weekly FVG, bullish green OB zones, bearish red OB zones, stop zones at midpoint breaks, or daily structure shifts.
+description: Maintain the TradingView SMC Replay Toolkit for Taiwan equities: Weekly OB/FVG, Daily MSS bias, H1 Long-only SETUP/ARMED/ENTRY, Trade Plans, and V1/V4 statistical alignment.
 ---
 
 # SMC Weekly OB FVG
 
-## Overview
+## Authority and assets
 
-Build Pine Script indicators for SMC analysis on TradingView. Version 1 focuses on the current ETHUSDT chart and draws weekly timeframe order blocks, weekly fair value gaps, and daily structure lines while the user views lower timeframes such as H4.
+- Current behavior is defined by `../SMC_SPEC.md`; implementation architecture is in `../DESIGN.md`.
+- V1 visual inspection: `assets/smc_weekly_ob_fvg_v1.pine`.
+- V4 PRIMARY statistical reconciliation: `assets/smc_top_down_models_v4.pine`.
+- Current stable builds are V1 `V1-LONG-01` and V4 `V4-LONG-01`.
+- Core changes must be implemented and verified in V1 before the same logic is synchronized to V4.
 
-## Version 1 Rules
+## Current model
 
-- Use weekly (`W`) candles as the high timeframe source.
-- Draw bullish order blocks in green.
-- Draw bearish order blocks in red.
-- Draw bullish FVG in a brighter yellow.
-- Draw bearish FVG in a darker yellow/olive.
-- Detect weekly FVG with the classic 3-candle imbalance:
-  - Bullish FVG: week 3 low is above week 1 high.
-  - Bearish FVG: week 3 high is below week 1 low.
-  - Only keep FVG zones whose gap size is at least 3% of the gap midpoint price by default.
-- Detect weekly OB with a structure-break rule:
-  - Bullish OB: a completed weekly close breaks above the recent weekly structure high; search backward for the nearest bearish weekly candle and use it as the OB.
-  - Bearish OB: a completed weekly close breaks below the recent weekly structure low; search backward for the nearest bullish weekly candle and use it as the OB.
-- Do not draw the same OB source candle twice. A source weekly candle plus direction can create at most one OB zone.
-- Extend each valid OB to the right.
-- Stop extending a bullish OB when price breaks below its midpoint.
-- Stop extending a bearish OB when price breaks above its midpoint.
-- Extend each valid FVG to the right.
-- Stop extending a bullish FVG when price breaks below its midpoint.
-- Stop extending a bearish FVG when price breaks above its midpoint.
-- Always stop OB/FVG zones at midpoint breaks; do not skip invalidation for replay mode.
-- Keep object count conservative by default (`Maximum zones per type` defaults to 40) because TradingView replay can stop drawing the whole indicator when object pressure is too high.
-- Keep replay calculations light. Daily/weekly replay steps recalculate more frequently than monthly replay, so avoid long history loops in replay-sensitive code.
-- Always show `OB` and `FVG` text inside zones.
-- Use more transparent fills by default because overlapping zones become visually brighter when they stack.
-- Do not draw the 365-day high/low feature. It was removed because it added resource pressure in replay mode.
-- Use weekly (`W`) data for OB/FVG.
-- On daily charts, run the known-working `03_H4M15`-derived structure logic directly from chart candles.
-- On intraday charts, build completed daily candles from the current chart bars, then run the same daily CHOCH/MSS logic on those completed daily candles. This mirrors the weekly OB/FVG aggregation approach and avoids unstable `request.security("D")` display behavior.
-- Do not rejudge CHOCH/MSS from the current intraday timeframe. H4/M15 bars are only used to reconstruct daily candles for display.
-- Use green tones for bullish/long CHOCH/MSS and red tones for bearish/short CHOCH/MSS. CHOCH should be darker; MSS should be brighter.
-- Use `D CHOCH` when a daily close breaks the latest CHOCH pivot in the opposite tracked trend direction.
-- Use `D MSS` when a daily close breaks the latest MSS pivot in the opposite tracked trend direction and the candle body meets the ATR displacement filter.
-- Do not use `plotshape` or separate `label.new` labels for daily CHOCH/MSS.
-- Draw CHOCH/MSS as fixed horizontal structure-break segments from the broken pivot candle to the candle that confirms the break. Do not extend CHOCH/MSS into future candles.
-- Put the `CHOCH` or `MSS` text below the structure segment so it does not cover the line or candles. Pine line objects do not support native line text, so use a transparent text box under the line instead of a separate label.
-- Use darker colors for CHOCH and brighter colors for MSS.
-- Keep CHOCH and MSS as separate pivot systems: CHOCH defaults to swing length 2; Daily MSS defaults to swing length 4 plus ATR body filter.
-- When a bullish Daily MSS forms, freeze the latest confirmed Daily swing low as its Bias invalidation level; for a bearish Daily MSS, freeze the latest confirmed Daily swing high. A completed Daily close through that fixed level changes the Bias to Neutral. Do not trail the level or use CHOCH/time expiry to invalidate the Bias.
-- Start FVG boxes from the confirming weekly candle rather than the earliest candle in the 3-candle pattern.
-- Build weekly candle history by aggregating the current chart bars into weekly candles. Avoid relying on weekly `request.security()` history for OB/FVG drawing, because those zones must remain visible when the user switches between weekly, daily, and intraday charts.
+- Formal model: `Weekly Zone → Daily MSS Bias → H1 SETUP / ARMED / ENTRY`.
+- Formal chart and statistics boundary: H1, 1095D, `FULL`.
+- Taiwan equity execution and all performance statistics are fixed Long-only.
+- Bearish Weekly zones and bearish Daily structure remain visible as risk context, but cannot create execution flows.
 
-## Version Control
+## Weekly OB/FVG
 
-After completing future edits, commit and push directly to GitHub without asking again, unless the user explicitly says not to push.
+- Build completed Weekly candles from chart bars; do not depend on Weekly `request.security()` history for zone drawing.
+- Bullish OB: completed Weekly close breaks recent structure high and breakout body is at least Weekly Wilder ATR(14) × 1.0; use the nearest prior bearish candle within searchback.
+- Bearish OB: symmetric close below structure low and nearest prior bullish candle.
+- OB range is Hybrid Range: bullish `low → open`, bearish `open → high`.
+- FVG uses the standard three-completed-candle wick-to-wick gap with no minimum gap width.
+- The middle FVG candle must match direction and have body at least Weekly Wilder ATR(14) × 1.0.
+- Bullish OB is green and Bullish FVG is yellow. Bearish OB/FVG remain visible in two light-red shades.
+- Current invalidation remains midpoint-based: bullish close below midpoint, bearish close above midpoint. Full-edge invalidation is not implemented.
+- Keep at most 40 zones per type and prevent duplicate OB source zones.
 
-## Asset
+## Daily structure
 
-Use [assets/smc_weekly_ob_fvg_v1.pine](assets/smc_weekly_ob_fvg_v1.pine) as the first Pine Script version.
+- Daily CHOCH and MSS use separate confirmed pivots; defaults are CHOCH 2 and MSS 4.
+- Daily MSS is a completed-close trend reversal through the longer confirmed pivot; it has no ATR body displacement filter.
+- Evaluate each completed Daily candle against previously confirmed pivots before publishing pivots confirmed by that candle.
+- Intraday charts aggregate completed Daily candles for Bias state; Daily structure objects are drawn only on the Daily chart.
+- Bearish MSS can cancel or block long candidates even though short execution is disabled.
 
-## TradingView Workflow
+## H1 Long-only execution
 
-1. Open ETH H4 with `open-tv-symbol`:
+- Only bullish Bias plus an active, untraded bullish Weekly zone can create SETUP.
+- Each exact zone owns an independent flow and can create at most one valid Trade Plan.
+- SETUP freezes the last confirmed H1 swing high as break level; ARMED forms on a later H1 close crossover with no ATR displacement filter.
+- SETUP/ARMED waiting expiry is 15 H1 bars.
+- ENTRY forms after ARMED when price retests the frozen break level and closes back above it; ENTRY retest expiry defaults to 15 H1 bars.
+- SL is the opposite confirmed H1 protect swing saved at ARMED.
+- Default targets are TP1 1R, TP2 2R, 50% exit at TP1; after TP1 the remaining SL moves to Entry.
+- Same-bar result priority is `SL → TP2 → TP1`.
+- A successful Trade Plan immediately marks the exact source zone traded/consumed.
 
-```powershell
-Start-Process 'https://www.tradingview.com/chart/?symbol=BINANCE%3AETHUSDT&interval=240'
-```
+## Display
 
-2. Open TradingView Pine Editor.
-3. Paste the contents of `assets/smc_weekly_ob_fvg_v1.pine`.
-4. Save the script as `CODEX SMC Weekly OB FVG v1`.
-5. Add it to the current ETHUSDT chart.
+- V1 draws zones, Daily structure, SETUP/ARMED/ENTRY and Trade Plans.
+- V4 PRIMARY is the numerical reconciliation layer; LEGACY rows remain OFF.
+- `Show SETUP/ARMED/ENTRY statistics` defaults on. When off, V1 hides SIGNAL FUNNEL and V4 shows only MODEL, Total, TP2 Rate, Net R and Profit Factor.
+- Display switches must never change signal state or accumulated statistics.
+
+## Validation and version control
+
+1. Update Spec/Design before changing behavior.
+2. Modify V1 and run Repository static checks.
+3. Have the user compile and visually validate V1 in TradingView.
+4. Synchronize the same core to V4 and reconcile common fields on fixed symbols.
+5. Record actual evidence in `../TEST_RESULT.md`; never mark untested behavior as passed.
+6. Run `git diff --check` and inspect the complete diff.
+7. Commit and push only when the user explicitly requests it.
 
 ## Boundaries
 
-- Do not place trades.
-- Treat this as visual analysis support, not a signal system.
-- Do not auto-delete existing user drawings or indicators.
-- Ask before changing OB/FVG definitions, colors, invalidation rules, or target timeframe.
+- Do not place trades, connect brokers or alter TradingView account settings.
+- Do not change OB/FVG definitions, invalidation, colors or formal timeframe without an explicit task.
+- Do not combine zone invalidation experiments with unrelated strategy adjustments.

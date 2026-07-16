@@ -4,9 +4,8 @@ Roadmap 只列中長期方向；當前工作以 `TODO.md` 為準。
 
 ## 近期
 
-- 完成並驗證 per-zone SETUP engine。
-- 在 V1 穩定後同步 V4 PRIMARY，維持同一 W-D-H1 核心。
-- 完成 ARMED 與 ENTRY 規則核對。
+- 以最終 `V1-LONG-01`／`V4-LONG-01` 在 2376/H1 建立 current-build 回歸基準。
+- 若使用者重啟 zone invalidation 議題，先只在 V1 比較 midpoint 與 full-edge close invalidation，不與其他策略規則同時修改。
 - 建立 OB/FVG 分組交易統計。
 
 ## 中期

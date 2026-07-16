@@ -1,6 +1,6 @@
 # SMC 功能規格
 
-> 狀態說明：本文件同時包含已驗證規格與後續目標。V1 `V1-PZ-04 / FULL` 與 V4 `V4-PZ-04 / FULL` 已通過 1504、2105、2324/H1 的 SETUP 顯示、執行與共通統計對齊驗證。ARMED／ENTRY 尚未精修完成。
+> 狀態說明：V1 `V1-LONG-01`／V4 `V4-LONG-01` 已在 2105、2324/H1 完成 Long-only TradingView 共通統計對齊。Bearish zone／Daily structure 繼續顯示，midpoint invalidation 不變。
 
 ## V4 Top-down Model Research Engine（開發版）
 
@@ -10,7 +10,7 @@
 - 原 `INTRADAY D-H4-H1` 與 `FAST H4-H1-M30` 暫時保留為 `LEGACY` 統計列，不參與本輪策略判斷或 V1 一致性驗收；是否重構於 PRIMARY 驗證完成後再決定。
 - PRIMARY 內每個 Weekly zone 必須擁有獨立的 SETUP、ARMED、ENTRY state；不得以新的 zone touch 清除其他 zone 的候選。
 - Weekly Zone Engine 採用與 V1 相同的多 Zone arrays：OB/FVG 每類最多 40 個、OB source 去重、OB 結構突破 candle 必須通過來源時框 ATR(14) × 1.0 displacement、OB 固定使用 Hybrid Range；FVG 使用標準三根完成 K 的 wick-to-wick gap，中間 candle 必須為同方向 ATR(14) × 1.0 displacement。每個 active zone 獨立判斷 H1 touch，並由 H1 close 穿越 midpoint 失效。
-- PRIMARY 的 Daily MSS bias 使用與 V1 H1 chart 相同的完成 Daily candle 聚合、confirmed pivot、最近 `ATR length` 根 True Range 平均、trend-reversal MSS 更新規則與固定結構失效位；SETUP、ARMED 與 ENTRY 則逐根回放完成 H1 bars。
+- PRIMARY 的 Daily MSS bias 使用與 V1 H1 chart 相同的完成 Daily candle 聚合、confirmed pivot、Daily close trend-reversal MSS 更新規則與固定結構失效位；SETUP、ARMED 與 ENTRY 則逐根回放完成 H1 bars。
 - 相同 symbol、H1 chart、1095D、參數與資料覆蓋下，驗收對應為：V1 `SETUP` = V4 PRIMARY `SETUP`、V1 `ARMED` = V4 PRIMARY `ARMED`、V1 `Total` = V4 PRIMARY `Total`，且 TP2 Rate、Net R、Profit Factor、OB/FVG 與 replacement 分類都必須一致；任何差異都視為待追查。
 - V1 與 V4 PRIMARY 必須共用同一份行為規格：Weekly Zone 建立與失效、Daily MSS Bias、1095D Window 邊界、per-zone touch transition、SETUP／ARMED／ENTRY lifecycle、expiry、Trade Plan 結果與績效公式都必須使用相同條件及執行順序。V1 可保留完整視覺物件，V4 可只保留統計；顯示差異不得改變訊號結果。
 - 核心邏輯的修改順序固定為：先修改 V1、由使用者完成 TradingView 驗證，再將同一核心原樣移植到 V4，最後用固定標的核對所有共通欄位。V1 尚未通過前，不同步猜測性修改 V4。
@@ -36,7 +36,7 @@
 - 搜尋範圍由 `OB candle searchback` 控制，預設 8。
 - OB range 固定使用 Hybrid Range，不提供 Wick／Body 切換：Bullish OB 使用來源 bearish candle 的 `low → open`；Bearish OB 使用來源 bullish candle 的 `open → high`。
 - 同一來源 Weekly candle、同一方向最多建立一次 OB。
-- Bullish OB 為綠色；Bearish OB 為紅色；box 內顯示 `OB`。
+- Bullish OB 為綠色；Bearish OB 保留顯示但統一使用淺紅色系；box 內顯示 `OB`。
 - Bullish OB 在收盤價低於 midpoint 時停止向右延伸；Bearish OB 在收盤價高於 midpoint 時停止延伸。
 
 ## Fair Value Gap (FVG)
@@ -45,7 +45,7 @@
 - Gap 只要求符合標準 wick-to-wick 幾何條件，不使用價格百分比或 ATR 最小寬度門檻。
 - 中間 Weekly candle 必須與 FVG 同方向，且 candle body 至少為完成週線 Wilder ATR(14) × 1.0：Bullish FVG 要求中間 candle 收紅／上漲，Bearish FVG 要求中間 candle 收黑／下跌。
 - FVG 從確認該 gap 的 Weekly candle 開始繪製。
-- Bullish FVG 使用較亮黃色；Bearish FVG 使用 olive/darker yellow；box 內顯示 `FVG`。
+- Bullish FVG 使用較亮黃色；Bearish FVG 保留顯示但改用比 Bearish OB 更淡的淺紅色系，不再使用 olive/darker yellow；box 內顯示 `FVG`。
 - Bullish FVG 在收盤價低於 midpoint 時停止延伸；Bearish FVG 在收盤價高於 midpoint 時停止延伸。
 
 ## CHOCH
@@ -59,8 +59,8 @@
 ## MSS
 
 - 使用獨立 pivot 系統，預設 swing length 4。
-- 除結構突破與 trend 反轉外，突破 candle body 必須符合 ATR displacement filter。
-- ATR length 預設 14，body multiplier 預設 1.0；設為 0 可停用 displacement 門檻。
+- MSS 不使用 ATR 或單根 candle-body displacement；較長 confirmed pivot、完成 Daily close 正式突破及 trend reversal 已構成完整條件。相同結構突破不得因由一根大 K 或多根中型 K 完成而得到不同 Bias。
+- 每根完成 Daily candle 必須先使用該 candle 開始前已確認的 MSS pivot 判斷結構突破與事件，再寫入由本 candle 新確認的 pivot；不得先更新 pivot 再判斷突破，以免把當日 breakout target 移到較新的位置而漏掉 MSS。
 - 線段範圍同 CHOCH，但 MSS 保留 `MSS` 文字；Bullish 使用亮綠、Bearish 使用亮紅。
 - Daily CHOCH/MSS 線與文字只在 Daily chart 繪製；H4/H1/M30 仍以完成的 Daily candles 更新相同結構狀態與 SETUP Bias，但不顯示 Daily 結構物件，避免被誤認為目前圖表時框訊號。
 
@@ -77,44 +77,50 @@
 - 最新完成的 Daily bullish/bearish MSS 決定目前 bias。Bullish MSS 成立時固定保存當下最新 confirmed Daily swing low；Bearish MSS 成立時固定保存當下最新 confirmed Daily swing high，作為該 Bias 的結構失效位。
 - 只有完成的 Daily close 跌破 Bullish Bias 失效位或突破 Bearish Bias 失效位時，Bias 才轉為 Neutral；失效位不隨後續 pivot 移動，也不使用 CHOCH 或時間期限取消 Bias。Neutral 後等待反方向 Daily MSS 建立新 Bias。
 - 目前圖表 K 棒的 high/low 與仍有效、同方向的 Weekly OB 或 FVG 重疊時，視為進入 zone。
-- Bullish bias 與 bullish zone 同時成立時顯示綠色 `B SETUP`；Bearish bias 與 bearish zone 同時成立時顯示紅色 `S SETUP`。
+- 正式台股策略固定只做多：只有 Bullish bias 與 bullish zone 同時成立時建立綠色 `B SETUP`。Bearish OB/FVG 與 bearish Daily MSS/CHOCH 仍保留圖形與結構狀態，但不建立 `S SETUP`，也不進入 ARMED、ENTRY、Trade Plan 或統計。
+- Bearish Daily MSS 仍會把 Bias 轉為 bearish，取消既有多方候選並阻止新多方 SETUP；後續需等待新的 Bullish Daily MSS 才重新允許多方流程。
 - 同一次連續停留在 zone 內只顯示一次；離開後再次進入可重新顯示。
-- 每個確切 Weekly zone 同時只保留一個尚未 ARMED 的 SETUP flow；重新進入同一 zone 時取代舊 flow，但 V1 保留舊的歷史 SETUP 標籤。不同 zone 的 SETUP flow 互不刪除。
+- 每個確切 Weekly zone 同時只保留一個尚未 ARMED 的 SETUP flow；重新進入同一 zone 時取代舊 flow，並刪除該 zone 先前的 SETUP 標籤，只顯示最新一個。不同 zone 的 SETUP flow 互不刪除。
 - 每個有效 Weekly zone 都有獨立的 SETUP → ARMED → ENTRY 流程；同一根 H1 可同時為多個重疊 OB/FVG 建立 SETUP，後續也可各自形成 ARMED、ENTRY 與 Trade Plan。
 - 每個 zone 同時最多一條未完成流程。連續接觸不重複建立；至少一根 H1 完全沒有接觸該 zone，之後再次進入才算 re-entry。
 - Re-entry 只替換仍停在 SETUP 的同 zone 流程；若該 zone 已 ARMED，新的 touch 不建立 SETUP，也不取消 ARMED。
+- 每個確切 Weekly zone 最多只能建立一筆有效 Trade Plan。有效 ENTRY 成功建立 Trade Plan 時，該 zone 立即標記為 traded／consumed；不等待 TP／SL 結果。之後價格再次進入同一 zone，不再建立 SETUP，不論原交易仍進行中或最終為 WIN／LOSS。
+- 尚未形成有效 Trade Plan 的 SETUP expiry、ARMED 失效或無效 ENTRY 不消耗 zone；之後離開再進入仍可建立新 SETUP。不同 key 的重疊 OB/FVG 各自保有一次交易機會。
 - SETUP expiry 固定預設 15 根 H1，約三個台股交易日；到期只取消尚未 ARMED 的流程。
-- Zone 失效時取消該 zone 尚未完成的 SETUP／ARMED／ENTRY 候選；V1 保留已產生的歷史 SETUP 標籤，ARMED 候選標籤仍依生命週期清理，已完成 ENTRY／Trade Plan 的歷史與統計保留。
-- SETUP 標籤最多保留最新 40 個，可由 `Maximum SETUP labels` 向下調整；超限時刪除最舊標籤，不影響訊號判定。
+- Zone 失效時取消該 zone 尚未完成的 SETUP／ARMED／ENTRY 候選；未成交流程的 SETUP 標籤可保留到同 zone 下一次 SETUP 取代。有效 Trade Plan 建立後，該筆 SETUP／ARMED／ENTRY 標籤封存為完整歷史鏈，不得再被同 zone 後續 touch 取代；已完成 Trade Plan 的歷史與統計保留。
+- 每個確切 zone 最多顯示一個 SETUP 標籤，全部 zone 合計仍受 `Maximum SETUP labels` 上限控制；刪除或裁切標籤不影響訊號判定與累計統計。
 
 ## ARMED（進場開發第二階段）
 
 - 每個 SETUP 建立一個等待中的 ARMED 候選；新的 SETUP 會取代前一個尚未完成的候選。
 - 重新進入同一 zone 時，已完成的歷史 ARMED 標籤保留；只有尚未完成的 ARMED 候選被新 SETUP 取代。
-- 使用目前圖表時框的 confirmed pivot，預設 swing length 3；Bullish SETUP 等待收盤向上突破 swing high，Bearish SETUP 等待收盤向下突破 swing low。
-- 突破必須由前一根收盤尚未越過、目前收盤正式越過，且 candle body 預設至少為目前圖表時框 ATR(14) 的 1.0 倍。
-- 成立時顯示 `B ARMED` 或 `S ARMED`，同一 SETUP 最多一次，不畫水平線。
-- ARMED 成立時，將同一 zone 對應的最新 SETUP 標籤改為較暗、較透明並封存；封存後不再被同 zone 的後續 SETUP 取代，確保 SETUP → ARMED → ENTRY 歷史鏈仍可辨識。
-- SETUP 所屬 Weekly zone 失效、出現反向 Daily MSS，或等待超過預設 20 根圖表 K 時取消候選。
+- 使用 H1 confirmed pivot，預設 swing length 3。SETUP 建立時立即保存當下最後一個同方向 break pivot：Bullish 保存最後 confirmed swing high，Bearish 保存最後 confirmed swing low；等待期間不因新 pivot 出現而移動 break level。
+- 突破必須發生在 SETUP 之後，由前一根 H1 收盤尚未越過、目前 H1 收盤正式越過固定 break level；不再另加 ATR candle-body displacement。
+- Long-only 正式流程成立時只顯示 `B ARMED`，同一 SETUP 最多一次，不畫水平線。
+- ARMED 成立時，將同一 zone 對應的最新 SETUP 標籤改為較暗、較透明並封存。若流程未形成有效 Trade Plan，後續同 zone 新 SETUP 可刪除並取代該封存標籤；若已形成有效 Trade Plan，標籤固定保留為完整交易鏈的一部分。
+- SETUP 所屬 Weekly zone 失效、出現反向 Daily MSS，或等待超過預設 15 根 H1 時取消候選；ARMED 不另設第二套 expiry。
 - ARMED 標籤最多保留最新 40 個，可由 `Maximum ARMED labels` 向下調整。
 
 ## ENTRY（進場開發第三階段）
 
 - ARMED 成立時保存被突破的 pivot level、來源 zone、ARMED bar，以及反方向最近 confirmed pivot 作為保護 swing。
 - ENTRY 必須發生在 ARMED 之後的 K 棒；Bullish 為 low 回到或跌破突破位且收盤重新站上，Bearish 為 high 回到或突破突破位且收盤重新跌回其下。
-- 每個 ARMED 最多產生一個 `B ENTRY` 或 `S ENTRY`，只顯示小標籤，不畫水平線。
+- 每個 ARMED 最多產生一個 `B ENTRY`，只顯示小標籤，不畫水平線。
+- 有效 Trade Plan 建立成功時，來源 zone 立即標記為 traded／consumed；同一 zone 後續不再產生 SETUP、ARMED、ENTRY 或第二筆 Trade Plan。
 - 原 zone 失效、Daily MSS bias 反向、收盤突破反方向保護 swing，或出現新 SETUP 時取消 ENTRY 候選。
-- `ENTRY retest expiry bars` 預設為 0，代表不限期；設為正整數時，等待超過指定圖表 K 棒數才取消。
+- `ENTRY retest expiry bars` 預設為 15 根 H1；等待超過 15 根 H1 後取消尚未 ENTRY 的候選，但不消耗來源 zone。輸入設為 0 時仍可關閉此期限。
 - ENTRY 標籤最多保留最新 40 個，可向下調整；SETUP、ARMED、ENTRY 三類合計設定上限為 120，低於 indicator 的 200 labels 宣告上限。
 - `Show SETUP`、`Show ARMED`、`Show ENTRY` 僅控制各階段標籤顯示，不改變狀態判定與後續流程。
+- V1/V4 `Show SETUP/ARMED/ENTRY statistics` 預設開啟。V1 關閉時隱藏結果表的 `SIGNAL FUNNEL`，保留 Total、Open、Win TP2、TP1→BE、Direct Loss、TP1/TP2 Rate、Net R、Avg R 與 Profit Factor；V4 關閉時只保留 MODEL、Total、TP2 Rate、Net R 與 Profit Factor，coverage 仍併入 MODEL 的 `FULL/PART`。此開關只影響表格顯示，不影響圖上標籤、訊號判定、交易追蹤或累計值。
 - ENTRY 標籤本身不代表實際送單；Stop/TP 的圖表追蹤由下方 Trade Plan 階段處理。
 
 ## 交易統計與週期比較
 
 - V1 不提供 `Entry timeframe` 選項，正式研究入口固定為 H1 chart；只有 H1 直接計算 SETUP/ARMED/ENTRY，其他圖表不建立新候選並顯示 `Use H1 chart`。
+- V1/V4 PRIMARY 的 SETUP、ARMED、ENTRY、Trade Plan、Total、勝率、Net R、Profit Factor 與所有 funnel／來源分類只統計多方流程；空方 zone 與 Daily structure 僅供圖形與風險 context。
 - 統計期間由 `Statistics lookback days` 控制，可選 90、180、365、730 天；期間開始前不建立候選交易。
 - `SETUP expiry H1 bars` 預設 15；只適用於尚未 ARMED 的 SETUP。
-- 預設 TP1 平倉比例為 50%；預設 TP1=1R、TP2=2R 時，WIN TP2=+1.5R、TP1→LOSS=0R、Direct Loss=-1R。
+- 預設 TP1 平倉比例為 50%；TP1 達成後，剩餘部位的 SL 移到 Entry。預設 TP1=1R、TP2=2R 時，WIN TP2=+1.5R、TP1→BE=+0.5R、Direct Loss=-1R。
 - 同一根 K 同時觸及 SL/TP 時維持 SL 優先。
 - V2 只在 M30 圖表計算；內部分別以 M30、完成 H1 K、完成 H4 K 維護三套獨立 SETUP/ARMED/ENTRY 與交易結果，表格僅做比較顯示。
 - V3 Cross-Timeframe Stats 以完成的 M30 bars 作為唯一基礎資料流；M30 圖表直接逐 bar 計算，H1/H4 圖表使用 `request.security_lower_tf()` 取得每根圖表 K 棒內依時間排序的 M30 intrabars 並逐筆回放。
@@ -130,8 +136,8 @@
 - Risk 定義為 `abs(Entry - SL)`；TP1 預設 1R、TP2 預設 2R。若使用者將 TP2 倍數設得低於 TP1，實際 TP2 自動採用 TP1 倍數作為下限。
 - 每筆計畫建立 SL、TP1、TP2 三條短線與一個資訊標籤；線段由 ENTRY bar 開始，逐 bar 延伸到計畫結束。
 - SL/TP 從 ENTRY 下一根 K 才開始判定，避免使用 ENTRY 確認 K 已發生的 high/low。
-- 同一根 K 同時觸及 SL 與任一 TP 時，採保守的 SL 優先；TP2 觸及標示 `WIN TP2`，SL 觸及標示 `LOSS`，若先前已達 TP1 則標示 `TP1 → LOSS`。
-- TP1 達成只更新為 `TP1 HIT`，不移動 SL，繼續等待原始 SL 或 TP2。
+- 同一根 K 同時觸及 SL 與任一 TP 時，採保守的 SL 優先；TP2 觸及標示 `WIN TP2`，原始 SL 觸及標示 `LOSS`，若先前已達 TP1 且之後觸及 Entry 則標示 `TP1 → BE`。
+- TP1 達成後，剩餘部位的 SL 立即移到 Entry，繼續等待 BE 或 TP2。首次觸及 TP1 的同一根 K 若也觸及原始 SL，因無法判定盤中先後，仍依 SL 優先記為 Direct Loss。
 - 新 SETUP/ARMED/ENTRY 與原 Weekly zone 後續失效均不取消已建立的 Trade Plan；每筆計畫獨立追蹤。
 - 最多保留最新 20 筆 Trade Plan，超限時整組刪除最舊的三條線與資訊標籤。
 - Trade Plan 只供圖表分析，不使用 `strategy.entry()`，也不會實際送單。

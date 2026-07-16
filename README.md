@@ -2,13 +2,16 @@
 
 台股 SMC 回放與統計工具。專案知識以 Repository 文件為準；未經 TradingView 驗證的功能不得視為完成。
 
-## 目前狀態（2026-07-14）
+## 目前狀態（2026-07-16）
 
 - 正式研究架構：`Weekly Zone → Daily MSS Bias → H1 SETUP / ARMED / ENTRY`。
-- V1 穩定版本：`V1-PZ-04`；H1 預設直接使用 `FULL`。1504、2105、2324/H1 已確認可執行、保留歷史 SETUP，且統計未受顯示修正影響。
-- V4 目前版本：`V4-PZ-04`；已同步 V1 的 Pine v5 負索引修正並預設 `FULL`，1504、2105、2324/H1 的所有共通統計欄位均與 V1 一致。
-- 1504、2105、2324 已確認 V1/V4 在 H1 可同時顯示。
-- per-zone SETUP 的 V1 顯示與 V4 統計對齊已完成；下一階段進入 ARMED 精修。
+- 目前穩定版為 V1 `V1-LONG-01` 與 V4 `V4-LONG-01`；正式入口固定 H1、1095D、`FULL`，execution 與全部績效只做多。
+- Bearish Weekly OB/FVG 與 Daily bearish MSS/CHOCH 繼續顯示作為風險 context，但不建立 S SETUP／ARMED／ENTRY／Trade，也不進入統計；Bearish OB/FVG 使用兩階淺紅色。
+- 每個確切 Weekly zone 最多一筆有效 Trade Plan；ENTRY retest expiry 預設 15 根 H1，TP1 後剩餘部位 SL 移到 Entry，預設 TP1→BE 為 +0.5R。
+- V1/V4 的完整／COMPACT 統計顯示均已驗證；COMPACT 只保留交易績效，不改底層計算。
+- 2105、2324/H1／1095D／FULL 的 V1/V4 SETUP、replacement、ARMED、Total、績效、OB/FVG 與 Same/Changed 已全部對齊。
+- Weekly zone 目前仍以 H1 收盤穿越 midpoint 失效；「收盤穿越 zone edge 才失效」只完成影響評估，尚未實作。
+- 2376 尚未用最終 `LONG-01` 做一次完整 V1/V4 回歸；這是下一輪安全基準，不是目前阻斷問題。
 - V1 是視覺檢查層、V4 是統計核對層；兩者的 Weekly Zone、Daily Bias、Window、SETUP／ARMED／ENTRY、失效與績效核心邏輯必須相同，只有顯示方式可以不同。
 - 核心修改固定先在 V1 完成 TradingView 驗證，再原樣移植到 V4 並核對統計；不得讓兩支程式各自演化成不同策略。
 

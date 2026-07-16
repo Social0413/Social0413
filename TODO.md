@@ -1,16 +1,25 @@
 # TODO
 
-本檔只保留目前可執行工作。已完成證據放在 `TEST_RESULT.md`，歷史決策放在 `PROJECT_HISTORY.md`。
+本檔只保留下一個可執行工作。已完成證據放在 `TEST_RESULT.md`，歷史決策放在 `PROJECT_HISTORY.md`。
 
-## 現在：ARMED 精修
+## 下一步：Zone invalidation 第二輪評估
 
-- [ ] 1. 先列出 V1/V4 現行 ARMED 條件：H1 confirmed pivot、ATR displacement、break level、protect swing、expiry 與失效條件。
-- [ ] 2. 依「簡單乾淨、用統計確認穩定」原則，只選 2～3 個影響最大的調整建議，不展開大量參數矩陣。
-- [ ] 3. 選定後只先修改 V1；由使用者在 TradingView 以 1504、2105、2324/H1／1095D／FULL 驗證。
-- [ ] 4. V1 通過後才把同一 ARMED 核心原樣移植到 V4，核對 SETUP、ARMED、Total、replacement 與績效。
+- [ ] 先以最終 `V1-LONG-01`／`V4-LONG-01` 在 2376/H1／1095D／FULL 記錄 current-build 共通統計，作為修改前基準。
+- [ ] 重新確認是否真的要把 Weekly zone 失效由 H1 close 穿越 midpoint 改為穿越完整 zone edge；未選定前不修改程式。
+- [ ] 若選定 full-edge close invalidation，只建立 V1 候選版：Bullish close < bottom、Bearish close > top；影線穿越不失效。
+- [ ] 用 2376、2324、2105、2609 比較 active zone 重疊、SETUP、ARMED、Total、失效分類與績效；V1 通過後才同步 V4。
 
-## 本階段不處理
+## 目前穩定基準
 
-- ENTRY、SL／TP 與 OB/FVG 分組績效延後，避免同時改動多個階段。
+- V1 `V1-LONG-01`、V4 `V4-LONG-01`。
+- H1／1095D／`FULL`，台股 execution 與統計固定 Long-only。
+- Zone midpoint invalidation 保持現行規則。
+- ENTRY retest expiry 15 根 H1；TP1 後剩餘部位 SL 移到 Entry。
+- 每個 exact Weekly zone 最多一筆有效 Trade Plan。
+
+## 下一輪不混入
+
 - V4 LEGACY 模型維持關閉。
-- `OFF / TOUCH / FULL` 暫保留作為故障隔離開關；正式移除或隱藏另開小步驟處理。
+- OB/FVG 分組績效另開獨立工作，不與 zone invalidation 同時修改。
+- 不處理自動下單、券商連線或真實部位管理。
+- `OFF / TOUCH / FULL` 保留作為故障隔離開關；正式移除或隱藏另開小步驟。
