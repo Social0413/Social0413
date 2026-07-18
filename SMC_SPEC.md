@@ -5,7 +5,7 @@
 ## V10 新架構：Weekly Structure Bias + Daily OB/FVG
 
 - V10 必須使用獨立 Pine 檔，不得覆蓋或改寫穩定版 V1／V4。
-- V10 檔案為 `smc-weekly-ob-fvg/assets/smc_weekly_structure_bias_v10.pine`；目前開發 build 為 `V10-DH1-ENTRY-03`。ENTRY-02的midpoint Buy Limit與交易規則保持，ENTRY-03只新增OB／FVG來源分類統計。2317／2105 ETH H1已通過compile／runtime與來源加總首輪實圖，特殊路徑Replay仍待補驗；V1／V4不修改。
+- V10 檔案為 `smc-weekly-ob-fvg/assets/smc_weekly_structure_bias_v10.pine`；目前凍結研究 build 為 `V10-BASELINE-01`。其策略行為與`V10-DH1-ENTRY-05`完全相同：保留ENTRY-04持續SETUP tracking、midpoint Buy Limit、交易規則、OB／FVG來源分類統計及固定1825D Window／coverage。Baseline期間不得因單一標的績效調整規則；後續樣本必須固定ETH H1、`1825D FULL`與相同Replay終點，V1／V4不修改。
 - Weekly 的新核心職責是提供方向，不以 Weekly OB/FVG 的生成、存在、重疊或 touch 限制交易區域。
 - V10 不再包含 Weekly OB/FVG inputs、arrays、boxes、midlines、invalidation、touch、traded state 或任何依賴 Weekly zones 的 execution。
 - Bias 固定使用完成的 Weekly candles 與獨立 confirmed pivot，第一版 swing length 預設 2。
@@ -21,6 +21,9 @@
 - Daily 與 H1 必須使用完全相同的 OB/FVG event、source time、top、bottom 與失效日，這是後續 H1 execution 的必要前提；任一 zone 只在其中一個時框出現即視為失敗。FVG 必須分別保存 K1 first time、K2 displacement/source time 與 K3 confirmation/event time，box 左端仍從 K3 開始。
 - V10 的唯一 session 基準為 ETH。Canonical Weekly／Daily feed 必須使用 `ticker.modify(syminfo.tickerid, session.extended)`；TradingView 的 Daily、H4、H1 Replay 與未來 execution 驗收也必須把原生 intraday 圖表切到 ETH。RTH 圖表可能排除日終／延伸時段成交，不能用來否定 canonical Daily BOS、OB 或 FVG。
 - Pine 無法切換原生圖表的 RTH／ETH。Intraday 圖表不是 ETH 時，右上 SESSION 必須顯示 `USE ETH (...)`；該警告只表示圖表 K 棒與 canonical feed 的 session 不同，不改變 canonical zone 計算。
+- V10 execution與全部漏斗／績效統計固定使用1825個日曆日Window，起點為`last_bar_time - 1825D`。不得以固定H1 bar數替代日期Window；相同Replay終點下各標的必須使用相同起訖日期。
+- Weekly Bias、Daily zone engine、zone建立／失效與H1 confirmed pivot必須在Window前持續warm-up；Window前不得建立SETUP／ARMED／ENTRY／Trade或增加任何execution統計。第一根Window H1不承接Window前overlap state，若當根與既有active Bullish Daily zone重疊，可建立Window內第一個SETUP。
+- 右上永久表必須顯示`WINDOW 1825D FULL/PART`及實際`FROM / TO`。只有最早可用ETH H1不晚於Window起點時為FULL；資料較晚、上市未滿Window或覆蓋不足時為PART，PART不得與FULL直接做跨標的排名。
 - Daily Zone Engine 固定在 `request.security(..., "D", confirmedDailyZoneSnapshot(), lookahead=barmerge.lookahead_on)` 的 Daily context 計算，並以一根歷史位移只發布上一根已完成 Daily snapshot。Daily ATR、confirmed pivot、BOS、來源 K 搜尋、FVG geometry 與 canonical Daily `time_close` 不再由 chart bars 各自重建。
 - Daily 與 intraday chart 都只在 canonical Daily time 改變時消費一次 snapshot：先以完成 Daily close 失效既有 zones，再建立該完成日新確認的 OB/FVG。Box/line objects 仍在 chart context 建立，不放進 `request.security()`。
 - Daily OB 使用獨立 confirmed pivot，`Daily OB swing length` 預設 4。每根完成 Daily candle 必須先對進入該 candle 前已確認的 swing high／low 判斷 BOS，再發布由該 candle 新確認的 pivot。
@@ -47,9 +50,9 @@
 - 價格進入 zone 定義為完成 H1 bar 的 `high >= bottom and low <= top`。每個 exact Bullish Daily OB/FVG 獨立追蹤，同一根 H1 可同時啟動多個重疊 zones。
 - 每個 exact zone 採 First-touch only，整個 zone 生命週期最多建立一個 SETUP episode。第一次有效 SETUP 建立時立即把該 zone 標記 `setupUsed`，不等待離開、ARMED 或交易結果。
 - SETUP 建立時保存該 H1 low；只要 episode 仍有效，後續任何 H1 low 更低就把同一 SETUP marker 與追蹤價移到新低，不建立新的 SETUP 計數或標籤。
-- 中途反彈但 H1 close 仍位於 zone 內不取消追蹤；之後再創低仍更新。`最低點`不是預知事件，而是 episode 結束時最後保存的最低 H1 low。
-- Episode 在 ARMED 成立時凍結。ARMED 前的停止條件為 Weekly Bias 不再 Bullish、完成 H1 close 高於 top／低於 bottom，或 Daily zone 失效／被移除。
-- 離開 zone 後停止 tracking；之後即使 Weekly Bias 仍為 Bullish且重新進入同一 zone，也不得建立第二個 SETUP。只有新生成、具有新 identity 的 Daily OB/FVG 才取得新的 SETUP 機會。
+- 中途反彈、H1 close 離開 zone或之後重新進入都不取消追蹤；ARMED 前任何 completed H1 再創低都必須更新。`最低點`不是預知事件，而是 episode 在ARMED或硬失效時最後保存的最低 H1 low。
+- Episode 在 ARMED 成立時凍結。ARMED 前只由 Weekly Bias 不再 Bullish，或 Daily zone 失效／被移除停止；單純 H1 close 高於 top／低於 bottom不停止。
+- 離開或重新進入 zone 不停止既有 SETUP tracking，也不得建立第二個 SETUP。只要尚未 ARMED、Weekly Bias 仍為 Bullish且 Daily zone 仍 active，後續 completed H1 創出更低 low 時必須持續移動同一 SETUP marker並更新追蹤價。只有新生成、具有新 identity 的 Daily OB/FVG 才取得新的 SETUP 機會。
 - 每個 exact zone 最多保留一個 SETUP marker；顯示開關不得改變 `setupUsed`、tracking state 或累計 SETUP zone 數。
 
 ### V10-DH1 ARMED
@@ -57,10 +60,10 @@
 - 每個 First-touch SETUP 一成立就建立同一 exact Bullish Daily zone 的 ARM candidate；`SETUP tracking` 與 `waiting for ARM` 必須分開保存。固定使用 ETH H1 completed bars，不得重建 SETUP、不得增加 SETUP TOTAL，也不另加 Daily MSS 或第二套方向 gate。
 - H1 confirmed pivot swing length 預設為 3。每個 SETUP 建立時快照當時最新 confirmed H1 swing high 作為 break level；tracking 期間只有 SETUP low 再創新低時，才把 break level 重新快照為該 completed H1 當時最新的 confirmed swing high。沒有新低時不因後續 pivot 自動追高。
 - Break level 為 `na` 時不能成立 ARMED。突破必須發生在初始 SETUP bar 之後，且前一根 H1 close 尚未站上 break level、目前 completed H1 close 嚴格站上 break level；不使用 ATR 或 candle-body displacement。
-- SETUP tracking 只負責在第一段 zone 互動期間更新 low 與 break snapshot。Completed H1 close 離開 zone 時停止 tracking並凍結當下 SETUP low／break level，但 ARM candidate 必須繼續等待；之後重新進入 zone 不恢復 lower-low tracking，也不建立第二個 candidate。
-- 每根 completed H1 的 per-zone 順序固定為：Weekly Bias／Daily zone 硬失效檢查 → tracking 中更新 SETUP low 與必要的 break-level snapshot → 所有仍 waiting 的 candidates 判斷 ARMED → 尚未 ARMED 才處理 close 離開 zone並凍結 tracking。
+- SETUP tracking 從 First-touch SETUP 成立後持續到 ARMED 或候選硬失效；Completed H1 close 離開 zone、等待在 zone 外或重新進入 zone 都不停止 tracking。重新進入仍沿用同一 candidate，不建立第二個 SETUP／candidate。
+- 每根 completed H1 的 per-zone 順序固定為：Weekly Bias／Daily zone 硬失效檢查 → 所有仍 waiting candidates 更新 SETUP low 與必要的 break-level snapshot → 使用更新後的 break level 判斷 ARMED。H1 close 是否位於 zone 內不參與 tracking continuation 或 candidate 取消。
 - ARMED 成立時凍結該 exact zone 的最終 SETUP low、break level 與 ARMED bar，停止 lower-low tracking，暗化原 SETUP marker，並在突破 K 顯示一次 `B ARMED`。同一 SETUP／zone 最多增加一次 ARMED TOTAL。
-- ARM candidate 只有三個取消條件：Weekly Bias 不再 Bullish、Daily zone inactive／被移除，或 tracking 已凍結後的 completed H1 close 嚴格跌破 frozen SETUP low。離開 zone、等待時間、re-entry 或尚未突破 break level都不得取消 candidate。
+- ARM candidate 只有兩個取消條件：Weekly Bias 不再 Bullish，或 Daily zone inactive／被移除。離開 zone、等待時間、re-entry、尚未突破 break level或 ARM 前的任何 H1 lower low都不得取消 candidate；lower low 必須改為更新 SETUP low與break snapshot。
 - ARMED成立後凍結ARM bar high與final SETUP low，建立兩者midpoint Buy Limit；從下一根ETH H1開始無限期等待觸價，不設expiry。Pending order只由Weekly Bias不再Bullish取消；Daily zone後續inactive或completed H1跌破frozen SETUP low都不撤單。凍結low在ENTRY時成為正式SL anchor。
 - 右上 `SETUP TOTAL / ACTIVE` 的 ACTIVE 改為仍在等待 ARM 的 candidate 數，不再只代表 lower-low tracking 數；`ARMED TOTAL / ACTIVE` 只計已實際完成 ARMED transition 的 zones。
 - `Show H1 ARMED` 只控制 marker 顯示，不改變 transition、TOTAL／ACTIVE 或 per-zone state。

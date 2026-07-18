@@ -1,5 +1,30 @@
 # Test Results
 
+## 2026-07-18 V10-BASELINE-01 freeze與首批15檔統計
+
+- `V10-BASELINE-01`只更改ENTRY-05的indicator title與永久BUILD識別，沒有策略行為變更；本機靜態檢查通過。使用者提供6669／Daily實圖，右上永久表正確顯示`V10-BASELINE-01`、W BIAS、Daily zones與`SOURCE ETH`，未見runtime錯誤；Daily上的execution列顯示`USE H1`／`1825D USE H1`符合支援邊界。[6669／Daily Baseline BUILD pass](docs/images/v10-entry-2026-07-18/6669-daily-baseline01-build-pass.png)
+- 使用者提供的ENTRY-05首批15檔截圖均為ETH H1、`WINDOW 1825D FULL`、FROM `2021-07-18`、TO `2026-07-17`。標的：2360、2454、3017、2615、2317、3443、2382、3034、2383、2368、8064、3231、6116、6515、6451。
+- 合計SETUP 393、ARMED 148、有效交易120、已結束118、Open 2、TP2 41、TP1→BE 34、Direct SL 43、Net R `35.5R`，平均`0.301R／已結束交易`。結果閉合：`120 = 2 + 41 + 34 + 43`；Net R閉合：`35.5R = 41×1.5R + 34×0.5R - 43×1R`。
+- 來源合計：OB已結束32、Net R 4R、平均0.125R；FVG已結束86、Net R 31.5R、平均0.366R。OB＋FVG的SETUP、ARMED、ENTRY、TP1 HIT、TP2、TP1→BE、SL與Net R皆與全域加總閉合。
+- 首批15檔的總覽、逐檔資料、OB／FVG來源分析與公式閉合檢查已保存為[Baseline首批15檔Excel](docs/statistics/v10-baseline-01/SMC_V10_5Y_first_15_symbols.xlsx)。
+- 本批未計手續費、交易稅與滑價，僅為探索樣本；Baseline尚未在ETH H1完成execution回歸，且未驗證Window第一根H1、PART、Weekly Bias撤銷pending、same-bar衝突、reload／Replay不重複累計。這些限制不得因Baseline命名或Daily BUILD通過而視為完成。
+
+## 2026-07-18 V10-DH1-ENTRY-05 fixed 1825D Window（Repository完成，待TradingView）
+
+- V10 execution／statistics固定為1825個日曆日；canonical Weekly／Daily zones與confirmed H1 pivot保留Window前warm-up，SETUP／ARMED／ENTRY／Trade及所有counter只在Window內執行。Window前不消耗zone的First-touch機會。
+- 右上表加入`WINDOW 1825D FULL/PART`與`FROM / TO`；FULL要求最早可用ETH H1不晚於理論Window起點，PART顯示實際可用起點且不得用於FULL跨標的排名。Weekly canonical history提高為520週，Daily保持4000日。
+- Repository靜態檢查項目：兩處build ID、1825D常數與日期起點、H1 pivot warm-up和execution gate分離、per-zone與Trade result loops同時受Window gate控制、Window前execution arrays保持初始、3×26表格與row bounds、FULL/PART與FROM/TO、ENTRY-04 lifecycle／midpoint／same-bar／來源統計保留、兩個canonical ETH requests、無`strategy.*`、V1／V4未修改及`git diff --check`。
+- 尚待使用者在TradingView驗證Pine compile／runtime、2360 ENTRY-04指定路徑回歸、Window第一根H1邊界、FULL與PART日期、2317／2105來源加總、reload／Replay及特殊結果路徑；未標記為TradingView通過。
+
+## 2026-07-18 V10-DH1-ENTRY-04 continuous SETUP tracking（2360指定路徑TradingView通過）
+
+- 2360／ETH H1實圖確認ENTRY-03在Weekly Bias仍Bullish時出現Bullish Daily OB SETUP不隨後續H1 lower low移動，淡藍break line停止且沒有OB ARM。逐行定位為zone exit先把tracking凍結，後續`close <`舊SETUP low再取消waiting candidate；兩個現象屬同一lifecycle路徑。
+- ENTRY-04移除zone-exit tracking freeze與frozen-low candidate cancellation。First-touch SETUP成立後持續追蹤所有completed ETH H1 lower low到ARM；re-entry不增加SETUP，ARM前只由Weekly Bias轉向或Daily zone inactive取消。
+- Repository靜態檢查通過：indicator／永久表兩處build ID、舊ENTRY-03 ID從Pine移除、zone-exit freeze與frozen-low取消路徑移除、tracking只在hard invalidation或ARM停止、waiting與break line只有兩個結束路徑、lower-low先於ARM判斷、兩個canonical ETH requests、midpoint Buy Limit、same-bar SL優先、無`strategy.*`、V1／V4未修改及`git diff --check`均符合。
+- 使用者提供2360／ETH H1 Replay畫面，右上清楚顯示`V10-DH1-ENTRY-04`、W BIAS Bullish、SESSION ETH，未見compile／runtime error。紅框內原Bullish Daily OB的SETUP marker已移到後續lower low，淡藍break line持續到`B ARMED D OB`後停止；同zone未增加第二個SETUP，指定lifecycle修正通過。[2360／ETH H1 ENTRY-04 continuous tracking](docs/images/v10-entry-2026-07-18/2360-eth-h1-entry04-continuous-tracking-pass.png)
+- 畫面來源統計保持閉合：SETUP `14 + 7 = 21`、ARMED `9 + 5 = 14`、ENTRY `6 + 3 = 9`、TP1 HIT `3 + 1 = 4`、TP2 `1 + 0 = 1`、TP1→BE `2 + 1 = 3`、DIRECT SL `3 + 2 = 5`、NET R `-0.5R + -1.5R = -2R`。數量相較ENTRY-03改變屬continuous tracking的預期影響。
+- 本圖未證明Weekly Bias轉向取消、Daily zone失效取消、same-bar SL+TP、reload／Replay不重複累加或2317／2105完整回歸；上述項目仍保留待驗證。
+
 ## 2026-07-18 V10-DH1-ENTRY-03 OB/FVG source statistics（首輪TradingView實圖通過）
 
 - 右上表新增OB與FVG兩欄，分別累計SETUP、ARMED、ENTRY、TP1 HIT、TP2、TP1→BE、DIRECT SL與NET R。全域頂部列維持合併顯示。

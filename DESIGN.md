@@ -5,6 +5,7 @@
 ## V10 Weekly Structure Bias
 
 - V10 是新的策略架構分支，使用 `smc_weekly_structure_bias_v10.pine`，不覆蓋 V1 視覺基準或 V4 統計基準。
+- `V10-BASELINE-01`是凍結研究識別；除indicator title與永久BUILD欄外，程式行為與`V10-DH1-ENTRY-05`相同。Baseline樣本期間不改SETUP／ARMED／ENTRY／Trade Plan或OB／FVG規則，任何候選改良另開版本並使用未參與發現的樣本驗證。
 - `V10-FVG-03` 同時使用 canonical confirmed-Weekly Bias 與 canonical confirmed-Daily zones；保留 FVG-01 的 FVG K1/K2/K3 時間身分、K2 ATR alignment 與 canonical Daily close-time zone endpoint，獨立最小 gap ATR multiplier 固定為 0.50 並已通過 2105／Daily 視覺過濾；不恢復 Weekly OB/FVG、歷史 K3 half-range filter 或 legacy execution。
 - `canonicalEthTickerId = ticker.modify(syminfo.tickerid, session.extended)`是 V10 唯一高週期 request symbol。Weekly 與 Daily requests 都從此 ETH ticker 取得資料，不再繼承圖表當下的 RTH／ETH；因此使用者切換圖表 session 不會改變 canonical Bias、BOS、OB/FVG event 或 geometry。
 - 原生 chart bars 由 TradingView 控制，Pine 無法替使用者切換 session。`syminfo.session`只用於右上 SESSION 驗收列：intraday ETH 顯示 `ETH`，RTH／其他 session 顯示 `USE ETH (...)`；Daily 以上顯示 `SOURCE ETH`。
@@ -26,14 +27,16 @@
 - Daily OB 由完成 Daily close 穿越遠端 top／bottom 失效；Daily FVG 保留 midpoint invalidation，且不加入額外 mitigation state。兩者都不因影線或未完成 intraday candle 失效。Box／midline 停止延伸的右端固定使用 canonical completed-Daily `time_close`，不使用 Daily／H4／H1 各自的 chart bar `time`。
 - Daily zones 使用單一平行 arrays 保存 box、midline、type、direction、midpoint、active、source time、event time、FVG first time、top、bottom；OB 的 source time 是來源反向 K、event time 是 BOS K，FVG 的 source time 是 K2、event time 是 K3、first time 是 K1。每類超過上限時刪除最舊同類物件與 state。
 - Daily zone 顯示開關只決定是否建立 box／midline handle；OB/FVG state 仍照常建立，避免未來 execution 被顯示設定改變。
-- `V10-DH1-SETUP-02R1` 是目前已驗收的 SETUP 基準：zone 平行 arrays 維持 stable zone key、SETUP label、tracking flag、tracked low 與前一根 H1 overlap state，並保存永久 `setupUsed`。SETUP state 與 zone type／direction／geometry 使用相同索引生命週期；顯示關閉時仍照常追蹤與累計。
-- ETH H1 completed bar 逐 zone 計算 raw overlap。Weekly Bias 為 Bullish且 Bullish zone 由未重疊轉為重疊時啟動 episode；tracking 期間只在新 H1 low 低於 tracked low 時移動同一 marker。H1 close 離開上下界、Weekly Bias 轉空／中性或 zone inactive 時停止 tracking。
-- 第一次有效 SETUP 時立即設定 `setupUsed = true`；new-entry gate 必須同時要求 `not setupUsed`。同一段停留的 lower-low update 不增加 count；離開後只停止 tracking，re-entry 不移動 marker也不建立新 episode。
+- `V10-DH1-SETUP-02R1` 是First-touch與canonical BOS顯示的SETUP基準；`V10-DH1-ENTRY-04`延長其tracking lifecycle。Zone平行arrays維持stable zone key、SETUP label、tracking flag、tracked low與前一根H1 overlap state，並保存永久`setupUsed`。SETUP state與zone type／direction／geometry使用相同索引生命週期；顯示關閉時仍照常追蹤與累計。
+- ETH H1 completed bar逐zone計算raw overlap。Weekly Bias為Bullish且Bullish zone由未重疊轉為重疊時啟動episode；之後tracking持續到ARM或hard invalidation，任何新H1 low低於tracked low時都移動同一marker並更新break snapshot。H1 close離開zone或re-entry不改tracking。
+- 第一次有效 SETUP 時立即設定 `setupUsed = true`；new-entry gate 必須同時要求 `not setupUsed`。後續 lower-low update不增加count；離開與re-entry都沿用同一episode，不建立第二個SETUP。
 - `V10-DH1-ARMED-02` 為每個 zone 增加 setup bar、break level、獨立 `waitingForArmed`、ARMED marker、armed／active flag、ARMED bar 與 frozen SETUP low，並與既有 zone arrays 維持相同 push／remove／trim 索引生命週期。H1 confirmed swing high 使用 length 3；SETUP 建立時快照一次，之後只在 tracking 中的 low 再創低時重新快照，不逐 pivot 追高。
-- SETUP 一成立即把 `waitingForArmed` 設為 true。Tracking 的 completed-H1 順序為 hard invalidation → lower-low／break snapshot → 所有 waiting candidates 的 close crossover → 未成立才處理 close 離開 zone。離開 zone只把 tracking 設為 false並凍結 low／break，不能清除 waiting state；re-entry 不恢復 tracking。
-- Pre-ARM candidate使用Weekly Bias、Daily zone及frozen-low strict close break失效，沒有時間expiry。ARMED後清除waiting、暗化SETUP marker並保存frozen low與ARM high；兩者midpoint成為pending Buy Limit。ARM後只由Weekly Bias改變撤單，不再讀Daily zone或frozen-low失效。
-- `V10-DH1-ARMED-03` 在每個 zone 的平行 arrays 新增 break line handle。預設關閉；開啟時 `updateArmBreakLine()` 在 SETUP／lower-low snapshot 建立或移動水平 dotted line，`stopArmBreakLine()` 在 hard invalidation、frozen-low invalidation或 ARMED transition停止延伸，zone trimming 時與其他 state 一起刪除。此 handle 不回寫 break level或 candidate state。
-- `V10-DH1-ARMED-03`為ARM階段收尾基準；`V10-DH1-ENTRY-03`沿用ENTRY-02的frozen SETUP low、ARM high、entry limit level、limit line與`entryTriggered`。Zone trimming跳過尚未成交的ARMED，避免Daily zone物件上限意外撤單。
+- SETUP 一成立即把 `waitingForArmed` 與 tracking 設為 true。Completed-H1 順序為 hard invalidation → lower-low／break snapshot → 使用更新後break level判斷close crossover。Zone exit與re-entry不再寫入tracking；同一candidate在ARM前持續保存並更新low／break，不建立第二個SETUP。
+- Pre-ARM candidate只使用Weekly Bias與Daily zone作為hard invalidation，沒有時間expiry，也不再使用離開zone後的frozen-low strict close break。ARMED後清除waiting、停止tracking、暗化SETUP marker並保存final SETUP low與ARM high；兩者midpoint成為pending Buy Limit。ARM後只由Weekly Bias改變撤單，不再讀Daily zone或SETUP low失效。
+- `V10-DH1-ARMED-03` 在每個 zone 的平行 arrays 新增 break line handle。預設關閉；開啟時 `updateArmBreakLine()` 在 SETUP／任何後續lower-low snapshot建立或移動水平 dotted line，`stopArmBreakLine()` 只在Weekly／zone hard invalidation或 ARMED transition停止延伸，zone trimming 時與其他 state 一起刪除。此 handle 不回寫 break level或 candidate state。
+- `V10-BASELINE-01`沿用ENTRY-05固定1825D execution Window、ENTRY-04持續tracking、ENTRY-03來源統計與ENTRY-02的final SETUP low、ARM high、entry limit level、limit line及`entryTriggered`。Zone trimming仍跳過尚未成交的ARMED，避免Daily zone物件上限意外撤單。
+- `statsWindowStartTime = last_bar_time - 1825D`固定所有V10 SETUP／ARMED／ENTRY／Trade與統計起點。Canonical Weekly／Daily snapshot、Daily zones及H1 pivot在Window前照常處理；per-zone execution loop與Trade result loop只在`time >= statsWindowStartTime`執行，因此Window前不會消耗`setupUsed`或建立候選。
+- 第一根Window ETH H1沿用Window前已建立且仍active的Daily zones，但`dailyZoneWasInside`與全部execution state仍是初始值；當根raw overlap可計為第一個Window SETUP。`firstAvailableH1Time <= statsWindowStartTime`顯示FULL，否則顯示PART；右上表另顯示實際FROM／TO，非H1或非ETH分別顯示USE H1／USE ETH。
 - V10 ENTRY從ARM下一根completed ETH H1起檢查`low <= midpoint limit`，觸價後以固定limit成交。獨立Trade Plan arrays保存Entry、final SETUP low下方2 ticks SL、1R／2R、起始bar、狀態與三條線；狀態0為TP1前、1為TP1後SL移到Entry、2為TP2、-1為Loss／BE結束、-2為無效SL診斷。成交bar立即進入`SL → TP2 → TP1`保守判定；同bar SL+TP衝突另以紫紅marker標示。
 - 右上永久表前三欄為label／OB／FVG；頂部全域列將兩個來源欄合併，來源區則分別顯示SETUP、ARMED、ENTRY、TP1、TP2、BE、SL與NET R。SETUP／ARMED／ENTRY在per-zone transition直接依`zoneType`累計；交易結果從獨立Trade Plan保存的`tradeZoneTypes`回寫，裁切視覺arrays不回退累計。
 - V4 不接收 V10 中間階段修改。V4 繼續代表已驗證的 V1 舊架構；新架構的數值核對層必須在 V10 execution 規格完成後另建，避免同一 V4 混入兩套策略。

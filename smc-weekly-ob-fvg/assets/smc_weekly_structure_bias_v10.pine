@@ -1,5 +1,5 @@
 //@version=5
-indicator("CODEX SMC V10 DH1 ENTRY V10-DH1-ENTRY-03", overlay=true, max_boxes_count=300, max_lines_count=500, max_labels_count=500, max_bars_back=100)
+indicator("CODEX SMC V10 BASELINE V10-BASELINE-01", overlay=true, max_boxes_count=300, max_lines_count=500, max_labels_count=500, max_bars_back=100)
 
 showWeeklyStructureBias = input.bool(true, "Show Weekly Structure Bias")
 showWeeklyBiasLevels = input.bool(false, "Show Weekly Bias swing levels")
@@ -37,8 +37,10 @@ dailyBearFvgBorder = input.color(color.new(color.rgb(255, 176, 176), 30), "Daily
 dailyMidlineColor = input.color(color.new(color.white, 25), "Daily zone midpoint color")
 dailyObBosLineColor = input.color(color.new(color.red, 0), "Daily OB BOS structure line color")
 
-const int maxHistoryWeeks = 320
+const int maxHistoryWeeks = 520
 const int maxHistoryDays = 4000
+const int statsLookbackDays = 1825
+const int dayMs = 24 * 60 * 60 * 1000
 const int dailyAtrLength = 14
 const float dailyObBodyAtrMultiplier = 1.0
 const float dailyFvgBodyAtrMultiplier = 1.0
@@ -111,6 +113,7 @@ var int fvgSlCount = 0
 var float obNetR = 0.0
 var float fvgNetR = 0.0
 var float lastConfirmedH1ArmedPivotHigh = na
+var int firstAvailableH1Time = na
 
 var line[] tradeSlLines = array.new_line()
 var line[] tradeTp1Lines = array.new_line()
@@ -125,9 +128,9 @@ var float[] tradeTp2s = array.new_float()
 var int[] tradeStartBars = array.new_int()
 var int[] tradeStatuses = array.new_int()
 
-var table buildTable = table.new(position.top_right, 3, 24, bgcolor=color.new(color.black, 15), frame_color=color.new(color.gray, 50), frame_width=1)
+var table buildTable = table.new(position.top_right, 3, 26, bgcolor=color.new(color.black, 15), frame_color=color.new(color.gray, 50), frame_width=1)
 if barstate.isfirst
-    for mergedRow = 0 to 14
+    for mergedRow = 0 to 16
         table.merge_cells(buildTable, 1, mergedRow, 2, mergedRow)
 
 seriesPivotHighValue(_len) =>
@@ -597,10 +600,16 @@ if newCanonicalDailySnapshot
     lastCanonicalDailyTime := canonicalDailyTime
 
 isH1Chart = timeframe.isintraday and chartSeconds == 3600
-canRunSetup = isH1Chart and chartSessionIsEth and barstate.isconfirmed
+statsWindowStartTime = last_bar_time - statsLookbackDays * dayMs
+inStatsWindow = time >= statsWindowStartTime
+canWarmH1State = isH1Chart and chartSessionIsEth and barstate.isconfirmed
+canRunSetup = canWarmH1State and inStatsWindow
 h1ArmedPivotHigh = ta.pivothigh(high, armedSwingLen, armedSwingLen)
-if canRunSetup and not na(h1ArmedPivotHigh)
-    lastConfirmedH1ArmedPivotHigh := h1ArmedPivotHigh
+if canWarmH1State
+    if na(firstAvailableH1Time)
+        firstAvailableH1Time := time
+    if not na(h1ArmedPivotHigh)
+        lastConfirmedH1ArmedPivotHigh := h1ArmedPivotHigh
 
 if canRunSetup and array.size(dailyZoneTypes) > 0
     for i = 0 to array.size(dailyZoneTypes) - 1
@@ -618,8 +627,6 @@ if canRunSetup and array.size(dailyZoneTypes) > 0
         armed = array.get(dailyZoneArmed, i)
         armedActive = array.get(dailyZoneArmedActive, i)
         entryTriggered = array.get(dailyZoneEntryTriggered, i)
-        leftZoneByClose = close > zoneTop or close < zoneBottom
-
         biasInvalid = weeklyStructureBias != 1
         candidateHardInvalid = biasInvalid or not zoneActive
         if candidateHardInvalid and waitingForArmed
@@ -631,6 +638,8 @@ if canRunSetup and array.size(dailyZoneTypes) > 0
                 stopEntryLimitLine(array.get(dailyZoneEntryLimitLines, i))
             armedActive := false
         if not candidateHardInvalid and waitingForArmed
+            // First-touch SETUP stays live across zone exit and re-entry.
+            // Every later H1 lower low refreshes both the marker and break snapshot.
             if tracking
                 trackedLow = array.get(dailyZoneSetupLows, i)
                 if na(trackedLow) or low < trackedLow
@@ -643,44 +652,35 @@ if canRunSetup and array.size(dailyZoneTypes) > 0
                         label.set_xy(setupLabel, bar_index, low)
 
             candidateSetupLow = array.get(dailyZoneSetupLows, i)
-            candidateStructureInvalid = not tracking and not na(candidateSetupLow) and close < candidateSetupLow
-            if candidateStructureInvalid
+            breakLevel = array.get(dailyZoneArmedBreakLevels, i)
+            setupBar = array.get(dailyZoneSetupBars, i)
+            armedEvent = not armed and not na(setupBar) and bar_index > setupBar and not na(breakLevel) and close > breakLevel and close[1] <= breakLevel
+            if armedEvent
+                armedEpisodeCount += 1
+                if zoneType == "OB"
+                    obArmedCount += 1
+                else
+                    fvgArmedCount += 1
                 stopArmBreakLine(array.get(dailyZoneArmedBreakLines, i))
                 waitingForArmed := false
-            else
-                breakLevel = array.get(dailyZoneArmedBreakLevels, i)
-                setupBar = array.get(dailyZoneSetupBars, i)
-                armedEvent = not armed and not na(setupBar) and bar_index > setupBar and not na(breakLevel) and close > breakLevel and close[1] <= breakLevel
-                if armedEvent
-                    armedEpisodeCount += 1
-                    if zoneType == "OB"
-                        obArmedCount += 1
-                    else
-                        fvgArmedCount += 1
-                    stopArmBreakLine(array.get(dailyZoneArmedBreakLines, i))
-                    waitingForArmed := false
-                    armed := true
-                    armedActive := true
-                    tracking := false
-                    array.set(dailyZoneArmedBars, i, bar_index)
-                    array.set(dailyZoneArmedSetupLows, i, candidateSetupLow)
-                    array.set(dailyZoneArmedHighs, i, high)
-                    entryLimitLevel = math.round_to_mintick((candidateSetupLow + high) * 0.5)
-                    array.set(dailyZoneEntryLimitLevels, i, entryLimitLevel)
-                    entryLimitLine = updateEntryLimitLine(array.get(dailyZoneEntryLimitLines, i), entryLimitLevel)
-                    array.set(dailyZoneEntryLimitLines, i, entryLimitLine)
-                    setupLabel = array.get(dailyZoneSetupLabels, i)
-                    if not na(setupLabel)
-                        label.set_color(setupLabel, color.new(color.green, 75))
-                        label.set_textcolor(setupLabel, color.new(color.white, 45))
-                    if showArmed
-                        armedText = "B ARMED\nD " + zoneType
-                        armedLabel = label.new(bar_index, low, armedText, style=label.style_label_up, color=color.new(color.aqua, 10), textcolor=color.black, size=size.tiny, tooltip=zoneKey)
-                        array.set(dailyZoneArmedLabels, i, armedLabel)
-                else if tracking and leftZoneByClose
-                    // Leaving the zone freezes SETUP tracking, but the ARM
-                    // candidate remains alive until its own invalidation.
-                    tracking := false
+                armed := true
+                armedActive := true
+                tracking := false
+                array.set(dailyZoneArmedBars, i, bar_index)
+                array.set(dailyZoneArmedSetupLows, i, candidateSetupLow)
+                array.set(dailyZoneArmedHighs, i, high)
+                entryLimitLevel = math.round_to_mintick((candidateSetupLow + high) * 0.5)
+                array.set(dailyZoneEntryLimitLevels, i, entryLimitLevel)
+                entryLimitLine = updateEntryLimitLine(array.get(dailyZoneEntryLimitLines, i), entryLimitLevel)
+                array.set(dailyZoneEntryLimitLines, i, entryLimitLine)
+                setupLabel = array.get(dailyZoneSetupLabels, i)
+                if not na(setupLabel)
+                    label.set_color(setupLabel, color.new(color.green, 75))
+                    label.set_textcolor(setupLabel, color.new(color.white, 45))
+                if showArmed
+                    armedText = "B ARMED\nD " + zoneType
+                    armedLabel = label.new(bar_index, low, armedText, style=label.style_label_up, color=color.new(color.aqua, 10), textcolor=color.black, size=size.tiny, tooltip=zoneKey)
+                    array.set(dailyZoneArmedLabels, i, armedLabel)
 
         // ARMED freezes its H1 high and the final SETUP low. Their midpoint is
         // a persistent Buy Limit from the following ETH H1 onward. Only a
@@ -732,14 +732,14 @@ if canRunSetup and array.size(dailyZoneTypes) > 0
                     label.set_color(setupLabel, color.new(color.green, 15))
                     label.set_textcolor(setupLabel, color.white)
                     label.set_tooltip(setupLabel, zoneKey)
-            tracking := not leftZoneByClose
+            tracking := true
 
         array.set(dailyZoneSetupTracking, i, tracking)
         array.set(dailyZoneArmedWaiting, i, waitingForArmed)
         array.set(dailyZoneArmed, i, armed)
         array.set(dailyZoneArmedActive, i, armedActive)
         array.set(dailyZoneEntryTriggered, i, entryTriggered)
-        array.set(dailyZoneWasInside, i, rawInside and not leftZoneByClose)
+        array.set(dailyZoneWasInside, i, rawInside and close <= zoneTop and close >= zoneBottom)
 
 if canRunSetup and array.size(tradeStatuses) > 0
     for i = 0 to array.size(tradeStatuses) - 1
@@ -850,7 +850,7 @@ weeklyBiasBackground = weeklyStructureBias == 1 ? color.new(weeklyBullBiasColor,
 bgcolor(showWeeklyStructureBias and showWeeklyBiasBackground ? weeklyBiasBackground : na, title="Weekly Bias background")
 
 if barstate.islast
-    table.clear(buildTable, 0, 0, 2, 23)
+    table.clear(buildTable, 0, 0, 2, 25)
     activeSetupCount = 0
     activeArmedCount = 0
     openTradeCount = 0
@@ -865,7 +865,7 @@ if barstate.islast
     weeklyBiasText = weeklyStructureBias == 1 ? "週多 BULLISH" : weeklyStructureBias == -1 ? "週空 BEARISH" : "中性 NEUTRAL"
     weeklyBiasColor = weeklyStructureBias == 1 ? weeklyBullBiasColor : weeklyStructureBias == -1 ? weeklyBearBiasColor : weeklyNeutralBiasColor
     table.cell(buildTable, 0, 0, "BUILD", text_color=color.silver, bgcolor=color.new(color.navy, 15))
-    table.cell(buildTable, 1, 0, "V10-DH1-ENTRY-03", text_color=color.white, bgcolor=color.new(color.navy, 15))
+    table.cell(buildTable, 1, 0, "V10-BASELINE-01", text_color=color.white, bgcolor=color.new(color.navy, 15))
     table.cell(buildTable, 0, 1, "W BIAS", text_color=color.white, bgcolor=color.new(color.navy, 15))
     table.cell(buildTable, 1, 1, weeklyBiasText, text_color=color.white, bgcolor=weeklyBiasColor)
     table.cell(buildTable, 0, 2, "W SWING HIGH", text_color=color.silver)
@@ -898,37 +898,45 @@ if barstate.islast
     sessionText = timeframe.isintraday ? (chartSessionIsEth ? "ETH" : "USE ETH (" + str.upper(syminfo.session) + ")") : "SOURCE ETH"
     table.cell(buildTable, 0, 14, "SESSION", text_color=color.silver)
     table.cell(buildTable, 1, 14, sessionText, text_color=chartSessionIsEth ? color.lime : color.orange)
-    table.cell(buildTable, 0, 15, "SOURCE", text_color=color.white, bgcolor=color.new(color.gray, 55))
-    table.cell(buildTable, 1, 15, "OB", text_color=color.lime, bgcolor=color.new(color.gray, 55))
-    table.cell(buildTable, 2, 15, "FVG", text_color=color.yellow, bgcolor=color.new(color.gray, 55))
-    table.cell(buildTable, 0, 16, "SETUP", text_color=color.silver)
-    table.cell(buildTable, 1, 16, str.tostring(obSetupCount), text_color=color.white)
-    table.cell(buildTable, 2, 16, str.tostring(fvgSetupCount), text_color=color.white)
-    table.cell(buildTable, 0, 17, "ARMED", text_color=color.silver)
-    table.cell(buildTable, 1, 17, str.tostring(obArmedCount), text_color=color.white)
-    table.cell(buildTable, 2, 17, str.tostring(fvgArmedCount), text_color=color.white)
-    table.cell(buildTable, 0, 18, "ENTRY", text_color=color.silver)
-    table.cell(buildTable, 1, 18, str.tostring(obEntryCount), text_color=color.white)
-    table.cell(buildTable, 2, 18, str.tostring(fvgEntryCount), text_color=color.white)
-    table.cell(buildTable, 0, 19, "TP1 HIT", text_color=color.silver)
-    table.cell(buildTable, 1, 19, str.tostring(obTp1Count), text_color=color.aqua)
-    table.cell(buildTable, 2, 19, str.tostring(fvgTp1Count), text_color=color.aqua)
-    table.cell(buildTable, 0, 20, "TP2", text_color=color.silver)
-    table.cell(buildTable, 1, 20, str.tostring(obTp2Count), text_color=color.blue)
-    table.cell(buildTable, 2, 20, str.tostring(fvgTp2Count), text_color=color.blue)
-    table.cell(buildTable, 0, 21, "TP1->BE", text_color=color.silver)
-    table.cell(buildTable, 1, 21, str.tostring(obBeCount), text_color=color.orange)
-    table.cell(buildTable, 2, 21, str.tostring(fvgBeCount), text_color=color.orange)
-    table.cell(buildTable, 0, 22, "DIRECT SL", text_color=color.silver)
-    table.cell(buildTable, 1, 22, str.tostring(obSlCount), text_color=color.red)
-    table.cell(buildTable, 2, 22, str.tostring(fvgSlCount), text_color=color.red)
-    table.cell(buildTable, 0, 23, "NET R", text_color=color.silver)
-    table.cell(buildTable, 1, 23, str.tostring(obNetR, "#.##") + "R", text_color=obNetR >= 0 ? color.lime : color.red)
-    table.cell(buildTable, 2, 23, str.tostring(fvgNetR, "#.##") + "R", text_color=fvgNetR >= 0 ? color.lime : color.red)
-    for buildRow = 0 to 14
+    windowCoverageFull = isH1Chart and chartSessionIsEth and not na(firstAvailableH1Time) and firstAvailableH1Time <= statsWindowStartTime
+    windowStatus = not isH1Chart ? "1825D USE H1" : not chartSessionIsEth ? "1825D USE ETH" : "1825D " + (windowCoverageFull ? "FULL" : "PART")
+    effectiveWindowStartTime = (windowCoverageFull or na(firstAvailableH1Time)) ? statsWindowStartTime : firstAvailableH1Time
+    windowRangeText = str.format_time(effectiveWindowStartTime, "yyyy-MM-dd") + " / " + str.format_time(last_bar_time, "yyyy-MM-dd")
+    table.cell(buildTable, 0, 15, "WINDOW", text_color=color.silver)
+    table.cell(buildTable, 1, 15, windowStatus, text_color=windowCoverageFull ? color.lime : color.orange)
+    table.cell(buildTable, 0, 16, "FROM / TO", text_color=color.silver)
+    table.cell(buildTable, 1, 16, windowRangeText, text_color=color.white)
+    table.cell(buildTable, 0, 17, "SOURCE", text_color=color.white, bgcolor=color.new(color.gray, 55))
+    table.cell(buildTable, 1, 17, "OB", text_color=color.lime, bgcolor=color.new(color.gray, 55))
+    table.cell(buildTable, 2, 17, "FVG", text_color=color.yellow, bgcolor=color.new(color.gray, 55))
+    table.cell(buildTable, 0, 18, "SETUP", text_color=color.silver)
+    table.cell(buildTable, 1, 18, str.tostring(obSetupCount), text_color=color.white)
+    table.cell(buildTable, 2, 18, str.tostring(fvgSetupCount), text_color=color.white)
+    table.cell(buildTable, 0, 19, "ARMED", text_color=color.silver)
+    table.cell(buildTable, 1, 19, str.tostring(obArmedCount), text_color=color.white)
+    table.cell(buildTable, 2, 19, str.tostring(fvgArmedCount), text_color=color.white)
+    table.cell(buildTable, 0, 20, "ENTRY", text_color=color.silver)
+    table.cell(buildTable, 1, 20, str.tostring(obEntryCount), text_color=color.white)
+    table.cell(buildTable, 2, 20, str.tostring(fvgEntryCount), text_color=color.white)
+    table.cell(buildTable, 0, 21, "TP1 HIT", text_color=color.silver)
+    table.cell(buildTable, 1, 21, str.tostring(obTp1Count), text_color=color.aqua)
+    table.cell(buildTable, 2, 21, str.tostring(fvgTp1Count), text_color=color.aqua)
+    table.cell(buildTable, 0, 22, "TP2", text_color=color.silver)
+    table.cell(buildTable, 1, 22, str.tostring(obTp2Count), text_color=color.blue)
+    table.cell(buildTable, 2, 22, str.tostring(fvgTp2Count), text_color=color.blue)
+    table.cell(buildTable, 0, 23, "TP1->BE", text_color=color.silver)
+    table.cell(buildTable, 1, 23, str.tostring(obBeCount), text_color=color.orange)
+    table.cell(buildTable, 2, 23, str.tostring(fvgBeCount), text_color=color.orange)
+    table.cell(buildTable, 0, 24, "DIRECT SL", text_color=color.silver)
+    table.cell(buildTable, 1, 24, str.tostring(obSlCount), text_color=color.red)
+    table.cell(buildTable, 2, 24, str.tostring(fvgSlCount), text_color=color.red)
+    table.cell(buildTable, 0, 25, "NET R", text_color=color.silver)
+    table.cell(buildTable, 1, 25, str.tostring(obNetR, "#.##") + "R", text_color=obNetR >= 0 ? color.lime : color.red)
+    table.cell(buildTable, 2, 25, str.tostring(fvgNetR, "#.##") + "R", text_color=fvgNetR >= 0 ? color.lime : color.red)
+    for buildRow = 0 to 16
         table.cell_set_text_size(buildTable, 0, buildRow, size.tiny)
         table.cell_set_text_size(buildTable, 1, buildRow, size.tiny)
-    for sourceRow = 15 to 23
+    for sourceRow = 17 to 25
         table.cell_set_text_size(buildTable, 0, sourceRow, size.tiny)
         table.cell_set_text_size(buildTable, 1, sourceRow, size.tiny)
         table.cell_set_text_size(buildTable, 2, sourceRow, size.tiny)

@@ -10,7 +10,7 @@ description: Maintain the TradingView SMC Replay Toolkit for Taiwan equities: We
 - Current behavior is defined by `../SMC_SPEC.md`; implementation architecture is in `../DESIGN.md`.
 - V1 visual inspection: `assets/smc_weekly_ob_fvg_v1.pine`.
 - V4 PRIMARY statistical reconciliation: `assets/smc_top_down_models_v4.pine`.
-- V10 new-architecture development: `assets/smc_weekly_structure_bias_v10.pine`; current `V10-DH1-ENTRY-03` retains ENTRY-02's persistent ARM-high/final-SETUP-low midpoint Buy Limit and Weekly-only cancellation. It adds separate OB/FVG SETUP, ARMED, ENTRY, TP1, TP2, BE, SL and Net R counters in the permanent table. 2317／2105 ETH H1 compile/runtime and source-sum first-pass validation succeeded; Weekly cancellation, same-bar conflict, reload and Replay remain supplemental regressions. Same-bar SL+TP counts only as SL; V1／V4 remain unchanged.
+- V10 frozen research baseline: `assets/smc_weekly_structure_bias_v10.pine`; current `V10-BASELINE-01` is behavior-identical to ENTRY-05 and retains ENTRY-04 continuous SETUP tracking, ENTRY-03 source counters and ENTRY-02 midpoint Buy Limit. It fixes execution and statistics to 1825 calendar days, warms Weekly/Daily zones and confirmed H1 pivots before the Window, creates no execution state before the Window, and reports `1825D FULL/PART` plus actual FROM/TO. Only FULL results are directly comparable across symbols. Do not tune Baseline from reviewed samples; validate hypotheses on a new fixed batch. Same-bar SL+TP counts only as SL; V1／V4 remain unchanged.
 - `V10-DZONE-03` failed 2324 Daily/H1 visual reconciliation because chart-driven Daily state produced OB only on Daily. `V10-DZONE-04` calculates Daily ATR, pivots, BOS, OB source and FVG events inside one confirmed Daily request context; 2324 Daily/H4/H1 first visual zone reconciliation passed, while exact values, invalidation dates, reload and Replay remain pending.
 - `V10-DZONE-05` moves Weekly pivots, Bias, flip counts and markers into one confirmed Weekly request context. Its Weekly table passed 2324 Weekly/Daily/H4/H1 reconciliation at Bullish, `47.75`, `27.50`, and `8 / 7`; marker one-shot, reload/Replay, and exact-zone audit remain pending before execution work begins.
 - `V10-DZONE-06` source-candle trace was a requirement misunderstanding and is superseded. `V10-DZONE-07` draws each OB-producing BOS horizontally from the broken confirmed pivot candle to the BOS candle at the broken swing price; this must match across Daily/H4/H1 before being treated as visually verified.
@@ -22,7 +22,7 @@ description: Maintain the TradingView SMC Replay Toolkit for Taiwan equities: We
 ## Current model
 
 - Formal model: `Weekly Zone → Daily MSS Bias → H1 SETUP / ARMED / ENTRY`.
-- Formal chart and statistics boundary: H1, 1095D, `FULL`.
+- Stable V1／V4 chart and statistics boundary: H1, 1095D, `FULL`. Current V10 boundary: ETH H1, 1825D, `FULL`; `PART` is diagnostic only and cannot enter direct cross-symbol ranking.
 - Taiwan equity execution and all performance statistics are fixed Long-only.
 - Bearish Weekly zones and bearish Daily structure remain visible as risk context, but cannot create execution flows.
 

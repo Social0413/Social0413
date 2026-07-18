@@ -1,5 +1,26 @@
 # Changelog
 
+## 2026-07-18 V10-BASELINE-01 research baseline freeze
+
+- 只把indicator title與右上永久BUILD由`V10-DH1-ENTRY-05`升為`V10-BASELINE-01`；SETUP、ARMED、midpoint Buy Limit、Trade Plan、TP／SL、OB／FVG、1825D Window與全部統計行為均未修改。
+- Baseline用於後續固定批次跨標的研究；每批只接受ETH H1、`1825D FULL`及相同Replay終點，不因已看過樣本的績效調整規則。
+- 首批15檔為探索樣本，合計120筆有效交易、118筆已結束、2筆Open、Net R `35.5R`、平均`0.301R／已結束交易`；尚未計入手續費、交易稅與滑價。
+- 6669／Daily實圖已確認右上`V10-BASELINE-01`、W BIAS、Daily zones與`SOURCE ETH`正常顯示；Daily的`USE H1`是預期支援提示，ETH H1 execution回歸仍保留。
+
+## 2026-07-18 V10-DH1-ENTRY-05 fixed 1825D Window（Repository完成，待TradingView）
+
+- V10 execution與全部漏斗／績效統計固定為`last_bar_time - 1825D`至`last_bar_time`；使用日曆日而非固定H1 bar數，讓相同Replay終點的不同標的使用相同日期範圍。
+- Canonical Weekly／Daily zone engine與confirmed H1 pivot在Window前照常warm-up；per-zone SETUP／ARMED／ENTRY與Trade result loops只在Window內執行。Window前不建立execution state、不消耗`setupUsed`，第一根Window H1可對既有active zone建立第一筆Window SETUP。
+- 右上表新增`WINDOW 1825D FULL/PART`與實際`FROM / TO`。最早可用ETH H1不晚於Window起點才是FULL；PART只供診斷，不得和FULL直接排名。Weekly request history由320提高到520週以保留5年Window前結構warm-up。
+- Build升為`V10-DH1-ENTRY-05`；ENTRY-04持續SETUP tracking、midpoint Buy Limit、Trade Plan、OB／FVG來源統計與V1／V4均未修改。Repository靜態檢查完成後仍須TradingView驗證。
+
+## 2026-07-18 V10-DH1-ENTRY-04 continuous SETUP tracking（2360指定路徑視覺通過）
+
+- 修正2360／ETH H1的ARM前lifecycle：First-touch SETUP成立後，不再因H1 close離開Daily zone凍結tracking；離開、等待在zone外或re-entry期間，任何後續H1 lower low都持續移動同一SETUP marker並重新快照break level。
+- 移除tracking凍結後`close < frozen SETUP low`取消candidate的路徑。ARM前waiting candidate現在只由Weekly Bias不再Bullish或Daily zone inactive／移除取消；break diagnostic line持續到其中一項hard invalidation或ARM transition。
+- First-touch `setupUsed`、同zone單一SETUP、ARM close crossover、midpoint pending Buy Limit、Trade Plan、OB／FVG來源統計與V1／V4均未修改。Build升為`V10-DH1-ENTRY-04`。
+- 2360／ETH H1 Replay確認marker隨後續lower low移動、zone exit／re-entry不重建SETUP、break line延伸至`B ARMED D OB`，且OB／FVG來源加總仍與全域閉合。Weekly／zone hard invalidation、same-bar與reload／Replay仍待補驗。
+
 ## 2026-07-18 V10-DH1-ENTRY-03 OB/FVG source statistics（首輪TradingView實圖通過）
 
 - 右上永久表擴為label／OB／FVG三欄；頂部全域資訊維持合併顯示，來源區新增SETUP、ARMED、ENTRY、TP1 HIT、TP2、TP1→BE、DIRECT SL與NET R。

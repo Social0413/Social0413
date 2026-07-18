@@ -1,5 +1,29 @@
 # TradingView SMC Replay Toolkit - Development History
 
+## 2026-07-18 - V10凍結為Baseline並完成首批15檔探索統計
+
+使用者完成首批15檔ETH H1／1825D FULL截圖統計後，決定暫停修改策略條件，將ENTRY-05現行行為凍結為`V10-BASELINE-01`。本次升版只更改indicator title與右上BUILD識別；Weekly Bias、Daily OB/FVG、SETUP持續tracking、ARM、midpoint pending Buy Limit、TP1／TP2／SL及來源統計全部不變。目的不是宣告策略已可實盤，而是建立下一批樣本可重複比較的固定規則。
+
+首批標的為2360、2454、3017、2615、2317、3443、2382、3034、2383、2368、8064、3231、6116、6515、6451。合計SETUP 393、ARMED 148、有效交易120、已結束118、Open 2、TP2 41、TP1→BE 34、Direct SL 43、Net R 35.5R，平均0.301R／已結束交易。OB為32筆已結束／4R／0.125R每筆；FVG為86筆已結束／31.5R／0.366R每筆。這些都是未扣手續費、交易稅與滑價的探索結果，不得據此回頭修改Baseline；OB／FVG差異只作下一批未見樣本的驗證假設。
+
+ENTRY-05畫面已涵蓋15檔`WINDOW 1825D FULL`、ETH、FROM 2021-07-18、TO 2026-07-17及來源加總資料，但Window第一根H1、PART、Weekly取消、same-bar、reload／Replay等特殊路徑仍未逐項留下證據。Baseline是研究凍結點，不把上述未驗證項目改寫成已完成。
+
+升版後使用者提供6669／Daily的`V10-BASELINE-01`實圖，永久表BUILD、Weekly Bias、Daily zones與`SOURCE ETH`正常，execution列依非H1支援邊界顯示`USE H1`及`1825D USE H1`。此圖完成Baseline版本識別與Daily runtime確認，不代替ETH H1 execution回歸。
+
+## 2026-07-18 - V10跨標的比較固定為5年
+
+使用者決定後續V10跨標的統計採固定5年。正式邊界定為1825個日曆日，結束點使用`last_bar_time`，不以5000或其他固定H1 bar數近似；相同Replay終點下各標的因此具有相同理論FROM／TO。
+
+`V10-DH1-ENTRY-05`把Weekly Bias、Daily zones與confirmed H1 pivot留在Window前warm-up，但把SETUP、ARMED、ENTRY、Trade與全部漏斗／績效限制在Window內。第一根Window H1不承接Window前touch state，仍可使用當時已存在的active Daily zone建立第一個SETUP。表格以`FULL/PART`區分資料覆蓋，PART不得和FULL直接排名；V1／V4既有1095D基準不變。
+
+## 2026-07-18 - 2360揭露SETUP tracking過早凍結
+
+使用者在2360／ETH H1／ENTRY-03指出Bullish Daily OB已有SETUP，但淡藍break line只出現短段且沒有OB ARM；並確認線停止當下Weekly Bias仍為Bullish。畫面同時顯示SETUP marker沒有隨後續H1價格下降移動。
+
+逐行檢查確認兩個現象來自同一路徑：H1 close離開zone時舊規格先把tracking設為false，之後lower low不再更新SETUP marker／break snapshot；completed H1 close再跌破這個舊SETUP low時，程式取消waiting candidate並停止break line。這不是單純繪圖錯誤，也不是Weekly Bias取消。
+
+使用者確認新流程：First-touch SETUP成立後持續追蹤所有後續H1 lower low直到ARM，不因離開或重回zone停止；同zone仍只計一次SETUP。ARM前只由Weekly Bias轉向或Daily zone inactive取消。`V10-DH1-ENTRY-04`依此移除zone-exit freeze與frozen-low取消路徑；ENTRY-03的midpoint掛單、Trade Plan與來源統計不變。後續2360／ETH H1 Replay確認SETUP marker移到新低、break line延伸至`B ARMED D OB`且來源加總閉合，指定路徑視覺通過。
+
 ## 2026-07-18 - ENTRY-03首輪驗收與階段收尾
 
 使用者提供2317與2105／ETH H1／`V10-DH1-ENTRY-03`實圖。兩檔均正常顯示BUILD與SESSION，來源表的SETUP、ARMED、ENTRY、TP1 HIT、TP2、TP1→BE、DIRECT SL及NET R都能由OB與FVG精確回加到全域統計。2317為`1.5R + 2.5R = 4R`，2105為`-1R + -1.5R = -2.5R`；2317另有ARMED 14、ENTRY 11、3 ACTIVE，支持ARM後以midpoint Buy Limit等待而非立即成交。

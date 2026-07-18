@@ -6,7 +6,7 @@
 
 - V10 新研究架構：`Weekly Structure Bias → Daily OB/FVG → H1 SETUP / ARMED / ENTRY`；Weekly 管方向，Daily zones 管位置，H1 管進場。Daily MSS 不作為 V10 SETUP gate。
 - 目前穩定版為 V1 `V1-LONG-01` 與 V4 `V4-LONG-01`；正式入口固定 H1、1095D、`FULL`，execution 與全部績效只做多。
-- 新架構已由獨立 V10 開始開發；目前`V10-DH1-ENTRY-03`沿用ARM high與final SETUP low midpoint Buy Limit、2-tick SL、1R／2R與TP1→BE，並新增OB／FVG各自的SETUP、ARMED、ENTRY、TP／SL與NET R來源統計；2317／2105 ETH H1 compile／runtime與來源加總首輪通過，特殊路徑Replay仍待補驗。
+- V10已凍結為研究基準`V10-BASELINE-01`；行為與`V10-DH1-ENTRY-05`完全相同，固定ETH H1／1825D／`FULL`，保留ENTRY-04持續SETUP tracking、midpoint Buy Limit、Trade Plan及OB／FVG來源統計。首批15檔FULL樣本已完成截圖統計；6669／Daily已確認Baseline BUILD與runtime顯示，ETH H1 execution回歸留待第二批開始前確認。
 - V10 的開發、Replay 與未來 H1 execution 一律使用 ETH。程式內 canonical feed 由 `ticker.modify(..., session.extended)`強制統一；Pine 無法替使用者切換原生圖表 session，因此 H1／H4 圖表若仍為 RTH，右上 SESSION 必須顯示 `USE ETH (...)`，不可用該畫面驗收跨時框價格。
 - Bearish Weekly OB/FVG 與 Daily bearish MSS/CHOCH 繼續顯示作為風險 context，但不建立 S SETUP／ARMED／ENTRY／Trade，也不進入統計；Bearish OB/FVG 使用兩階淺紅色。
 - 每個確切 Weekly zone 最多一筆有效 Trade Plan；ENTRY retest expiry 預設 15 根 H1，TP1 後剩餘部位 SL 移到 Entry，預設 TP1→BE 為 +0.5R。
@@ -49,7 +49,7 @@
 
 - `smc-weekly-ob-fvg/assets/smc_weekly_ob_fvg_v1.pine`：完整繪圖、交易流程與詳細 funnel。
 - `smc-weekly-ob-fvg/assets/smc_top_down_models_v4.pine`：W-D-H1 PRIMARY 統計核對；LEGACY engines 目前關閉。
-- `smc-weekly-ob-fvg/assets/smc_weekly_structure_bias_v10.pine`：V10新架構；目前開發build為`V10-DH1-ENTRY-03`，包含midpoint pending Buy Limit、簡化Trade Plan及OB／FVG來源分類表。
+- `smc-weekly-ob-fvg/assets/smc_weekly_structure_bias_v10.pine`：V10新架構研究基準`V10-BASELINE-01`；固定1825D Window、Window前Weekly／Daily／H1 pivot warm-up、持續SETUP lower-low tracking、midpoint pending Buy Limit、簡化Trade Plan及OB／FVG來源分類表。
 - `smc-weekly-ob-fvg/assets/smc_weekly_ob_fvg_cross_tf_v3.pine`：M30/H1/H4 長期跨週期統計研究。
 - `smc-weekly-ob-fvg/assets/smc_weekly_ob_fvg_compare_v2.pine`：舊 M30 compare 工具，非目前 SETUP 主線。
 

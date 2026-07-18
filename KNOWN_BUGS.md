@@ -14,6 +14,9 @@
 
 ## V10 限制
 
+- `V10-BASELINE-01`只把已提供15檔ETH H1／1825D FULL截圖的ENTRY-05行為凍結並更換BUILD識別；6669／Daily已確認新BUILD與runtime顯示，但ETH H1 execution回歸仍待第二批開始前確認。首批數據仍未扣手續費、交易稅與滑價，不代表可實盤期望值。
+- ENTRY-05首批15檔已提供FULL、FROM／TO及跨標的來源統計，但Window第一根H1、資料不足PART、Weekly Bias撤銷pending、same-bar、reload／Replay仍未逐項驗證；Baseline命名不解除這些限制。
+- `V10-DH1-ENTRY-04`修正2360／ETH H1發現的共同lifecycle問題：ENTRY-03在H1 close離開zone後凍結SETUP tracking，後續lower low不移動marker，且close跌破舊SETUP low會在Weekly仍Bullish時取消candidate並停止break line。ENTRY-04的2360指定路徑已確認marker移動、break line延伸與後續OB ARM；Weekly Bias／Daily zone兩種hard invalidation、same-bar、reload／Replay及2317／2105完整回歸仍待驗證。
 - `V10-DH1-ENTRY-01`已在2317／ETH H1 compile／runtime，但把ARM下一根open直接視為ENTRY，屬需求誤解，已由midpoint Buy Limit的`V10-DH1-ENTRY-02`取代，不得恢復。
 - `V10-DH1-ENTRY-03`已在2317／2105 ETH H1通過compile／runtime與來源統計首輪實圖：OB+FVG各階段及NET R均與全域總計閉合，TP1 HIT亦涵蓋2105後續BE。尚未以實圖證明Weekly Bias改變撤銷pending Buy Limit、ENTRY same-bar SL+TP只進SL與紫紅marker，以及reload／Replay不重複累加；這些是補充回歸，非目前阻斷問題。
 - `V10-DH1-ARMED-01` 已在 2324／ETH H1 compile／runtime，但把 zone exit 等同取消 ARM candidate；畫面有 Bullish Daily OB SETUP 與後續結構上漲，右上仍為 ARMED `0 / 0 ACTIVE`。此 lifecycle 已被淘汰，不得恢復。
