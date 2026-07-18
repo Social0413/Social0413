@@ -8,8 +8,11 @@
 - 新功能先更新 `SMC_SPEC.md`，確認 timeframe、觸發條件、失效條件與視覺規則後再改程式。
 - 僅使用完成的高週期 candle 產生確認訊號，避免 lookahead 或 repainting 路徑。
 - Weekly 與 Daily 聚合邏輯須明確區分 current candle 與 completed candle。
+- FVG displacement body 必須與同一根中間 K 的來源時框 ATR 對齊；FVG metadata 應區分 K1 first、K2 displacement/source 與 K3 confirmation/event time。
+- Canonical Daily zone 的失效價格與 box／midline 右端必須來自同一 completed-Daily snapshot；跨時框右端使用 canonical `time_close`，不得使用 chart-local `time`。
 - CHOCH、MSS 保持獨立 state，不共用 pivot/trend 造成語意混淆。
 - 建立新的 box/line 時，必須同步加入刪除與 array trimming 邏輯。
+- Canonical event 的顯示物件必須有獨立 event key；Daily BOS 固定使用 `direction + BOS time`，line／label／key 必須一起 push／shift，不能只依 OB source 去重。
 - 平行 arrays 的 push、shift、set 必須保持相同索引生命週期。
 - 不以大量 `label.new` 作為長期 debug 手段。
 - 技術識別字與 TradingView/Pine 名詞保留英文；文件敘述使用繁體中文。

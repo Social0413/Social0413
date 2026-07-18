@@ -1,5 +1,5 @@
 //@version=5
-indicator("CODEX SMC V10 Daily Zones V10-DZONE-09", overlay=true, max_boxes_count=300, max_lines_count=300, max_labels_count=300, max_bars_back=100)
+indicator("CODEX SMC V10 DH1 ENTRY V10-DH1-ENTRY-03", overlay=true, max_boxes_count=300, max_lines_count=500, max_labels_count=500, max_bars_back=100)
 
 showWeeklyStructureBias = input.bool(true, "Show Weekly Structure Bias")
 showWeeklyBiasLevels = input.bool(false, "Show Weekly Bias swing levels")
@@ -14,6 +14,13 @@ showDailyObBosLine = input.bool(true, "Show Daily OB BOS structure line")
 stableDailyZoneExtension = input.bool(true, "Stable Daily zone extension")
 maxDailyZonesPerType = input.int(40, "Maximum Daily zones per type", minval=10, maxval=100)
 dailyObSwingLen = input.int(4, "Daily OB swing length", minval=1, maxval=10)
+showSetup = input.bool(true, "Show H1 SETUP")
+showArmed = input.bool(true, "Show H1 ARMED")
+armedSwingLen = input.int(3, "H1 ARMED swing length", minval=1, maxval=10)
+showArmedBreakLevel = input.bool(false, "Show ARM break level")
+showEntry = input.bool(true, "Show H1 ENTRY / result")
+showTradePlans = input.bool(true, "Show H1 SL/TP trade plans")
+maxTradePlans = input.int(20, "Maximum H1 trade plans", minval=1, maxval=40)
 
 weeklyBullBiasColor = input.color(color.new(color.lime, 15), "Weekly Bullish Bias color")
 weeklyBearBiasColor = input.color(color.new(color.red, 15), "Weekly Bearish Bias color")
@@ -35,6 +42,11 @@ const int maxHistoryDays = 4000
 const int dailyAtrLength = 14
 const float dailyObBodyAtrMultiplier = 1.0
 const float dailyFvgBodyAtrMultiplier = 1.0
+const float dailyFvgMinGapAtrMultiplier = 0.50
+const int dailyFvgMinGapTicks = 2
+const float tradeTp1R = 1.0
+const float tradeTp2R = 2.0
+const float tradeTp1ExitFraction = 0.50
 
 var int lastCanonicalWeeklyTime = na
 var int lastCanonicalDailyTime = na
@@ -46,12 +58,77 @@ var int[] dailyZoneDirs = array.new_int()
 var float[] dailyZoneMids = array.new_float()
 var bool[] dailyZoneActive = array.new_bool()
 var int[] dailyZoneSourceTimes = array.new_int()
+var int[] dailyZoneEventTimes = array.new_int()
+var int[] dailyZoneFirstTimes = array.new_int()
 var float[] dailyZoneTops = array.new_float()
 var float[] dailyZoneBottoms = array.new_float()
+var string[] dailyZoneKeys = array.new_string()
+var label[] dailyZoneSetupLabels = array.new_label()
+var bool[] dailyZoneSetupTracking = array.new_bool()
+var bool[] dailyZoneSetupUsed = array.new_bool()
+var float[] dailyZoneSetupLows = array.new_float()
+var int[] dailyZoneSetupBars = array.new_int()
+var float[] dailyZoneArmedBreakLevels = array.new_float()
+var line[] dailyZoneArmedBreakLines = array.new_line()
+var bool[] dailyZoneArmedWaiting = array.new_bool()
+var label[] dailyZoneArmedLabels = array.new_label()
+var bool[] dailyZoneArmed = array.new_bool()
+var bool[] dailyZoneArmedActive = array.new_bool()
+var int[] dailyZoneArmedBars = array.new_int()
+var float[] dailyZoneArmedSetupLows = array.new_float()
+var float[] dailyZoneArmedHighs = array.new_float()
+var float[] dailyZoneEntryLimitLevels = array.new_float()
+var line[] dailyZoneEntryLimitLines = array.new_line()
+var bool[] dailyZoneEntryTriggered = array.new_bool()
+var bool[] dailyZoneWasInside = array.new_bool()
 var line[] dailyObBosLines = array.new_line()
 var label[] dailyObBosLabels = array.new_label()
+var string[] dailyObBosKeys = array.new_string()
+var int setupEpisodeCount = 0
+var int armedEpisodeCount = 0
+var int entryEpisodeCount = 0
+var int tradeTotal = 0
+var int tradeTp2Wins = 0
+var int tradeTp1Be = 0
+var int tradeDirectLosses = 0
+var int tradeSameBarConflictLosses = 0
+var int tradeInvalidPlans = 0
+var float tradeNetR = 0.0
+var int obSetupCount = 0
+var int fvgSetupCount = 0
+var int obArmedCount = 0
+var int fvgArmedCount = 0
+var int obEntryCount = 0
+var int fvgEntryCount = 0
+var int obTp1Count = 0
+var int fvgTp1Count = 0
+var int obTp2Count = 0
+var int fvgTp2Count = 0
+var int obBeCount = 0
+var int fvgBeCount = 0
+var int obSlCount = 0
+var int fvgSlCount = 0
+var float obNetR = 0.0
+var float fvgNetR = 0.0
+var float lastConfirmedH1ArmedPivotHigh = na
 
-var table buildTable = table.new(position.top_right, 2, 8, bgcolor=color.new(color.black, 15), frame_color=color.new(color.gray, 50), frame_width=1)
+var line[] tradeSlLines = array.new_line()
+var line[] tradeTp1Lines = array.new_line()
+var line[] tradeTp2Lines = array.new_line()
+var label[] tradeLabels = array.new_label()
+var string[] tradeZoneKeys = array.new_string()
+var string[] tradeZoneTypes = array.new_string()
+var float[] tradeEntries = array.new_float()
+var float[] tradeStops = array.new_float()
+var float[] tradeTp1s = array.new_float()
+var float[] tradeTp2s = array.new_float()
+var int[] tradeStartBars = array.new_int()
+var int[] tradeStatuses = array.new_int()
+
+var table buildTable = table.new(position.top_right, 3, 24, bgcolor=color.new(color.black, 15), frame_color=color.new(color.gray, 50), frame_width=1)
+if barstate.isfirst
+    for mergedRow = 0 to 14
+        table.merge_cells(buildTable, 1, mergedRow, 2, mergedRow)
 
 seriesPivotHighValue(_len) =>
     centerValue = high[_len]
@@ -153,12 +230,20 @@ canonicalDailyZoneEngine() =>
         bearishObBottom := bearishExtremeSourceBottom
 
     middleBody = math.abs(close[1] - open[1])
-    bullishMiddleDisplacement = close[1] > open[1] and middleBody >= dailyAtrValue * dailyFvgBodyAtrMultiplier
-    bearishMiddleDisplacement = close[1] < open[1] and middleBody >= dailyAtrValue * dailyFvgBodyAtrMultiplier
-    bullishDailyFvg = not na(dailyAtrValue) and low > high[2] and bullishMiddleDisplacement
-    bearishDailyFvg = not na(dailyAtrValue) and high < low[2] and bearishMiddleDisplacement
+    middleAtr = dailyAtrValue[1]
+    bullishMiddleDisplacement = close[1] > open[1] and not na(middleAtr) and middleBody >= middleAtr * dailyFvgBodyAtrMultiplier
+    bearishMiddleDisplacement = close[1] < open[1] and not na(middleAtr) and middleBody >= middleAtr * dailyFvgBodyAtrMultiplier
+    minimumFvgGap = not na(middleAtr) ? math.max(middleAtr * dailyFvgMinGapAtrMultiplier, syminfo.mintick * dailyFvgMinGapTicks) : na
+    bullishGapSize = low - high[2]
+    bearishGapSize = low[2] - high
+    bullishDailyFvg = bullishGapSize > 0 and bullishMiddleDisplacement and bullishGapSize >= minimumFvgGap
+    bearishDailyFvg = bearishGapSize > 0 and bearishMiddleDisplacement and bearishGapSize >= minimumFvgGap
+    bullishFvgFirstTime = bullishDailyFvg ? time[2] : na
+    bullishFvgDisplacementTime = bullishDailyFvg ? time[1] : na
     bullishFvgTop = bullishDailyFvg ? low : na
     bullishFvgBottom = bullishDailyFvg ? high[2] : na
+    bearishFvgFirstTime = bearishDailyFvg ? time[2] : na
+    bearishFvgDisplacementTime = bearishDailyFvg ? time[1] : na
     bearishFvgTop = bearishDailyFvg ? low[2] : na
     bearishFvgBottom = bearishDailyFvg ? high : na
 
@@ -201,19 +286,126 @@ canonicalDailyZoneEngine() =>
             bearishExtremeSourceTop := high
             bearishExtremeSourceBottom := low
 
-    [time, close, high, low, bullishDailyOb and not na(bullishObSourceTime), bullishObSourceTime, bullishObTop, bullishObBottom, bullishBrokenPivotTime, bullishBrokenPivotPrice, bearishDailyOb and not na(bearishObSourceTime), bearishObSourceTime, bearishObTop, bearishObBottom, bearishBrokenPivotTime, bearishBrokenPivotPrice, bullishDailyFvg, bullishFvgTop, bullishFvgBottom, bearishDailyFvg, bearishFvgTop, bearishFvgBottom]
+    [time, time_close, close, high, low, bullishDailyOb and not na(bullishObSourceTime), bullishObSourceTime, bullishObTop, bullishObBottom, bullishBrokenPivotTime, bullishBrokenPivotPrice, bearishDailyOb and not na(bearishObSourceTime), bearishObSourceTime, bearishObTop, bearishObBottom, bearishBrokenPivotTime, bearishBrokenPivotPrice, bullishDailyFvg, bullishFvgFirstTime, bullishFvgDisplacementTime, bullishFvgTop, bullishFvgBottom, bearishDailyFvg, bearishFvgFirstTime, bearishFvgDisplacementTime, bearishFvgTop, bearishFvgBottom]
 
 confirmedDailyZoneSnapshot() =>
-    [engineTime, engineClose, engineHigh, engineLow, engineBullishOb, engineBullishObSourceTime, engineBullishObTop, engineBullishObBottom, engineBullishBrokenPivotTime, engineBullishBrokenPivotPrice, engineBearishOb, engineBearishObSourceTime, engineBearishObTop, engineBearishObBottom, engineBearishBrokenPivotTime, engineBearishBrokenPivotPrice, engineBullishFvg, engineBullishFvgTop, engineBullishFvgBottom, engineBearishFvg, engineBearishFvgTop, engineBearishFvgBottom] = canonicalDailyZoneEngine()
-    [engineTime[1], engineClose[1], engineHigh[1], engineLow[1], engineBullishOb[1], engineBullishObSourceTime[1], engineBullishObTop[1], engineBullishObBottom[1], engineBullishBrokenPivotTime[1], engineBullishBrokenPivotPrice[1], engineBearishOb[1], engineBearishObSourceTime[1], engineBearishObTop[1], engineBearishObBottom[1], engineBearishBrokenPivotTime[1], engineBearishBrokenPivotPrice[1], engineBullishFvg[1], engineBullishFvgTop[1], engineBullishFvgBottom[1], engineBearishFvg[1], engineBearishFvgTop[1], engineBearishFvgBottom[1]]
+    [engineTime, engineCloseTime, engineClose, engineHigh, engineLow, engineBullishOb, engineBullishObSourceTime, engineBullishObTop, engineBullishObBottom, engineBullishBrokenPivotTime, engineBullishBrokenPivotPrice, engineBearishOb, engineBearishObSourceTime, engineBearishObTop, engineBearishObBottom, engineBearishBrokenPivotTime, engineBearishBrokenPivotPrice, engineBullishFvg, engineBullishFvgFirstTime, engineBullishFvgDisplacementTime, engineBullishFvgTop, engineBullishFvgBottom, engineBearishFvg, engineBearishFvgFirstTime, engineBearishFvgDisplacementTime, engineBearishFvgTop, engineBearishFvgBottom] = canonicalDailyZoneEngine()
+    [engineTime[1], engineCloseTime[1], engineClose[1], engineHigh[1], engineLow[1], engineBullishOb[1], engineBullishObSourceTime[1], engineBullishObTop[1], engineBullishObBottom[1], engineBullishBrokenPivotTime[1], engineBullishBrokenPivotPrice[1], engineBearishOb[1], engineBearishObSourceTime[1], engineBearishObTop[1], engineBearishObBottom[1], engineBearishBrokenPivotTime[1], engineBearishBrokenPivotPrice[1], engineBullishFvg[1], engineBullishFvgFirstTime[1], engineBullishFvgDisplacementTime[1], engineBullishFvgTop[1], engineBullishFvgBottom[1], engineBearishFvg[1], engineBearishFvgFirstTime[1], engineBearishFvgDisplacementTime[1], engineBearishFvgTop[1], engineBearishFvgBottom[1]]
+
+updateArmBreakLine(line _line, float _level) =>
+    line result = _line
+    if showArmedBreakLevel and not na(_level)
+        if na(result)
+            result := line.new(bar_index, _level, bar_index + 1, _level, xloc=xloc.bar_index, extend=extend.right, color=color.new(color.aqua, 45), style=line.style_dotted, width=1)
+        else
+            line.set_x1(result, bar_index)
+            line.set_y1(result, _level)
+            line.set_x2(result, bar_index + 1)
+            line.set_y2(result, _level)
+            line.set_extend(result, extend.right)
+    result
+
+stopArmBreakLine(line _line) =>
+    if not na(_line)
+        line.set_extend(_line, extend.none)
+        line.set_x2(_line, bar_index)
+    _line
+
+updateEntryLimitLine(line _line, float _level) =>
+    line result = _line
+    if showEntry and not na(_level)
+        if na(result)
+            result := line.new(bar_index, _level, bar_index + 1, _level, xloc=xloc.bar_index, extend=extend.right, color=color.new(color.aqua, 20), style=line.style_dashed, width=2)
+        else
+            line.set_x1(result, bar_index)
+            line.set_y1(result, _level)
+            line.set_x2(result, bar_index + 1)
+            line.set_y2(result, _level)
+            line.set_extend(result, extend.right)
+    result
+
+stopEntryLimitLine(line _line) =>
+    if not na(_line)
+        line.set_extend(_line, extend.none)
+        line.set_x2(_line, bar_index)
+    _line
+
+trimTradePlans() =>
+    while array.size(tradeStatuses) > maxTradePlans
+        oldSlLine = array.shift(tradeSlLines)
+        oldTp1Line = array.shift(tradeTp1Lines)
+        oldTp2Line = array.shift(tradeTp2Lines)
+        oldLabel = array.shift(tradeLabels)
+        if not na(oldSlLine)
+            line.delete(oldSlLine)
+        if not na(oldTp1Line)
+            line.delete(oldTp1Line)
+        if not na(oldTp2Line)
+            line.delete(oldTp2Line)
+        if not na(oldLabel)
+            label.delete(oldLabel)
+        array.shift(tradeZoneKeys)
+        array.shift(tradeZoneTypes)
+        array.shift(tradeEntries)
+        array.shift(tradeStops)
+        array.shift(tradeTp1s)
+        array.shift(tradeTp2s)
+        array.shift(tradeStartBars)
+        array.shift(tradeStatuses)
+    true
+
+addEntryTradePlan(_zoneKey, _zoneType, _entry, _frozenSetupLow) =>
+    stopPrice = na(_frozenSetupLow) ? na : math.round_to_mintick(_frozenSetupLow - syminfo.mintick * 2.0)
+    validPlan = not na(stopPrice) and _entry > stopPrice and _entry - stopPrice >= syminfo.mintick
+    risk = validPlan ? _entry - stopPrice : na
+    tp1Price = validPlan ? math.round_to_mintick(_entry + risk * tradeTp1R) : na
+    tp2Price = validPlan ? math.round_to_mintick(_entry + risk * tradeTp2R) : na
+    line slLine = na
+    line tp1Line = na
+    line tp2Line = na
+    label entryLabel = na
+    if showTradePlans and validPlan
+        slLine := line.new(bar_index, stopPrice, bar_index + 1, stopPrice, color=color.new(color.red, 10), style=line.style_dashed, width=1)
+        tp1Line := line.new(bar_index, tp1Price, bar_index + 1, tp1Price, color=color.new(color.aqua, 15), style=line.style_dotted, width=1)
+        tp2Line := line.new(bar_index, tp2Price, bar_index + 1, tp2Price, color=color.new(color.blue, 10), style=line.style_dotted, width=1)
+    if showEntry
+        entryText = validPlan ? "B ENTRY\nD " + _zoneType + "\n@ " + str.tostring(_entry, format.mintick) : "B ENTRY INVALID\nD " + _zoneType
+        entryColor = validPlan ? color.new(color.aqua, 5) : color.new(color.orange, 5)
+        entryLabel := label.new(bar_index, _entry, entryText, style=label.style_label_up, color=entryColor, textcolor=color.black, size=size.tiny, tooltip=_zoneKey)
+    array.push(tradeSlLines, slLine)
+    array.push(tradeTp1Lines, tp1Line)
+    array.push(tradeTp2Lines, tp2Line)
+    array.push(tradeLabels, entryLabel)
+    array.push(tradeZoneKeys, _zoneKey)
+    array.push(tradeZoneTypes, _zoneType)
+    array.push(tradeEntries, _entry)
+    array.push(tradeStops, stopPrice)
+    array.push(tradeTp1s, tp1Price)
+    array.push(tradeTp2s, tp2Price)
+    array.push(tradeStartBars, bar_index)
+    array.push(tradeStatuses, validPlan ? 0 : -2)
+    trimTradePlans()
+    validPlan
 
 removeDailyZone(_index) =>
     zoneBox = array.get(dailyZoneBoxes, _index)
     zoneMidline = array.get(dailyZoneMidlines, _index)
+    setupLabel = array.get(dailyZoneSetupLabels, _index)
+    armedBreakLine = array.get(dailyZoneArmedBreakLines, _index)
+    armedLabel = array.get(dailyZoneArmedLabels, _index)
+    entryLimitLine = array.get(dailyZoneEntryLimitLines, _index)
     if not na(zoneBox)
         box.delete(zoneBox)
     if not na(zoneMidline)
         line.delete(zoneMidline)
+    if not na(setupLabel)
+        label.delete(setupLabel)
+    if not na(armedBreakLine)
+        line.delete(armedBreakLine)
+    if not na(armedLabel)
+        label.delete(armedLabel)
+    if not na(entryLimitLine)
+        line.delete(entryLimitLine)
     array.remove(dailyZoneBoxes, _index)
     array.remove(dailyZoneMidlines, _index)
     array.remove(dailyZoneTypes, _index)
@@ -221,8 +413,29 @@ removeDailyZone(_index) =>
     array.remove(dailyZoneMids, _index)
     array.remove(dailyZoneActive, _index)
     array.remove(dailyZoneSourceTimes, _index)
+    array.remove(dailyZoneEventTimes, _index)
+    array.remove(dailyZoneFirstTimes, _index)
     array.remove(dailyZoneTops, _index)
     array.remove(dailyZoneBottoms, _index)
+    array.remove(dailyZoneKeys, _index)
+    array.remove(dailyZoneSetupLabels, _index)
+    array.remove(dailyZoneSetupTracking, _index)
+    array.remove(dailyZoneSetupUsed, _index)
+    array.remove(dailyZoneSetupLows, _index)
+    array.remove(dailyZoneSetupBars, _index)
+    array.remove(dailyZoneArmedBreakLevels, _index)
+    array.remove(dailyZoneArmedBreakLines, _index)
+    array.remove(dailyZoneArmedWaiting, _index)
+    array.remove(dailyZoneArmedLabels, _index)
+    array.remove(dailyZoneArmed, _index)
+    array.remove(dailyZoneArmedActive, _index)
+    array.remove(dailyZoneArmedBars, _index)
+    array.remove(dailyZoneArmedSetupLows, _index)
+    array.remove(dailyZoneArmedHighs, _index)
+    array.remove(dailyZoneEntryLimitLevels, _index)
+    array.remove(dailyZoneEntryLimitLines, _index)
+    array.remove(dailyZoneEntryTriggered, _index)
+    array.remove(dailyZoneWasInside, _index)
     true
 
 trimDailyZoneType(_zoneType) =>
@@ -235,7 +448,8 @@ trimDailyZoneType(_zoneType) =>
         removeIndex = -1
         if array.size(dailyZoneTypes) > 0
             for i = 0 to array.size(dailyZoneTypes) - 1
-                if removeIndex < 0 and array.get(dailyZoneTypes, i) == _zoneType
+                pendingEntry = array.get(dailyZoneArmedActive, i) and not array.get(dailyZoneEntryTriggered, i)
+                if removeIndex < 0 and array.get(dailyZoneTypes, i) == _zoneType and not pendingEntry
                     removeIndex := i
         if removeIndex >= 0
             removeDailyZone(removeIndex)
@@ -253,22 +467,33 @@ dailyObExists(_dir, _sourceTime) =>
     exists
 
 addDailyObBosLine(_dir, _brokenPivotTime, _brokenPivotPrice, _bosTime, _bosHigh, _bosLow) =>
-    if showDailyObBosLine
+    // One completed Daily candle can publish at most one BOS display event per
+    // direction. Pivot coordinates describe the line but do not define identity.
+    bosKey = str.tostring(_dir) + ":" + str.tostring(_bosTime)
+    bosExists = false
+    if array.size(dailyObBosKeys) > 0
+        for i = 0 to array.size(dailyObBosKeys) - 1
+            if array.get(dailyObBosKeys, i) == bosKey
+                bosExists := true
+                break
+    if showDailyObBosLine and not bosExists
         labelColor = _dir == 1 ? dailyBullObBorder : dailyBearObBorder
         bosLabelPrice = _dir == 1 ? _bosHigh : _bosLow
         bosLine = line.new(_brokenPivotTime, _brokenPivotPrice, _bosTime, _brokenPivotPrice, xloc=xloc.bar_time, extend=extend.none, color=dailyObBosLineColor, style=line.style_solid, width=2)
         bosLabel = label.new(_bosTime, bosLabelPrice, _dir == 1 ? "BOS ↑" : "BOS ↓", xloc=xloc.bar_time, yloc=yloc.price, style=_dir == 1 ? label.style_label_down : label.style_label_up, color=color.new(labelColor, 15), textcolor=color.white, size=size.tiny)
         array.push(dailyObBosLines, bosLine)
         array.push(dailyObBosLabels, bosLabel)
-        while array.size(dailyObBosLines) > maxDailyZonesPerType
+        array.push(dailyObBosKeys, bosKey)
+        while array.size(dailyObBosKeys) > maxDailyZonesPerType
             line.delete(array.shift(dailyObBosLines))
-        while array.size(dailyObBosLabels) > maxDailyZonesPerType
             label.delete(array.shift(dailyObBosLabels))
+            array.shift(dailyObBosKeys)
     true
 
-addDailyZone(_zoneType, _dir, _leftTime, _sourceTime, _top, _bottom) =>
+addDailyZone(_zoneType, _dir, _leftTime, _sourceTime, _eventTime, _firstTime, _top, _bottom) =>
     zoneMid = (_top + _bottom) * 0.5
     isOb = _zoneType == "OB"
+    zoneKey = isOb ? "D:OB:" + str.tostring(_dir) + ":" + str.tostring(_sourceTime) + ":" + str.tostring(_eventTime) : "D:FVG:" + str.tostring(_dir) + ":" + str.tostring(_firstTime) + ":" + str.tostring(_sourceTime) + ":" + str.tostring(_eventTime)
     shouldDraw = isOb ? showDailyOb : showDailyFvg
     fillColor = isOb ? (_dir == 1 ? dailyBullObColor : dailyBearObColor) : (_dir == 1 ? dailyBullFvgColor : dailyBearFvgColor)
     borderColor = isOb ? (_dir == 1 ? dailyBullObBorder : dailyBearObBorder) : (_dir == 1 ? dailyBullFvgBorder : dailyBearFvgBorder)
@@ -276,6 +501,10 @@ addDailyZone(_zoneType, _dir, _leftTime, _sourceTime, _top, _bottom) =>
     zoneExtend = stableDailyZoneExtension ? extend.right : extend.none
     box zoneBox = na
     line zoneMidline = na
+    label setupLabel = na
+    line armedBreakLine = na
+    label armedLabel = na
+    line entryLimitLine = na
     if shouldDraw
         zoneBox := box.new(_leftTime, _top, time, _bottom, xloc=xloc.bar_time, extend=zoneExtend, bgcolor=fillColor, border_color=borderColor, text=zoneText, text_color=borderColor, text_size=size.tiny)
         if showDailyMidline
@@ -287,8 +516,29 @@ addDailyZone(_zoneType, _dir, _leftTime, _sourceTime, _top, _bottom) =>
     array.push(dailyZoneMids, zoneMid)
     array.push(dailyZoneActive, true)
     array.push(dailyZoneSourceTimes, _sourceTime)
+    array.push(dailyZoneEventTimes, _eventTime)
+    array.push(dailyZoneFirstTimes, _firstTime)
     array.push(dailyZoneTops, _top)
     array.push(dailyZoneBottoms, _bottom)
+    array.push(dailyZoneKeys, zoneKey)
+    array.push(dailyZoneSetupLabels, setupLabel)
+    array.push(dailyZoneSetupTracking, false)
+    array.push(dailyZoneSetupUsed, false)
+    array.push(dailyZoneSetupLows, float(na))
+    array.push(dailyZoneSetupBars, int(na))
+    array.push(dailyZoneArmedBreakLevels, float(na))
+    array.push(dailyZoneArmedBreakLines, armedBreakLine)
+    array.push(dailyZoneArmedWaiting, false)
+    array.push(dailyZoneArmedLabels, armedLabel)
+    array.push(dailyZoneArmed, false)
+    array.push(dailyZoneArmedActive, false)
+    array.push(dailyZoneArmedBars, int(na))
+    array.push(dailyZoneArmedSetupLows, float(na))
+    array.push(dailyZoneArmedHighs, float(na))
+    array.push(dailyZoneEntryLimitLevels, float(na))
+    array.push(dailyZoneEntryLimitLines, entryLimitLine)
+    array.push(dailyZoneEntryTriggered, false)
+    array.push(dailyZoneWasInside, false)
     trimDailyZoneType(_zoneType)
     true
 
@@ -329,22 +579,267 @@ chartSeconds = timeframe.in_seconds(timeframe.period)
 dailySeconds = timeframe.in_seconds("D")
 canBuildDailyZones = chartSeconds <= dailySeconds
 
-[canonicalDailyTime, canonicalDailyClose, canonicalDailyHigh, canonicalDailyLow, canonicalBullishOb, canonicalBullishObSourceTime, canonicalBullishObTop, canonicalBullishObBottom, canonicalBullishBrokenPivotTime, canonicalBullishBrokenPivotPrice, canonicalBearishOb, canonicalBearishObSourceTime, canonicalBearishObTop, canonicalBearishObBottom, canonicalBearishBrokenPivotTime, canonicalBearishBrokenPivotPrice, canonicalBullishFvg, canonicalBullishFvgTop, canonicalBullishFvgBottom, canonicalBearishFvg, canonicalBearishFvgTop, canonicalBearishFvgBottom] = request.security(canonicalEthTickerId, "D", confirmedDailyZoneSnapshot(), lookahead=barmerge.lookahead_on, calc_bars_count=maxHistoryDays)
+[canonicalDailyTime, canonicalDailyCloseTime, canonicalDailyClose, canonicalDailyHigh, canonicalDailyLow, canonicalBullishOb, canonicalBullishObSourceTime, canonicalBullishObTop, canonicalBullishObBottom, canonicalBullishBrokenPivotTime, canonicalBullishBrokenPivotPrice, canonicalBearishOb, canonicalBearishObSourceTime, canonicalBearishObTop, canonicalBearishObBottom, canonicalBearishBrokenPivotTime, canonicalBearishBrokenPivotPrice, canonicalBullishFvg, canonicalBullishFvgFirstTime, canonicalBullishFvgDisplacementTime, canonicalBullishFvgTop, canonicalBullishFvgBottom, canonicalBearishFvg, canonicalBearishFvgFirstTime, canonicalBearishFvgDisplacementTime, canonicalBearishFvgTop, canonicalBearishFvgBottom] = request.security(canonicalEthTickerId, "D", confirmedDailyZoneSnapshot(), lookahead=barmerge.lookahead_on, calc_bars_count=maxHistoryDays)
 
 newCanonicalDailySnapshot = canBuildDailyZones and not na(canonicalDailyTime) and (na(lastCanonicalDailyTime) or canonicalDailyTime != lastCanonicalDailyTime)
 if newCanonicalDailySnapshot
-    invalidateDailyZones(canonicalDailyClose, time)
+    invalidateDailyZones(canonicalDailyClose, canonicalDailyCloseTime)
     if canonicalBullishOb and not dailyObExists(1, canonicalBullishObSourceTime)
-        addDailyZone("OB", 1, canonicalBullishObSourceTime, canonicalBullishObSourceTime, canonicalBullishObTop, canonicalBullishObBottom)
+        addDailyZone("OB", 1, canonicalBullishObSourceTime, canonicalBullishObSourceTime, canonicalDailyTime, int(na), canonicalBullishObTop, canonicalBullishObBottom)
         addDailyObBosLine(1, canonicalBullishBrokenPivotTime, canonicalBullishBrokenPivotPrice, canonicalDailyTime, canonicalDailyHigh, canonicalDailyLow)
     if canonicalBearishOb and not dailyObExists(-1, canonicalBearishObSourceTime)
-        addDailyZone("OB", -1, canonicalBearishObSourceTime, canonicalBearishObSourceTime, canonicalBearishObTop, canonicalBearishObBottom)
+        addDailyZone("OB", -1, canonicalBearishObSourceTime, canonicalBearishObSourceTime, canonicalDailyTime, int(na), canonicalBearishObTop, canonicalBearishObBottom)
         addDailyObBosLine(-1, canonicalBearishBrokenPivotTime, canonicalBearishBrokenPivotPrice, canonicalDailyTime, canonicalDailyHigh, canonicalDailyLow)
     if canonicalBullishFvg
-        addDailyZone("FVG", 1, canonicalDailyTime, canonicalDailyTime, canonicalBullishFvgTop, canonicalBullishFvgBottom)
+        addDailyZone("FVG", 1, canonicalDailyTime, canonicalBullishFvgDisplacementTime, canonicalDailyTime, canonicalBullishFvgFirstTime, canonicalBullishFvgTop, canonicalBullishFvgBottom)
     if canonicalBearishFvg
-        addDailyZone("FVG", -1, canonicalDailyTime, canonicalDailyTime, canonicalBearishFvgTop, canonicalBearishFvgBottom)
+        addDailyZone("FVG", -1, canonicalDailyTime, canonicalBearishFvgDisplacementTime, canonicalDailyTime, canonicalBearishFvgFirstTime, canonicalBearishFvgTop, canonicalBearishFvgBottom)
     lastCanonicalDailyTime := canonicalDailyTime
+
+isH1Chart = timeframe.isintraday and chartSeconds == 3600
+canRunSetup = isH1Chart and chartSessionIsEth and barstate.isconfirmed
+h1ArmedPivotHigh = ta.pivothigh(high, armedSwingLen, armedSwingLen)
+if canRunSetup and not na(h1ArmedPivotHigh)
+    lastConfirmedH1ArmedPivotHigh := h1ArmedPivotHigh
+
+if canRunSetup and array.size(dailyZoneTypes) > 0
+    for i = 0 to array.size(dailyZoneTypes) - 1
+        zoneType = array.get(dailyZoneTypes, i)
+        zoneDir = array.get(dailyZoneDirs, i)
+        zoneActive = array.get(dailyZoneActive, i)
+        zoneTop = array.get(dailyZoneTops, i)
+        zoneBottom = array.get(dailyZoneBottoms, i)
+        zoneKey = array.get(dailyZoneKeys, i)
+        rawInside = zoneActive and zoneDir == 1 and high >= zoneBottom and low <= zoneTop
+        wasInside = array.get(dailyZoneWasInside, i)
+        tracking = array.get(dailyZoneSetupTracking, i)
+        setupUsed = array.get(dailyZoneSetupUsed, i)
+        waitingForArmed = array.get(dailyZoneArmedWaiting, i)
+        armed = array.get(dailyZoneArmed, i)
+        armedActive = array.get(dailyZoneArmedActive, i)
+        entryTriggered = array.get(dailyZoneEntryTriggered, i)
+        leftZoneByClose = close > zoneTop or close < zoneBottom
+
+        biasInvalid = weeklyStructureBias != 1
+        candidateHardInvalid = biasInvalid or not zoneActive
+        if candidateHardInvalid and waitingForArmed
+            stopArmBreakLine(array.get(dailyZoneArmedBreakLines, i))
+            tracking := false
+            waitingForArmed := false
+        if biasInvalid
+            if armedActive and not entryTriggered
+                stopEntryLimitLine(array.get(dailyZoneEntryLimitLines, i))
+            armedActive := false
+        if not candidateHardInvalid and waitingForArmed
+            if tracking
+                trackedLow = array.get(dailyZoneSetupLows, i)
+                if na(trackedLow) or low < trackedLow
+                    array.set(dailyZoneSetupLows, i, low)
+                    array.set(dailyZoneArmedBreakLevels, i, lastConfirmedH1ArmedPivotHigh)
+                    armedBreakLine = updateArmBreakLine(array.get(dailyZoneArmedBreakLines, i), lastConfirmedH1ArmedPivotHigh)
+                    array.set(dailyZoneArmedBreakLines, i, armedBreakLine)
+                    setupLabel = array.get(dailyZoneSetupLabels, i)
+                    if showSetup and not na(setupLabel)
+                        label.set_xy(setupLabel, bar_index, low)
+
+            candidateSetupLow = array.get(dailyZoneSetupLows, i)
+            candidateStructureInvalid = not tracking and not na(candidateSetupLow) and close < candidateSetupLow
+            if candidateStructureInvalid
+                stopArmBreakLine(array.get(dailyZoneArmedBreakLines, i))
+                waitingForArmed := false
+            else
+                breakLevel = array.get(dailyZoneArmedBreakLevels, i)
+                setupBar = array.get(dailyZoneSetupBars, i)
+                armedEvent = not armed and not na(setupBar) and bar_index > setupBar and not na(breakLevel) and close > breakLevel and close[1] <= breakLevel
+                if armedEvent
+                    armedEpisodeCount += 1
+                    if zoneType == "OB"
+                        obArmedCount += 1
+                    else
+                        fvgArmedCount += 1
+                    stopArmBreakLine(array.get(dailyZoneArmedBreakLines, i))
+                    waitingForArmed := false
+                    armed := true
+                    armedActive := true
+                    tracking := false
+                    array.set(dailyZoneArmedBars, i, bar_index)
+                    array.set(dailyZoneArmedSetupLows, i, candidateSetupLow)
+                    array.set(dailyZoneArmedHighs, i, high)
+                    entryLimitLevel = math.round_to_mintick((candidateSetupLow + high) * 0.5)
+                    array.set(dailyZoneEntryLimitLevels, i, entryLimitLevel)
+                    entryLimitLine = updateEntryLimitLine(array.get(dailyZoneEntryLimitLines, i), entryLimitLevel)
+                    array.set(dailyZoneEntryLimitLines, i, entryLimitLine)
+                    setupLabel = array.get(dailyZoneSetupLabels, i)
+                    if not na(setupLabel)
+                        label.set_color(setupLabel, color.new(color.green, 75))
+                        label.set_textcolor(setupLabel, color.new(color.white, 45))
+                    if showArmed
+                        armedText = "B ARMED\nD " + zoneType
+                        armedLabel = label.new(bar_index, low, armedText, style=label.style_label_up, color=color.new(color.aqua, 10), textcolor=color.black, size=size.tiny, tooltip=zoneKey)
+                        array.set(dailyZoneArmedLabels, i, armedLabel)
+                else if tracking and leftZoneByClose
+                    // Leaving the zone freezes SETUP tracking, but the ARM
+                    // candidate remains alive until its own invalidation.
+                    tracking := false
+
+        // ARMED freezes its H1 high and the final SETUP low. Their midpoint is
+        // a persistent Buy Limit from the following ETH H1 onward. Only a
+        // Weekly Bias change cancels the pending order.
+        armedBar = array.get(dailyZoneArmedBars, i)
+        entryLimitLevel = array.get(dailyZoneEntryLimitLevels, i)
+        entryEvent = armedActive and not entryTriggered and not biasInvalid and not na(armedBar) and bar_index > armedBar and not na(entryLimitLevel) and low <= entryLimitLevel
+        if entryEvent
+            entryEpisodeCount += 1
+            if zoneType == "OB"
+                obEntryCount += 1
+            else
+                fvgEntryCount += 1
+            entryTriggered := true
+            armedActive := false
+            stopEntryLimitLine(array.get(dailyZoneEntryLimitLines, i))
+            frozenSetupLow = array.get(dailyZoneArmedSetupLows, i)
+            validTradePlan = addEntryTradePlan(zoneKey, zoneType, entryLimitLevel, frozenSetupLow)
+            if validTradePlan
+                tradeTotal += 1
+            else
+                tradeInvalidPlans += 1
+
+        // First-touch only: the first valid SETUP permanently consumes this
+        // exact zone's SETUP opportunity. Re-entry can never reset setupUsed.
+        newZoneEntry = weeklyStructureBias == 1 and zoneActive and zoneDir == 1 and rawInside and not wasInside and not setupUsed
+        if not tracking and newZoneEntry
+            setupEpisodeCount += 1
+            if zoneType == "OB"
+                obSetupCount += 1
+            else
+                fvgSetupCount += 1
+            array.set(dailyZoneSetupUsed, i, true)
+            array.set(dailyZoneSetupLows, i, low)
+            array.set(dailyZoneSetupBars, i, bar_index)
+            array.set(dailyZoneArmedBreakLevels, i, lastConfirmedH1ArmedPivotHigh)
+            armedBreakLine = updateArmBreakLine(array.get(dailyZoneArmedBreakLines, i), lastConfirmedH1ArmedPivotHigh)
+            array.set(dailyZoneArmedBreakLines, i, armedBreakLine)
+            waitingForArmed := true
+            setupLabel = array.get(dailyZoneSetupLabels, i)
+            setupText = "B SETUP\nD " + zoneType
+            if showSetup
+                if na(setupLabel)
+                    setupLabel := label.new(bar_index, low, setupText, style=label.style_label_up, color=color.new(color.green, 15), textcolor=color.white, size=size.tiny, tooltip=zoneKey)
+                    array.set(dailyZoneSetupLabels, i, setupLabel)
+                else
+                    label.set_xy(setupLabel, bar_index, low)
+                    label.set_text(setupLabel, setupText)
+                    label.set_color(setupLabel, color.new(color.green, 15))
+                    label.set_textcolor(setupLabel, color.white)
+                    label.set_tooltip(setupLabel, zoneKey)
+            tracking := not leftZoneByClose
+
+        array.set(dailyZoneSetupTracking, i, tracking)
+        array.set(dailyZoneArmedWaiting, i, waitingForArmed)
+        array.set(dailyZoneArmed, i, armed)
+        array.set(dailyZoneArmedActive, i, armedActive)
+        array.set(dailyZoneEntryTriggered, i, entryTriggered)
+        array.set(dailyZoneWasInside, i, rawInside and not leftZoneByClose)
+
+if canRunSetup and array.size(tradeStatuses) > 0
+    for i = 0 to array.size(tradeStatuses) - 1
+        tradeStatus = array.get(tradeStatuses, i)
+        if tradeStatus == 0 or tradeStatus == 1
+            tradeEntry = array.get(tradeEntries, i)
+            tradeStop = array.get(tradeStops, i)
+            tradeTp1 = array.get(tradeTp1s, i)
+            tradeTp2 = array.get(tradeTp2s, i)
+            tradeStartBar = array.get(tradeStartBars, i)
+            tradeZoneType = array.get(tradeZoneTypes, i)
+            isObTrade = tradeZoneType == "OB"
+            tradeLabel = array.get(tradeLabels, i)
+            slLine = array.get(tradeSlLines, i)
+            tp1Line = array.get(tradeTp1Lines, i)
+            tp2Line = array.get(tradeTp2Lines, i)
+            if not na(slLine)
+                line.set_x2(slLine, bar_index + 1)
+            if not na(tp1Line)
+                line.set_x2(tp1Line, bar_index + 1)
+            if not na(tp2Line)
+                line.set_x2(tp2Line, bar_index + 1)
+
+            activeStop = tradeStatus == 1 ? tradeEntry : tradeStop
+            stopHit = low <= activeStop
+            tp1Hit = high >= tradeTp1
+            tp2Hit = high >= tradeTp2
+            entryBarConflict = bar_index == tradeStartBar and stopHit and (tp1Hit or tp2Hit)
+            resultText = "B ENTRY\n@ " + str.tostring(tradeEntry, format.mintick)
+            if stopHit
+                if tradeStatus == 1
+                    tradeTp1Be += 1
+                    tradeNetR += tradeTp1R * tradeTp1ExitFraction
+                    if isObTrade
+                        obBeCount += 1
+                        obNetR += tradeTp1R * tradeTp1ExitFraction
+                    else
+                        fvgBeCount += 1
+                        fvgNetR += tradeTp1R * tradeTp1ExitFraction
+                    if not na(tradeLabel)
+                        label.set_text(tradeLabel, resultText + "\nTP1 -> BE +0.5R")
+                        label.set_color(tradeLabel, color.new(color.orange, 5))
+                else
+                    tradeDirectLosses += 1
+                    tradeNetR -= 1.0
+                    if isObTrade
+                        obSlCount += 1
+                        obNetR -= 1.0
+                    else
+                        fvgSlCount += 1
+                        fvgNetR -= 1.0
+                    if entryBarConflict
+                        tradeSameBarConflictLosses += 1
+                    if not na(tradeLabel)
+                        label.set_text(tradeLabel, resultText + (entryBarConflict ? "\nDIRECT LOSS\nSAME BAR SL + TP" : "\nDIRECT LOSS -1R"))
+                        label.set_color(tradeLabel, color.new(entryBarConflict ? color.fuchsia : color.red, 5))
+                array.set(tradeStatuses, i, -1)
+                if not na(slLine)
+                    line.set_x2(slLine, bar_index)
+                if not na(tp1Line)
+                    line.set_x2(tp1Line, bar_index)
+                if not na(tp2Line)
+                    line.set_x2(tp2Line, bar_index)
+            else if tp2Hit
+                tp2ResultR = tradeTp1R * tradeTp1ExitFraction + tradeTp2R * (1.0 - tradeTp1ExitFraction)
+                tradeTp2Wins += 1
+                tradeNetR += tp2ResultR
+                if isObTrade
+                    if tradeStatus == 0
+                        obTp1Count += 1
+                    obTp2Count += 1
+                    obNetR += tp2ResultR
+                else
+                    if tradeStatus == 0
+                        fvgTp1Count += 1
+                    fvgTp2Count += 1
+                    fvgNetR += tp2ResultR
+                array.set(tradeStatuses, i, 2)
+                if not na(tradeLabel)
+                    label.set_text(tradeLabel, resultText + "\nTP2 +" + str.tostring(tp2ResultR, "#.##") + "R")
+                    label.set_color(tradeLabel, color.new(color.blue, 5))
+                if not na(slLine)
+                    line.set_x2(slLine, bar_index)
+                if not na(tp1Line)
+                    line.set_x2(tp1Line, bar_index)
+                if not na(tp2Line)
+                    line.set_x2(tp2Line, bar_index)
+            else if tp1Hit and tradeStatus == 0
+                array.set(tradeStatuses, i, 1)
+                array.set(tradeStops, i, tradeEntry)
+                if isObTrade
+                    obTp1Count += 1
+                else
+                    fvgTp1Count += 1
+                if not na(slLine)
+                    line.set_y1(slLine, tradeEntry)
+                    line.set_y2(slLine, tradeEntry)
+                if not na(tradeLabel)
+                    label.set_text(tradeLabel, resultText + "\nTP1 HIT\nSL -> ENTRY")
+                    label.set_color(tradeLabel, color.new(color.teal, 5))
 
 plot(showWeeklyStructureBias and showWeeklyBiasLevels ? weeklyStructureHigh : na, "W Bias confirmed swing high", color=color.new(color.orange, 15), linewidth=2, style=plot.style_stepline)
 plot(showWeeklyStructureBias and showWeeklyBiasLevels ? weeklyStructureLow : na, "W Bias confirmed swing low", color=color.new(color.aqua, 15), linewidth=2, style=plot.style_stepline)
@@ -355,11 +850,22 @@ weeklyBiasBackground = weeklyStructureBias == 1 ? color.new(weeklyBullBiasColor,
 bgcolor(showWeeklyStructureBias and showWeeklyBiasBackground ? weeklyBiasBackground : na, title="Weekly Bias background")
 
 if barstate.islast
-    table.clear(buildTable, 0, 0, 1, 7)
+    table.clear(buildTable, 0, 0, 2, 23)
+    activeSetupCount = 0
+    activeArmedCount = 0
+    openTradeCount = 0
+    if array.size(dailyZoneSetupTracking) > 0
+        for i = 0 to array.size(dailyZoneSetupTracking) - 1
+            activeSetupCount += array.get(dailyZoneArmedWaiting, i) ? 1 : 0
+            activeArmedCount += array.get(dailyZoneArmedActive, i) ? 1 : 0
+    if array.size(tradeStatuses) > 0
+        for i = 0 to array.size(tradeStatuses) - 1
+            status = array.get(tradeStatuses, i)
+            openTradeCount += (status == 0 or status == 1) ? 1 : 0
     weeklyBiasText = weeklyStructureBias == 1 ? "週多 BULLISH" : weeklyStructureBias == -1 ? "週空 BEARISH" : "中性 NEUTRAL"
     weeklyBiasColor = weeklyStructureBias == 1 ? weeklyBullBiasColor : weeklyStructureBias == -1 ? weeklyBearBiasColor : weeklyNeutralBiasColor
     table.cell(buildTable, 0, 0, "BUILD", text_color=color.silver, bgcolor=color.new(color.navy, 15))
-    table.cell(buildTable, 1, 0, "V10-DZONE-09", text_color=color.white, bgcolor=color.new(color.navy, 15))
+    table.cell(buildTable, 1, 0, "V10-DH1-ENTRY-03", text_color=color.white, bgcolor=color.new(color.navy, 15))
     table.cell(buildTable, 0, 1, "W BIAS", text_color=color.white, bgcolor=color.new(color.navy, 15))
     table.cell(buildTable, 1, 1, weeklyBiasText, text_color=color.white, bgcolor=weeklyBiasColor)
     table.cell(buildTable, 0, 2, "W SWING HIGH", text_color=color.silver)
@@ -369,14 +875,62 @@ if barstate.islast
     table.cell(buildTable, 0, 4, "W FLIPS B / S", text_color=color.silver)
     table.cell(buildTable, 1, 4, str.tostring(weeklyBullFlips) + " / " + str.tostring(weeklyBearFlips), text_color=color.white)
     table.cell(buildTable, 0, 5, "PHASE", text_color=color.silver)
-    table.cell(buildTable, 1, 5, "W BIAS + D ZONES", text_color=color.white)
+    table.cell(buildTable, 1, 5, "W + D + H1 LIMIT ENTRY", text_color=color.white)
     table.cell(buildTable, 0, 6, "D ZONES", text_color=color.silver)
     table.cell(buildTable, 1, 6, canBuildDailyZones ? "ACTIVE" : "USE D / INTRADAY", text_color=canBuildDailyZones ? color.lime : color.orange)
+    setupStatus = not isH1Chart ? "USE H1" : not chartSessionIsEth ? "USE ETH" : str.tostring(setupEpisodeCount) + " / " + str.tostring(activeSetupCount) + " ACTIVE"
+    table.cell(buildTable, 0, 7, "SETUP TOTAL / ACTIVE", text_color=color.silver)
+    table.cell(buildTable, 1, 7, setupStatus, text_color=isH1Chart and chartSessionIsEth ? color.lime : color.orange)
+    armedStatus = not isH1Chart ? "USE H1" : not chartSessionIsEth ? "USE ETH" : str.tostring(armedEpisodeCount) + " / " + str.tostring(activeArmedCount) + " ACTIVE"
+    table.cell(buildTable, 0, 8, "ARMED TOTAL / ACTIVE", text_color=color.silver)
+    table.cell(buildTable, 1, 8, armedStatus, text_color=isH1Chart and chartSessionIsEth ? color.aqua : color.orange)
+    entryStatus = not isH1Chart ? "USE H1" : not chartSessionIsEth ? "USE ETH" : str.tostring(entryEpisodeCount) + " / " + str.tostring(tradeTotal) + " / " + str.tostring(openTradeCount)
+    table.cell(buildTable, 0, 9, "ENTRY / VALID / OPEN", text_color=color.silver)
+    table.cell(buildTable, 1, 9, entryStatus, text_color=isH1Chart and chartSessionIsEth ? color.aqua : color.orange)
+    table.cell(buildTable, 0, 10, "TP2 / TP1->BE", text_color=color.silver)
+    table.cell(buildTable, 1, 10, str.tostring(tradeTp2Wins) + " / " + str.tostring(tradeTp1Be), text_color=color.white)
+    table.cell(buildTable, 0, 11, "LOSS / SAME BAR", text_color=color.silver)
+    table.cell(buildTable, 1, 11, str.tostring(tradeDirectLosses) + " / " + str.tostring(tradeSameBarConflictLosses), text_color=tradeSameBarConflictLosses > 0 ? color.fuchsia : color.white)
+    table.cell(buildTable, 0, 12, "INVALID PLAN", text_color=color.silver)
+    table.cell(buildTable, 1, 12, str.tostring(tradeInvalidPlans), text_color=tradeInvalidPlans > 0 ? color.orange : color.white)
+    table.cell(buildTable, 0, 13, "NET R", text_color=color.silver)
+    table.cell(buildTable, 1, 13, str.tostring(tradeNetR, "#.##") + "R", text_color=tradeNetR >= 0 ? color.lime : color.red)
     sessionText = timeframe.isintraday ? (chartSessionIsEth ? "ETH" : "USE ETH (" + str.upper(syminfo.session) + ")") : "SOURCE ETH"
-    table.cell(buildTable, 0, 7, "SESSION", text_color=color.silver)
-    table.cell(buildTable, 1, 7, sessionText, text_color=chartSessionIsEth ? color.lime : color.orange)
-    for buildRow = 0 to 7
+    table.cell(buildTable, 0, 14, "SESSION", text_color=color.silver)
+    table.cell(buildTable, 1, 14, sessionText, text_color=chartSessionIsEth ? color.lime : color.orange)
+    table.cell(buildTable, 0, 15, "SOURCE", text_color=color.white, bgcolor=color.new(color.gray, 55))
+    table.cell(buildTable, 1, 15, "OB", text_color=color.lime, bgcolor=color.new(color.gray, 55))
+    table.cell(buildTable, 2, 15, "FVG", text_color=color.yellow, bgcolor=color.new(color.gray, 55))
+    table.cell(buildTable, 0, 16, "SETUP", text_color=color.silver)
+    table.cell(buildTable, 1, 16, str.tostring(obSetupCount), text_color=color.white)
+    table.cell(buildTable, 2, 16, str.tostring(fvgSetupCount), text_color=color.white)
+    table.cell(buildTable, 0, 17, "ARMED", text_color=color.silver)
+    table.cell(buildTable, 1, 17, str.tostring(obArmedCount), text_color=color.white)
+    table.cell(buildTable, 2, 17, str.tostring(fvgArmedCount), text_color=color.white)
+    table.cell(buildTable, 0, 18, "ENTRY", text_color=color.silver)
+    table.cell(buildTable, 1, 18, str.tostring(obEntryCount), text_color=color.white)
+    table.cell(buildTable, 2, 18, str.tostring(fvgEntryCount), text_color=color.white)
+    table.cell(buildTable, 0, 19, "TP1 HIT", text_color=color.silver)
+    table.cell(buildTable, 1, 19, str.tostring(obTp1Count), text_color=color.aqua)
+    table.cell(buildTable, 2, 19, str.tostring(fvgTp1Count), text_color=color.aqua)
+    table.cell(buildTable, 0, 20, "TP2", text_color=color.silver)
+    table.cell(buildTable, 1, 20, str.tostring(obTp2Count), text_color=color.blue)
+    table.cell(buildTable, 2, 20, str.tostring(fvgTp2Count), text_color=color.blue)
+    table.cell(buildTable, 0, 21, "TP1->BE", text_color=color.silver)
+    table.cell(buildTable, 1, 21, str.tostring(obBeCount), text_color=color.orange)
+    table.cell(buildTable, 2, 21, str.tostring(fvgBeCount), text_color=color.orange)
+    table.cell(buildTable, 0, 22, "DIRECT SL", text_color=color.silver)
+    table.cell(buildTable, 1, 22, str.tostring(obSlCount), text_color=color.red)
+    table.cell(buildTable, 2, 22, str.tostring(fvgSlCount), text_color=color.red)
+    table.cell(buildTable, 0, 23, "NET R", text_color=color.silver)
+    table.cell(buildTable, 1, 23, str.tostring(obNetR, "#.##") + "R", text_color=obNetR >= 0 ? color.lime : color.red)
+    table.cell(buildTable, 2, 23, str.tostring(fvgNetR, "#.##") + "R", text_color=fvgNetR >= 0 ? color.lime : color.red)
+    for buildRow = 0 to 14
         table.cell_set_text_size(buildTable, 0, buildRow, size.tiny)
         table.cell_set_text_size(buildTable, 1, buildRow, size.tiny)
+    for sourceRow = 15 to 23
+        table.cell_set_text_size(buildTable, 0, sourceRow, size.tiny)
+        table.cell_set_text_size(buildTable, 1, sourceRow, size.tiny)
+        table.cell_set_text_size(buildTable, 2, sourceRow, size.tiny)
     table.cell_set_text_size(buildTable, 0, 1, size.small)
     table.cell_set_text_size(buildTable, 1, 1, size.small)

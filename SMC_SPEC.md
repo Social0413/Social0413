@@ -5,7 +5,7 @@
 ## V10 新架構：Weekly Structure Bias + Daily OB/FVG
 
 - V10 必須使用獨立 Pine 檔，不得覆蓋或改寫穩定版 V1／V4。
-- V10 檔案為 `smc-weekly-ob-fvg/assets/smc_weekly_structure_bias_v10.pine`；目前候選 build 為 `V10-DZONE-09`。Canonical Weekly table、第一輪 Daily zones 與 DZONE-07 Daily BOS line 視覺均已通過；DZONE-08 的 extreme opposing OB source 與 DZONE-09 的 ETH 統一仍待 TradingView 完整驗證。
+- V10 檔案為 `smc-weekly-ob-fvg/assets/smc_weekly_structure_bias_v10.pine`；目前開發 build 為 `V10-DH1-ENTRY-03`。ENTRY-02的midpoint Buy Limit與交易規則保持，ENTRY-03只新增OB／FVG來源分類統計。2317／2105 ETH H1已通過compile／runtime與來源加總首輪實圖，特殊路徑Replay仍待補驗；V1／V4不修改。
 - Weekly 的新核心職責是提供方向，不以 Weekly OB/FVG 的生成、存在、重疊或 touch 限制交易區域。
 - V10 不再包含 Weekly OB/FVG inputs、arrays、boxes、midlines、invalidation、touch、traded state 或任何依賴 Weekly zones 的 execution。
 - Bias 固定使用完成的 Weekly candles 與獨立 confirmed pivot，第一版 swing length 預設 2。
@@ -17,27 +17,64 @@
 - `V10-WBIAS-04` 顯示目前 `週多 BULLISH／週空 BEARISH／中性 NEUTRAL`、confirmed swing high／low、Bias flip 次數、可選結構水平線、方向切換標記及可關閉的淡色背景。
 - `Show Weekly Bias swing levels` 預設關閉；背景預設開啟。顯示開關不得改變 Weekly Bias state。
 - Weekly Bias 不使用獨立左側表格；目前與 BUILD、confirmed levels、flips、phase、Daily zone 狀態整合在右上永久表。
-- `V10-DZONE-09` 在 canonical Weekly Structure Bias 上顯示 canonical Daily OB/FVG 與 OB BOS structure line，但仍不包含 SETUP／ARMED／ENTRY、Trade Plan 或績效統計。
-- Daily 與 H1 必須使用完全相同的 OB/FVG event、source time、top、bottom 與失效日，這是後續 H1 execution 的必要前提；任一 zone 只在其中一個時框出現即視為失敗。
+- `V10-DH1-SETUP-02R1` 在 canonical Weekly Structure Bias 與 canonical Daily OB/FVG 上完成 First-touch-only ETH H1 SETUP 基準。`V10-DH1-ARMED-02` 加入獨立 ARM candidate與 per-zone state，`V10-DH1-ARMED-03` 只加 break level 診斷；`V10-DH1-ENTRY-02` 加入 midpoint Buy Limit與獨立Trade Plan arrays，ENTRY-03新增來源分類。
+- Daily 與 H1 必須使用完全相同的 OB/FVG event、source time、top、bottom 與失效日，這是後續 H1 execution 的必要前提；任一 zone 只在其中一個時框出現即視為失敗。FVG 必須分別保存 K1 first time、K2 displacement/source time 與 K3 confirmation/event time，box 左端仍從 K3 開始。
 - V10 的唯一 session 基準為 ETH。Canonical Weekly／Daily feed 必須使用 `ticker.modify(syminfo.tickerid, session.extended)`；TradingView 的 Daily、H4、H1 Replay 與未來 execution 驗收也必須把原生 intraday 圖表切到 ETH。RTH 圖表可能排除日終／延伸時段成交，不能用來否定 canonical Daily BOS、OB 或 FVG。
 - Pine 無法切換原生圖表的 RTH／ETH。Intraday 圖表不是 ETH 時，右上 SESSION 必須顯示 `USE ETH (...)`；該警告只表示圖表 K 棒與 canonical feed 的 session 不同，不改變 canonical zone 計算。
-- Daily Zone Engine 固定在 `request.security(..., "D", confirmedDailyZoneSnapshot(), lookahead=barmerge.lookahead_on)` 的 Daily context 計算，並以一根歷史位移只發布上一根已完成 Daily snapshot。Daily ATR、confirmed pivot、BOS、來源 K 搜尋與 FVG geometry 不再由 chart bars 各自重建。
+- Daily Zone Engine 固定在 `request.security(..., "D", confirmedDailyZoneSnapshot(), lookahead=barmerge.lookahead_on)` 的 Daily context 計算，並以一根歷史位移只發布上一根已完成 Daily snapshot。Daily ATR、confirmed pivot、BOS、來源 K 搜尋、FVG geometry 與 canonical Daily `time_close` 不再由 chart bars 各自重建。
 - Daily 與 intraday chart 都只在 canonical Daily time 改變時消費一次 snapshot：先以完成 Daily close 失效既有 zones，再建立該完成日新確認的 OB/FVG。Box/line objects 仍在 chart context 建立，不放進 `request.security()`。
 - Daily OB 使用獨立 confirmed pivot，`Daily OB swing length` 預設 4。每根完成 Daily candle 必須先對進入該 candle 前已確認的 swing high／low 判斷 BOS，再發布由該 candle 新確認的 pivot。
 - 每個 confirmed swing 只接受第一次完成 close 穿越作為 BOS；該次突破即消耗此 pivot，不因價格回到結構內後再次穿越而重複判斷。Bullish Daily OB 只在前一個完成 Daily close 尚未高於 confirmed swing high、目前完成 close 首次收在其上方、突破 K 為 bullish，且 body 至少為 Daily Wilder ATR(14) × 1.0 時成立；Bearish Daily OB 對稱使用 confirmed swing low、bearish candle 與相同 ATR 門檻。首次 BOS 若未通過方向／ATR displacement，不建立 OB，也不以同一 pivot 的後續 re-cross 補建。
 - Daily OB source 的搜尋區間是開區間：嚴格位於被突破 confirmed pivot K 之後、形成 BOS 的突破 K 之前；左右端點都不納入，也不使用固定根數 searchback。
 - Bullish BOS 只在該區間的 bearish Daily candles 中選擇 `low` 最低者；Bearish BOS 只在 bullish Daily candles 中選擇 `high` 最高者。Doji 不作為來源；同低／同高時選擇時間較晚、較靠近 BOS 的反向 K。區間內沒有合格反向 K 時，該次 BOS 不建立 OB。
 - `Show Daily OB BOS structure line` 預設開啟。Bullish 在被突破 confirmed swing high 價格，從該 pivot K 水平畫至 BOS K；Bearish 對稱使用被突破 confirmed swing low。BOS K 顯示方向標籤。此功能解釋 OB 所依據的 structure break，不參與 OB 成立、來源搜尋、上下界或失效判斷。
+- 同方向、同一 canonical Daily BOS candle 只能建立一組 BOS line／label；BOS display identity 固定為 `direction + BOS time`，不得因重複 snapshot consumption 或不同 OB source state 重畫。
 - Daily OB range 使用來源 K 的 Full Range `low → high`；同方向同一來源 Daily candle 最多一個 OB。Hybrid Range 不再用於 V10 Daily OB，V1／V4 舊架構不受影響。
-- Daily FVG 使用三根完成 Daily candles 的標準 wick-to-wick gap，不設最小 gap 寬度；中間 candle 必須同方向且 body 至少為 Daily Wilder ATR(14) × 1.0。
+- Daily FVG 使用三根完成 Daily candles 的標準 wick-to-wick gap；中間 K2 必須同方向，且 K2 body 至少為 K2 自身的 Daily Wilder ATR(14) × 1.0，不得以確認 K3 的 ATR 代替。Gap 寬度必須至少為 `max(K2 Daily ATR × 0.50, syminfo.mintick × 2)`；本版只測試獨立 0.50 ATR gap gate，不恢復歷史版本的 K3 順向半部條件，且不提供個別股票調參 input。
 - Bullish Daily OB/FVG 使用綠／黃；Bearish Daily OB/FVG 使用兩階淺紅；box 文字固定為 `D OB`／`D FVG`。
-- Daily OB 只由完成 Daily close 穿越遠端失效：Bullish close 嚴格低於 bottom，Bearish close 嚴格高於 top；影線、未完成 intraday close 或收盤剛好等於邊界不使 OB 失效。Daily FVG 仍維持完成 Daily close 穿越 midpoint 失效；Midline 顯示預設關閉。
+- Daily OB 只由完成 Daily close 穿越遠端失效：Bullish close 嚴格低於 bottom，Bearish close 嚴格高於 top；影線、未完成 intraday close 或收盤剛好等於邊界不使 OB 失效。Daily FVG 仍維持完成 Daily close 穿越 midpoint 失效；不新增 mitigation lifecycle。OB/FVG box 的失效右端一律使用該 canonical completed-Daily candle 的 `time_close`，不得使用 chart-local `time`；Midline 顯示預設關閉。
 - Daily OB 與 FVG 每類最多保留 40 個；顯示開關不得停止底層 zone state 建立與失效。
 - Daily zones 支援 Daily 與 intraday charts；高於 Daily 的 chart 只顯示 Weekly Bias，右上版本表標記 `USE D / INTRADAY`。
-- 下一階段目標架構為 `Weekly Structure Bias → Daily OB/FVG + Daily MSS → H1 SETUP / ARMED / ENTRY`；本版不產生任何交易候選。
+- 下一階段目標架構為 `Weekly Structure Bias → Daily OB/FVG → H1 SETUP / ARMED / ENTRY`。Daily MSS 不作為 V10 SETUP gate；若未來加入，只能作結構 context，不阻止或建立 SETUP。
 - V10 及後續新架構 build 必須在圖表最右上保留永久版本識別表。即使尚無統計，仍須顯示精確 build ID、目前 phase 與支援狀態；不得提供隱藏此表的開關。
 - Weekly Bias 不再使用左側獨立表格。右上永久表的固定頂部順序為：BUILD、W BIAS、W SWING HIGH、W SWING LOW、W FLIPS；phase、timeframe 狀態與未來統計只能接在其下方。
 - V4 保持舊架構穩定核對層，不同步 V10 的獨立 Weekly Bias。待 V10 的 Daily zones 與新 execution 完成視覺驗證後，再建立同一 V10 架構的獨立數值核對版本，不覆蓋 V4。
+
+### V10-DH1 SETUP
+
+- 正式入口固定為 ETH H1 completed bars。非 H1 不建立 SETUP；Intraday chart 不是 ETH 時維持 `USE ETH (...)` 警告，也不建立或更新 SETUP state。
+- SETUP gate 固定為 `Weekly Structure Bias == Bullish + active Bullish Daily OB/FVG overlap`；不使用 Daily MSS、ATR、時間 expiry 或 bearish execution。
+- 價格進入 zone 定義為完成 H1 bar 的 `high >= bottom and low <= top`。每個 exact Bullish Daily OB/FVG 獨立追蹤，同一根 H1 可同時啟動多個重疊 zones。
+- 每個 exact zone 採 First-touch only，整個 zone 生命週期最多建立一個 SETUP episode。第一次有效 SETUP 建立時立即把該 zone 標記 `setupUsed`，不等待離開、ARMED 或交易結果。
+- SETUP 建立時保存該 H1 low；只要 episode 仍有效，後續任何 H1 low 更低就把同一 SETUP marker 與追蹤價移到新低，不建立新的 SETUP 計數或標籤。
+- 中途反彈但 H1 close 仍位於 zone 內不取消追蹤；之後再創低仍更新。`最低點`不是預知事件，而是 episode 結束時最後保存的最低 H1 low。
+- Episode 在 ARMED 成立時凍結。ARMED 前的停止條件為 Weekly Bias 不再 Bullish、完成 H1 close 高於 top／低於 bottom，或 Daily zone 失效／被移除。
+- 離開 zone 後停止 tracking；之後即使 Weekly Bias 仍為 Bullish且重新進入同一 zone，也不得建立第二個 SETUP。只有新生成、具有新 identity 的 Daily OB/FVG 才取得新的 SETUP 機會。
+- 每個 exact zone 最多保留一個 SETUP marker；顯示開關不得改變 `setupUsed`、tracking state 或累計 SETUP zone 數。
+
+### V10-DH1 ARMED
+
+- 每個 First-touch SETUP 一成立就建立同一 exact Bullish Daily zone 的 ARM candidate；`SETUP tracking` 與 `waiting for ARM` 必須分開保存。固定使用 ETH H1 completed bars，不得重建 SETUP、不得增加 SETUP TOTAL，也不另加 Daily MSS 或第二套方向 gate。
+- H1 confirmed pivot swing length 預設為 3。每個 SETUP 建立時快照當時最新 confirmed H1 swing high 作為 break level；tracking 期間只有 SETUP low 再創新低時，才把 break level 重新快照為該 completed H1 當時最新的 confirmed swing high。沒有新低時不因後續 pivot 自動追高。
+- Break level 為 `na` 時不能成立 ARMED。突破必須發生在初始 SETUP bar 之後，且前一根 H1 close 尚未站上 break level、目前 completed H1 close 嚴格站上 break level；不使用 ATR 或 candle-body displacement。
+- SETUP tracking 只負責在第一段 zone 互動期間更新 low 與 break snapshot。Completed H1 close 離開 zone 時停止 tracking並凍結當下 SETUP low／break level，但 ARM candidate 必須繼續等待；之後重新進入 zone 不恢復 lower-low tracking，也不建立第二個 candidate。
+- 每根 completed H1 的 per-zone 順序固定為：Weekly Bias／Daily zone 硬失效檢查 → tracking 中更新 SETUP low 與必要的 break-level snapshot → 所有仍 waiting 的 candidates 判斷 ARMED → 尚未 ARMED 才處理 close 離開 zone並凍結 tracking。
+- ARMED 成立時凍結該 exact zone 的最終 SETUP low、break level 與 ARMED bar，停止 lower-low tracking，暗化原 SETUP marker，並在突破 K 顯示一次 `B ARMED`。同一 SETUP／zone 最多增加一次 ARMED TOTAL。
+- ARM candidate 只有三個取消條件：Weekly Bias 不再 Bullish、Daily zone inactive／被移除，或 tracking 已凍結後的 completed H1 close 嚴格跌破 frozen SETUP low。離開 zone、等待時間、re-entry 或尚未突破 break level都不得取消 candidate。
+- ARMED成立後凍結ARM bar high與final SETUP low，建立兩者midpoint Buy Limit；從下一根ETH H1開始無限期等待觸價，不設expiry。Pending order只由Weekly Bias不再Bullish取消；Daily zone後續inactive或completed H1跌破frozen SETUP low都不撤單。凍結low在ENTRY時成為正式SL anchor。
+- 右上 `SETUP TOTAL / ACTIVE` 的 ACTIVE 改為仍在等待 ARM 的 candidate 數，不再只代表 lower-low tracking 數；`ARMED TOTAL / ACTIVE` 只計已實際完成 ARMED transition 的 zones。
+- `Show H1 ARMED` 只控制 marker 顯示，不改變 transition、TOTAL／ACTIVE 或 per-zone state。
+- `Show ARM break level` 為預設關閉的純診斷顯示。每個 waiting candidate 以淡青色水平虛線顯示目前保存的 break level；SETUP 建立或 tracking 中再創新低而重新快照時，線段從該 snapshot bar 重新起算並延伸。ARM 成立或 candidate 取消時，在該 completed H1 停止延伸並保留歷史；break level 為 `na` 時不畫線。此開關不得改變 pivot、snapshot、candidate、ARMED 或任何計數。
+
+### V10-DH1 ENTRY／Trade Plan
+
+- ENTRY只接受同一exact Bullish Daily zone已完成的ARMED。ARM由completed ETH H1 close確認；ARM當根保存該bar `high`與final frozen SETUP low，Buy Limit固定為`round_to_mintick((ARM high + final SETUP low) / 2)`。ARM當根不得回填，從下一根ETH H1起，只要`low <= Buy Limit`即以該固定Limit價成交。
+- Pending Buy Limit不設時間expiry；只有Weekly Bias不再Bullish能撤單。Daily zone inactive／removed、價格離開zone或跌破frozen SETUP low均不撤單；zone trimming必須跳過仍pending的ENTRY。ENTRY成立後Trade Plan獨立運作，Weekly Bias、Daily zone與後續SETUP／ARMED都不取消已建立交易。
+- SL 固定為 ARMED 時凍結的最終 SETUP low下方 2 個 `syminfo.mintick`。若 next-H1 open不高於此 SL，該次仍建立橘色 `B ENTRY INVALID` 診斷，但不建立有效 Trade Plan、不計入交易績效。
+- Risk 為 `Entry - SL`；TP1 固定 `Entry + 1R`，TP2 固定 `Entry + 2R`。TP1 出場 50%，剩餘部位 SL 移到 Entry；TP2完成結果為 +1.5R，TP1後回 Entry為 +0.5R，Direct Loss為 -1R。
+- ENTRY bar本身立即參與 SL／TP判定。相同 K 同時包含 SL與任一 TP時採 SL優先，記為 Direct Loss；若該衝突發生在 ENTRY bar，ENTRY結果 marker固定使用紫紅色並顯示 `SAME BAR SL + TP`。其他 Direct Loss使用紅色，TP1使用青綠色，TP2使用藍色。
+- 每個 exact Daily zone最多一次 ENTRY。`Show H1 ENTRY / result`與`Show H1 SL/TP trade plans`只控制顯示，不改變 ENTRY、結果或統計；Trade Plan最多保留最新20組視覺與追蹤資料，歷史累計不因裁切回退。
+- 右上來源表固定分為OB與FVG兩欄，分別累計SETUP、ARMED、ENTRY、TP1 HIT、TP2、TP1→BE、DIRECT SL與NET R。TP1 HIT包含最後走到TP2或BE的交易；同bar SL+TP依SL優先，因此只計DIRECT SL、不計TP1／TP2。OB與FVG各階段合計必須等於對應總計；無效plan可計ENTRY但不計TP／SL／NET R。
 
 ## V4 Top-down Model Research Engine（開發版）
 

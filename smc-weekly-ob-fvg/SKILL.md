@@ -10,12 +10,12 @@ description: Maintain the TradingView SMC Replay Toolkit for Taiwan equities: We
 - Current behavior is defined by `../SMC_SPEC.md`; implementation architecture is in `../DESIGN.md`.
 - V1 visual inspection: `assets/smc_weekly_ob_fvg_v1.pine`.
 - V4 PRIMARY statistical reconciliation: `assets/smc_top_down_models_v4.pine`.
-- V10 new-architecture development: `assets/smc_weekly_structure_bias_v10.pine`; current candidate `V10-DZONE-09` contains ETH-pinned canonical confirmed-Weekly Bias, ETH-pinned canonical confirmed-Daily OB/FVG, extreme opposing source selection, optional broken-pivot-to-BOS structure lines, and a chart-session warning, with no execution and an integrated permanent top-right build/Bias table.
+- V10 new-architecture development: `assets/smc_weekly_structure_bias_v10.pine`; current `V10-DH1-ENTRY-03` retains ENTRY-02's persistent ARM-high/final-SETUP-low midpoint Buy Limit and Weekly-only cancellation. It adds separate OB/FVG SETUP, ARMED, ENTRY, TP1, TP2, BE, SL and Net R counters in the permanent table. 2317／2105 ETH H1 compile/runtime and source-sum first-pass validation succeeded; Weekly cancellation, same-bar conflict, reload and Replay remain supplemental regressions. Same-bar SL+TP counts only as SL; V1／V4 remain unchanged.
 - `V10-DZONE-03` failed 2324 Daily/H1 visual reconciliation because chart-driven Daily state produced OB only on Daily. `V10-DZONE-04` calculates Daily ATR, pivots, BOS, OB source and FVG events inside one confirmed Daily request context; 2324 Daily/H4/H1 first visual zone reconciliation passed, while exact values, invalidation dates, reload and Replay remain pending.
 - `V10-DZONE-05` moves Weekly pivots, Bias, flip counts and markers into one confirmed Weekly request context. Its Weekly table passed 2324 Weekly/Daily/H4/H1 reconciliation at Bullish, `47.75`, `27.50`, and `8 / 7`; marker one-shot, reload/Replay, and exact-zone audit remain pending before execution work begins.
 - `V10-DZONE-06` source-candle trace was a requirement misunderstanding and is superseded. `V10-DZONE-07` draws each OB-producing BOS horizontally from the broken confirmed pivot candle to the BOS candle at the broken swing price; this must match across Daily/H4/H1 before being treated as visually verified.
 - `V10-DZONE-08` replaces the fixed 8-bar nearest-opposing source rule: Bullish selects the lowest-low bearish candle and Bearish the highest-high bullish candle strictly between pivot and BOS; equal extremes choose the later candle, endpoints/Doji are excluded, and no opposing candle means no OB.
-- `V10-DZONE-09` pins both canonical requests to `session.extended`. Daily/H4/H1 Replay and future H1 execution validation must use ETH; Pine cannot switch native chart bars, so non-ETH intraday charts must show `USE ETH (...)` and are invalid for cross-timeframe acceptance.
+- `V10-DZONE-09` pins both canonical requests to `session.extended`; `V10-FVG-01` adds the isolated FVG timing fixes, FVG-02 tests 0.10 ATR and FVG-03 tests 0.50 ATR without the historical K3 half-range condition. Daily/H4/H1 Replay and future H1 execution validation must use ETH; Pine cannot switch native chart bars, so non-ETH intraday charts must show `USE ETH (...)` and are invalid for cross-timeframe acceptance.
 - Current stable builds are V1 `V1-LONG-01` and V4 `V4-LONG-01`.
 - Core changes must be implemented and verified in V1 before the same logic is synchronized to V4.
 
@@ -33,7 +33,7 @@ description: Maintain the TradingView SMC Replay Toolkit for Taiwan equities: We
 - Bearish OB: symmetric close below structure low and nearest prior bullish candle.
 - OB range is Hybrid Range: bullish `low → open`, bearish `open → high`.
 - FVG uses the standard three-completed-candle wick-to-wick gap with no minimum gap width.
-- The middle FVG candle must match direction and have body at least Weekly Wilder ATR(14) × 1.0.
+- The middle FVG candle must match direction and have body at least its own source-timeframe Wilder ATR(14) × 1.0; V10 records K1 first, K2 displacement/source and K3 confirmation/event time separately.
 - Bullish OB is green and Bullish FVG is yellow. Bearish OB/FVG remain visible in two light-red shades.
 - V10 Daily OB invalidation is full-edge close based: bullish completed Daily close below bottom, bearish completed Daily close above top. V10 Daily FVG and the stable V1/V4 Weekly zones remain midpoint-based.
 - Keep at most 40 zones per type and prevent duplicate OB source zones.

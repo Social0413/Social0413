@@ -1,5 +1,95 @@
 # Changelog
 
+## 2026-07-18 V10-DH1-ENTRY-03 OB/FVG source statistics（首輪TradingView實圖通過）
+
+- 右上永久表擴為label／OB／FVG三欄；頂部全域資訊維持合併顯示，來源區新增SETUP、ARMED、ENTRY、TP1 HIT、TP2、TP1→BE、DIRECT SL與NET R。
+- 各階段在exact zone transition依`zoneType`累計；Trade Plan從保存的source type回寫TP／SL與R。TP1 HIT包含後續TP2／BE；same-bar SL+TP只算SL。
+- Build升為`V10-DH1-ENTRY-03`。ENTRY-02 midpoint Buy Limit、Weekly-only撤單、2-tick SL、TP／BE／same-bar結果與V1／V4均未修改。
+- 2317／ETH H1來源加總為SETUP `13+31=44`、ARMED `1+13=14`、ENTRY `1+10=11`、TP2 `1+5=6`、DIRECT SL `0+5=5`、NET R `1.5R+2.5R=4R`；2105亦以NET R `-1R+-1.5R=-2.5R`等全部欄位閉合。兩圖確認compile／runtime與來源表首輪通過。
+- Weekly Bias撤單、same-bar衝突與reload／Replay仍是補充回歸，不因首輪通過而移除。
+
+## 2026-07-18 V10-DH1-ENTRY-02 midpoint Buy Limit correction（待 TradingView）
+
+- 修正ENTRY-01需求誤解：不在ARM下一根open直接成交。ARM成立時凍結該ARM bar high與final SETUP low，固定Buy Limit為兩者midpoint並對齊mintick；從下一根ETH H1起等待`low <= limit`才成交。
+- Pending limit無時間expiry，只由Weekly Bias不再Bullish撤單。Daily zone inactive、frozen-low break與zone exit均不撤單；zone trimming跳過尚未成交的ARMED。新增淡青色pending limit line，成交或撤單時停止延伸。
+- ENTRY成交後原2-tick SL、1R／2R、TP1→BE、成交bar`SL → TP2 → TP1`及紫紅same-bar conflict規則不變。Build升為`V10-DH1-ENTRY-02`；V1／V4未修改。
+
+## 2026-07-18 V10-DH1-ENTRY-01 next-H1-open ENTRY and bracket plan（compile/runtime通過，規格淘汰）
+
+- 依當時的需求誤解，取消frozen break retest／reclaim與midpoint掛單；每個ARMED在下一根completed ETH H1以該根open直接建立一次ENTRY。此行為後續確認並非使用者要的ENTRY。
+- SL固定為ARM凍結的final SETUP low下方2 ticks；TP1=1R、TP2=2R、TP1出場50%後剩餘SL移到Entry。ENTRY bar立即判定結果並維持`SL → TP2 → TP1`保守順序。
+- ENTRY bar若同時包含SL與TP，記為Direct Loss並將結果marker改為紫紅色`SAME BAR SL + TP`；一般Loss、TP1、TP2分別使用紅、青綠、藍。
+- 新增獨立Trade Plan arrays、最多20組顯示／追蹤、ENTRY與簡要績效表；build ID升為`V10-DH1-ENTRY-01`。V1／V4與Daily zone定義未修改。
+- 2317／ETH H1實圖顯示SETUP 44、ARMED 14、ENTRY／VALID 14、TP2 6、TP1→BE 3、Loss 5、Net R 5.5R，證明compile／runtime與next-open流程可執行；但使用者澄清ENTRY應為midpoint掛單，因此本build規格淘汰，由ENTRY-02取代。
+
+## 2026-07-18 V10-DH1-ARMED-03 break level diagnostic（ARM 階段收尾）
+
+- 新增預設關閉的 `Show ARM break level`；每個 waiting candidate以淡青色水平 dotted line顯示目前保存的 H1 break level。
+- SETUP 建立或 tracking 中 lower-low refresh時，診斷線從該 snapshot bar重新起算並延伸；ARM transition、Weekly Bias／zone hard invalidation或 frozen-low invalidation時停止延伸並保留歷史。
+- Break line handle加入 zone平行 arrays的 push／remove／trim lifecycle；break 為 `na` 時不建立。顯示開關不參與 pivot、snapshot、candidate、ARMED 或計數。
+- Indicator title與永久表 BUILD 升為 `V10-DH1-ARMED-03`。ARMED-02 的全部行為、ENTRY／Trade／績效邊界、Daily zones及 V1／V4均未修改。
+- 2317／ETH H1 實圖確認 compile／runtime、SESSION ETH、SETUP `44`、ARMED `14`及診斷線在 ARM transition停止；ARM 階段以此 build收尾。2634 exact no-ARM原因、取消路徑逐筆證據與 reload／Replay保留為後續回歸。
+
+## 2026-07-18 V10-DH1-ARMED-02 persistent ARM candidate（第一輪多標的視覺通過）
+
+- 每個 First-touch SETUP 建立時同步建立獨立 `waitingForArmed`；ARM transition 不再要求 lower-low tracking 仍為 true。
+- Completed H1 close 離開 Daily zone只停止 tracking並凍結 SETUP low／break level，waiting candidate 繼續逐根檢查 close crossover；re-entry 不恢復 tracking，也不建立第二個 candidate。
+- Waiting candidate 只由 Weekly Bias 不再 Bullish、Daily zone inactive／移除，或 tracking 凍結後 completed H1 close 跌破 frozen SETUP low取消；不增加時間 expiry。
+- 右上 SETUP ACTIVE 改為 waiting candidate 數。Indicator title與永久表 BUILD 升為 `V10-DH1-ARMED-02`；ENTRY、Trade Plan、績效、Daily zone 定義、V1／V4均未修改。
+
+## 2026-07-18 V10-DH1-ARMED-01 simplified per-zone ARMED（實圖 lifecycle 失敗）
+
+- 新增 `Show H1 ARMED` 與預設 length 3 的 confirmed H1 swing high；SETUP 建立時保存 break level，tracking 期間只在 SETUP low 再創低時重新快照，不逐 pivot 追高。
+- 每個 Daily zone 新增 setup bar、break level、ARMED marker、armed／active flag、ARMED bar與 frozen SETUP low，並與既有 zone arrays 保持相同 push／remove／trim lifecycle。
+- Completed H1 先更新 lower-low／break snapshot並判斷 close crossover，再處理 close 離開 zone；ARMED 成立時停止 tracking、暗化 SETUP marker並顯示一次 `B ARMED`。
+- ARMED ACTIVE 由 Weekly Bias 不再 Bullish、Daily zone inactive／移除或 completed H1 close 跌破 frozen SETUP low 結束；本 build 不加時間 expiry、ENTRY、Trade Plan、績效或 zone 定義修改。
+- 右上永久表新增 ARMED TOTAL／ACTIVE，indicator title、BUILD 與 PHASE 升為 `V10-DH1-ARMED-01`。V1／V4 未修改。
+- 2324／ETH H1 實圖確認 compile／runtime，但 Bullish Daily OB SETUP 離開 zone後的上漲未形成 ARMED，右上為 ARMED `0 / 0 ACTIVE`。原因是 zone exit 過早清除唯一 tracking／candidate state；此版由 ARMED-02 取代。
+
+## 2026-07-18 V10-DH1-SETUP-02R1 canonical BOS display dedup（TradingView 通過）
+
+- 2324／ETH H1 實圖發現約 30.5 出現兩條近乎平行、指向同一 BOS 區段的紅色 structure lines。
+- BOS display 新增獨立 `direction + canonical BOS time` event key；`addDailyObBosLine()` 在建立 line／label 前先去重，同一事件最多一組 objects。
+- BOS line、label、key 改為同一組 push／shift 生命週期。Broken-pivot time／price 仍只決定線段座標，不參與 event identity。
+- SETUP-02 First-touch、Daily OB/FVG event與 geometry、Weekly Bias、canonical ETH feeds、V1／V4 均未修改。Build ID 升為 `V10-DH1-SETUP-02R1`。
+- 使用者在 2324／ETH H1 確認 R1 可執行，原約 30.5 的同-event BOS 平行紅線已收斂為一條；右上維持 SETUP `24 / 0 ACTIVE`。SETUP 階段以此 build 收尾，下一步為 ARMED。
+
+## 2026-07-18 V10-DH1-SETUP-02 First-touch only（由 R1 完成顯示修正）
+
+- 每個 exact Daily OB/FVG 新增永久 `setupUsed` state；第一次有效 SETUP 建立時立即設為 true。
+- SETUP-01 的 lower-low tracking、H1 close 離開停止、Weekly Bias／zone 失效停止均保留；離開後重新進入同一 zone 不再建立或累計第二個 SETUP。
+- `SETUP TOTAL` 改為實際使用過的 unique exact zones 數；只有新生成、具有新 identity 的 Daily zone 可取得新 SETUP 機會。
+- V1／V4、Daily zone 定義、Weekly Bias、canonical ETH feeds、ARMED／ENTRY 未修改。Build ID 升為 `V10-DH1-SETUP-02`。
+
+## 2026-07-18 V10-DH1-SETUP-01 lower-low tracking SETUP（實圖可執行，規則被取代）
+
+- V10 SETUP gate 收斂為 `Weekly Bullish Bias + active Bullish Daily OB/FVG H1 overlap`；取消原規劃的 Daily MSS 前置 gate，也不加入 SETUP expiry。
+- ETH H1 首次進入每個 exact bullish zone 時建立一個 SETUP episode；同一段停留期間若 H1 再創新低，只移動同一 `B SETUP` marker，不增加 episode count。
+- Tracking 在 Weekly Bias 不再 Bullish、完成 H1 close 離開 zone 上下界或 zone inactive／被移除時停止。離開後重新進入可建立新 episode；未來 ARMED 將沿用相同 tracking state 凍結 marker，本版尚未加入 ARMED。
+- Daily zone arrays 新增 stable key、SETUP label、tracking、tracked low 與 previous-overlap state；顯示開關只控制 marker。右上永久表新增 SETUP TOTAL／ACTIVE，build ID 升為 `V10-DH1-SETUP-01`。
+- V1／V4、Daily OB/FVG 定義、invalidation、Weekly Bias、canonical ETH requests 與 FVG-03 minimum-gap gate 均未修改。
+
+## 2026-07-18 V10-FVG-03 isolated 0.50 ATR minimum gap（2105 Daily 視覺通過）
+
+- 根據 FVG-02／2105 Daily 實圖，下方微小 FVG 已消失但約 59.5 的上方標記 FVG仍存在，因此固定 Daily FVG gap ATR multiplier 由 0.10 提高為 0.50；two-tick floor 保留。
+- 本版只測試獨立 `max(K2 ATR × 0.50, 2 ticks)` gate，不加入歷史過嚴版本的 K3 close 順向半部條件。
+- FVG-01 時間修正、midpoint invalidation、ETH feed、OB、Weekly Bias 與 no-execution state 均不修改。Build ID 升為 `V10-FVG-03`。
+- 2105／Daily／SOURCE ETH 實圖確認上下兩個指定微小 FVG均已消失、其他主要 FVG仍可見，使用者判定結果合理；0.50 ATR gate 作為目前 V10 FVG 定義保留。跨時框 exact audit 與 Replay 仍待後續驗證。
+
+## 2026-07-18 V10-FVG-02 minimum Daily FVG gap（2105 Daily 部分驗證）
+
+- Daily FVG 新增固定最小 gap：`max(K2 Daily ATR × 0.10, syminfo.mintick × 2)`；Bullish／Bearish 分別以 `K3 low - K1 high`／`K1 low - K3 high` 計算 gap width。
+- 不提供個別股票調參 input；目標只排除相對波動與最小跳動皆過小的微型 FVG，避免重複先前 `0.5 ATR + K3 half-range` 組合過嚴的問題。
+- FVG-01 的 K2 body/ATR alignment、K1/K2/K3 metadata、canonical close-time endpoint、midpoint invalidation、ETH feed、OB、Weekly Bias 與 no-execution state 均不修改。Build ID 升為 `V10-FVG-02`。
+
+## 2026-07-18 V10-FVG-01 K2 ATR alignment + canonical close-time endpoint（待 TradingView 驗證）
+
+- Daily FVG 的中間 K body 改為比較中間 K 自身的 Daily Wilder ATR(14)，不再使用確認 K 的 ATR；標準三 K wick-to-wick geometry、無最小 gap 寬度、方向條件與 midpoint invalidation 均不變。
+- Canonical Daily FVG 新增 K1 first time 與 K2 displacement/source time；K3 confirmation/event time 沿用 canonical Daily time，box 左端仍從 K3 開始。
+- Daily zone state 新增 event time 與 FVG first time arrays，與既有 box、midline、type、direction、midpoint、active、source time、top、bottom 維持相同 push/remove/trim 生命週期。
+- Canonical Daily snapshot 新增 completed-Daily `time_close`；OB/FVG 失效 box 與 midline 的右端由 chart-local `time` 改為 canonical close time，統一 Daily／H4／H1 endpoint。
+- DZONE-09 ETH feed、DZONE-08 OB source、DZONE-07 BOS line、OB/FVG 上下界、FVG midpoint invalidation、Weekly Bias 與 no-execution state 保持不變。Build ID 升為 `V10-FVG-01`。
+
 ## 2026-07-18 V10-DZONE-09 canonical ETH session（待 TradingView 驗證）
 
 - 新增 `canonicalEthTickerId = ticker.modify(syminfo.tickerid, session.extended)`，Weekly Bias 與 Daily OB/FVG canonical requests 統一使用 ETH，不再隨圖表 RTH／ETH 改變 request session。

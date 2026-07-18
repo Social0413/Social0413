@@ -14,6 +14,14 @@
 
 ## V10 限制
 
+- `V10-DH1-ENTRY-01`已在2317／ETH H1 compile／runtime，但把ARM下一根open直接視為ENTRY，屬需求誤解，已由midpoint Buy Limit的`V10-DH1-ENTRY-02`取代，不得恢復。
+- `V10-DH1-ENTRY-03`已在2317／2105 ETH H1通過compile／runtime與來源統計首輪實圖：OB+FVG各階段及NET R均與全域總計閉合，TP1 HIT亦涵蓋2105後續BE。尚未以實圖證明Weekly Bias改變撤銷pending Buy Limit、ENTRY same-bar SL+TP只進SL與紫紅marker，以及reload／Replay不重複累加；這些是補充回歸，非目前阻斷問題。
+- `V10-DH1-ARMED-01` 已在 2324／ETH H1 compile／runtime，但把 zone exit 等同取消 ARM candidate；畫面有 Bullish Daily OB SETUP 與後續結構上漲，右上仍為 ARMED `0 / 0 ACTIVE`。此 lifecycle 已被淘汰，不得恢復。
+- `V10-DH1-ARMED-02` 已在 2324／2634／2317 ETH H1 通過 compile／runtime 與第一輪 marker／count 視覺檢查；`V10-DH1-ARMED-03` 診斷線亦在 2317／ETH H1 通過視覺檢查，ARM 階段可收尾。2634 可見 SETUP 未 ARM的 exact原因、三項取消原因逐筆證據、reload與 Replay仍未完成，後續 ENTRY 開發必須列為 ARM regression，不得宣稱已逐項證明。
+- `V10-DH1-SETUP-02R1` 已在 2324／ETH H1 通過 compile／runtime 與同-event BOS 去重；但 First-touch re-entry block、lower-low marker move、reload 與 Replay 尚未逐項留下獨立證據，ARMED 開發時必須列為 SETUP regression。
+- R1 已修正 SETUP-02 缺少 BOS display identity 的問題；後續不得移除 `direction + BOS time` key，也不得讓 line／label／key 使用不同 trimming lifecycle。
+- `V10-DH1-SETUP-01` 已在 2105／ETH H1 顯示 marker 與 `184 / 0 ACTIVE`，但允許同 exact zone re-entry 重建 SETUP，導致 TOTAL 膨脹；此規則已被明確淘汰，不得恢復。
+- `V10-FVG-03` 的 0.50 ATR gate 已在 2105／Daily 確認上下兩個指定微小 FVG消失且其他主要 FVG仍可見；但 2324／2634、ETH H4/H1、K1/K2/K3 exact metadata、跨時框失效 endpoint、reload 與 Replay 尚未完成，不能把單一 Daily 截圖視為完整 canonical reconciliation。
 - TradingView 同一台股 symbol 的 Daily EOD 與 H1 RTH 可能不含相同成交。2105／2023-12-21 已確認 Daily 與 H1 ETH 到達 47.90，但 H1 RTH 看不到該價；這不是除權息，也不是 OB/BOS engine 錯誤。`V10-DZONE-09` 已把 canonical requests 固定為 ETH 並加入 SESSION 警告，但 Pine 無法替使用者切換原生圖表，RTH 截圖不得作為跨時框驗收依據。
 - `V10-DZONE-06` 的斜向 source trace 不得沿用。`V10-DZONE-07` 的 broken-pivot-to-BOS 水平線已通過 2324／2634 Daily 視覺確認；H4/H1 exact endpoints 仍待核對。
 - `V10-DZONE-08` 已把 Daily OB source 改成 pivot-to-BOS 開區間的極值反向 K，目前只有 Repository 靜態檢查；必須驗證最低 bearish／最高 bullish 選擇、同價 tie-break、無候選事件及跨時框一致性。
