@@ -1,0 +1,382 @@
+//@version=5
+indicator("CODEX SMC V10 Daily Zones V10-DZONE-09", overlay=true, max_boxes_count=300, max_lines_count=300, max_labels_count=300, max_bars_back=100)
+
+showWeeklyStructureBias = input.bool(true, "Show Weekly Structure Bias")
+showWeeklyBiasLevels = input.bool(false, "Show Weekly Bias swing levels")
+showWeeklyBiasMarkers = input.bool(true, "Show Weekly Bias flip markers")
+showWeeklyBiasBackground = input.bool(true, "Show Weekly Bias background")
+weeklyBiasSwingLen = input.int(2, "W Bias swing length", minval=1, maxval=10)
+
+showDailyOb = input.bool(true, "Show Daily OB")
+showDailyFvg = input.bool(true, "Show Daily FVG")
+showDailyMidline = input.bool(false, "Show Daily zone midpoint")
+showDailyObBosLine = input.bool(true, "Show Daily OB BOS structure line")
+stableDailyZoneExtension = input.bool(true, "Stable Daily zone extension")
+maxDailyZonesPerType = input.int(40, "Maximum Daily zones per type", minval=10, maxval=100)
+dailyObSwingLen = input.int(4, "Daily OB swing length", minval=1, maxval=10)
+
+weeklyBullBiasColor = input.color(color.new(color.lime, 15), "Weekly Bullish Bias color")
+weeklyBearBiasColor = input.color(color.new(color.red, 15), "Weekly Bearish Bias color")
+weeklyNeutralBiasColor = input.color(color.new(color.gray, 25), "Weekly Neutral Bias color")
+
+dailyBullObColor = input.color(color.new(color.lime, 88), "Daily Bullish OB fill")
+dailyBullObBorder = input.color(color.new(color.lime, 20), "Daily Bullish OB border")
+dailyBearObColor = input.color(color.new(color.rgb(255, 128, 128), 88), "Daily Bearish OB fill")
+dailyBearObBorder = input.color(color.new(color.rgb(255, 128, 128), 25), "Daily Bearish OB border")
+dailyBullFvgColor = input.color(color.new(color.yellow, 84), "Daily Bullish FVG fill")
+dailyBullFvgBorder = input.color(color.new(color.yellow, 10), "Daily Bullish FVG border")
+dailyBearFvgColor = input.color(color.new(color.rgb(255, 176, 176), 90), "Daily Bearish FVG fill")
+dailyBearFvgBorder = input.color(color.new(color.rgb(255, 176, 176), 30), "Daily Bearish FVG border")
+dailyMidlineColor = input.color(color.new(color.white, 25), "Daily zone midpoint color")
+dailyObBosLineColor = input.color(color.new(color.red, 0), "Daily OB BOS structure line color")
+
+const int maxHistoryWeeks = 320
+const int maxHistoryDays = 4000
+const int dailyAtrLength = 14
+const float dailyObBodyAtrMultiplier = 1.0
+const float dailyFvgBodyAtrMultiplier = 1.0
+
+var int lastCanonicalWeeklyTime = na
+var int lastCanonicalDailyTime = na
+
+var box[] dailyZoneBoxes = array.new_box()
+var line[] dailyZoneMidlines = array.new_line()
+var string[] dailyZoneTypes = array.new_string()
+var int[] dailyZoneDirs = array.new_int()
+var float[] dailyZoneMids = array.new_float()
+var bool[] dailyZoneActive = array.new_bool()
+var int[] dailyZoneSourceTimes = array.new_int()
+var float[] dailyZoneTops = array.new_float()
+var float[] dailyZoneBottoms = array.new_float()
+var line[] dailyObBosLines = array.new_line()
+var label[] dailyObBosLabels = array.new_label()
+
+var table buildTable = table.new(position.top_right, 2, 8, bgcolor=color.new(color.black, 15), frame_color=color.new(color.gray, 50), frame_width=1)
+
+seriesPivotHighValue(_len) =>
+    centerValue = high[_len]
+    pivotOk = not na(high[_len * 2])
+    for j = 1 to _len
+        if high[_len + j] >= centerValue or high[_len - j] > centerValue
+            pivotOk := false
+    pivotOk ? centerValue : na
+
+seriesPivotLowValue(_len) =>
+    centerValue = low[_len]
+    pivotOk = not na(low[_len * 2])
+    for j = 1 to _len
+        if low[_len + j] <= centerValue or low[_len - j] < centerValue
+            pivotOk := false
+    pivotOk ? centerValue : na
+
+canonicalWeeklyBiasEngine() =>
+    pivotHighValue = seriesPivotHighValue(weeklyBiasSwingLen)
+    pivotLowValue = seriesPivotLowValue(weeklyBiasSwingLen)
+
+    var int structureBias = 0
+    var float structureHigh = na
+    var float structureLow = na
+    var int bullFlips = 0
+    var int bearFlips = 0
+
+    bullishBreak = not na(structureHigh) and close > structureHigh
+    bearishBreak = not na(structureLow) and close < structureLow
+    bullishFlip = false
+    bearishFlip = false
+    if bullishBreak
+        bullishFlip := structureBias != 1
+        bullFlips += structureBias != 1 ? 1 : 0
+        structureBias := 1
+    else if bearishBreak
+        bearishFlip := structureBias != -1
+        bearFlips += structureBias != -1 ? 1 : 0
+        structureBias := -1
+
+    if not na(pivotHighValue)
+        structureHigh := pivotHighValue
+    if not na(pivotLowValue)
+        structureLow := pivotLowValue
+
+    [time, structureBias, structureHigh, structureLow, bullFlips, bearFlips, bullishFlip, bearishFlip]
+
+confirmedWeeklyBiasSnapshot() =>
+    [engineTime, engineBias, engineStructureHigh, engineStructureLow, engineBullFlips, engineBearFlips, engineBullishFlip, engineBearishFlip] = canonicalWeeklyBiasEngine()
+    [engineTime[1], engineBias[1], engineStructureHigh[1], engineStructureLow[1], engineBullFlips[1], engineBearFlips[1], engineBullishFlip[1], engineBearishFlip[1]]
+
+canonicalDailyZoneEngine() =>
+    dailyAtrValue = ta.atr(dailyAtrLength)
+    pivotHighValue = seriesPivotHighValue(dailyObSwingLen)
+    pivotLowValue = seriesPivotLowValue(dailyObSwingLen)
+
+    var float obStructureHigh = na
+    var float obStructureLow = na
+    var int obStructureHighTime = na
+    var int obStructureLowTime = na
+    var bool obStructureHighBroken = false
+    var bool obStructureLowBroken = false
+    var int bullishExtremeSourceTime = na
+    var float bullishExtremeSourceTop = na
+    var float bullishExtremeSourceBottom = na
+    var int bearishExtremeSourceTime = na
+    var float bearishExtremeSourceTop = na
+    var float bearishExtremeSourceBottom = na
+
+    bullishDailyBos = not obStructureHighBroken and not na(obStructureHigh) and close[1] <= obStructureHigh and close > obStructureHigh
+    bearishDailyBos = not obStructureLowBroken and not na(obStructureLow) and close[1] >= obStructureLow and close < obStructureLow
+    if bullishDailyBos
+        obStructureHighBroken := true
+    if bearishDailyBos
+        obStructureLowBroken := true
+
+    dailyObBodyStrong = not na(dailyAtrValue) and math.abs(close - open) >= dailyAtrValue * dailyObBodyAtrMultiplier
+    bullishDailyOb = bullishDailyBos and close > open and dailyObBodyStrong
+    bearishDailyOb = bearishDailyBos and close < open and dailyObBodyStrong
+    bullishBrokenPivotTime = bullishDailyOb ? obStructureHighTime : na
+    bullishBrokenPivotPrice = bullishDailyOb ? obStructureHigh : na
+    bearishBrokenPivotTime = bearishDailyOb ? obStructureLowTime : na
+    bearishBrokenPivotPrice = bearishDailyOb ? obStructureLow : na
+
+    int bullishObSourceTime = na
+    float bullishObTop = na
+    float bullishObBottom = na
+    if bullishDailyOb and not na(bullishExtremeSourceTime)
+        bullishObSourceTime := bullishExtremeSourceTime
+        bullishObTop := bullishExtremeSourceTop
+        bullishObBottom := bullishExtremeSourceBottom
+
+    int bearishObSourceTime = na
+    float bearishObTop = na
+    float bearishObBottom = na
+    if bearishDailyOb and not na(bearishExtremeSourceTime)
+        bearishObSourceTime := bearishExtremeSourceTime
+        bearishObTop := bearishExtremeSourceTop
+        bearishObBottom := bearishExtremeSourceBottom
+
+    middleBody = math.abs(close[1] - open[1])
+    bullishMiddleDisplacement = close[1] > open[1] and middleBody >= dailyAtrValue * dailyFvgBodyAtrMultiplier
+    bearishMiddleDisplacement = close[1] < open[1] and middleBody >= dailyAtrValue * dailyFvgBodyAtrMultiplier
+    bullishDailyFvg = not na(dailyAtrValue) and low > high[2] and bullishMiddleDisplacement
+    bearishDailyFvg = not na(dailyAtrValue) and high < low[2] and bearishMiddleDisplacement
+    bullishFvgTop = bullishDailyFvg ? low : na
+    bullishFvgBottom = bullishDailyFvg ? high[2] : na
+    bearishFvgTop = bearishDailyFvg ? low[2] : na
+    bearishFvgBottom = bearishDailyFvg ? high : na
+
+    if not na(pivotHighValue)
+        obStructureHigh := pivotHighValue
+        obStructureHighTime := time[dailyObSwingLen]
+        obStructureHighBroken := close > pivotHighValue
+        bullishExtremeSourceTime := na
+        bullishExtremeSourceTop := na
+        bullishExtremeSourceBottom := na
+        for seedStep = 0 to dailyObSwingLen - 1
+            offset = dailyObSwingLen - 1 - seedStep
+            if close[offset] < open[offset]
+                if na(bullishExtremeSourceBottom) or low[offset] <= bullishExtremeSourceBottom
+                    bullishExtremeSourceTime := time[offset]
+                    bullishExtremeSourceTop := high[offset]
+                    bullishExtremeSourceBottom := low[offset]
+    else if not obStructureHighBroken and not na(obStructureHighTime) and time > obStructureHighTime and close < open
+        if na(bullishExtremeSourceBottom) or low <= bullishExtremeSourceBottom
+            bullishExtremeSourceTime := time
+            bullishExtremeSourceTop := high
+            bullishExtremeSourceBottom := low
+    if not na(pivotLowValue)
+        obStructureLow := pivotLowValue
+        obStructureLowTime := time[dailyObSwingLen]
+        obStructureLowBroken := close < pivotLowValue
+        bearishExtremeSourceTime := na
+        bearishExtremeSourceTop := na
+        bearishExtremeSourceBottom := na
+        for seedStep = 0 to dailyObSwingLen - 1
+            offset = dailyObSwingLen - 1 - seedStep
+            if close[offset] > open[offset]
+                if na(bearishExtremeSourceTop) or high[offset] >= bearishExtremeSourceTop
+                    bearishExtremeSourceTime := time[offset]
+                    bearishExtremeSourceTop := high[offset]
+                    bearishExtremeSourceBottom := low[offset]
+    else if not obStructureLowBroken and not na(obStructureLowTime) and time > obStructureLowTime and close > open
+        if na(bearishExtremeSourceTop) or high >= bearishExtremeSourceTop
+            bearishExtremeSourceTime := time
+            bearishExtremeSourceTop := high
+            bearishExtremeSourceBottom := low
+
+    [time, close, high, low, bullishDailyOb and not na(bullishObSourceTime), bullishObSourceTime, bullishObTop, bullishObBottom, bullishBrokenPivotTime, bullishBrokenPivotPrice, bearishDailyOb and not na(bearishObSourceTime), bearishObSourceTime, bearishObTop, bearishObBottom, bearishBrokenPivotTime, bearishBrokenPivotPrice, bullishDailyFvg, bullishFvgTop, bullishFvgBottom, bearishDailyFvg, bearishFvgTop, bearishFvgBottom]
+
+confirmedDailyZoneSnapshot() =>
+    [engineTime, engineClose, engineHigh, engineLow, engineBullishOb, engineBullishObSourceTime, engineBullishObTop, engineBullishObBottom, engineBullishBrokenPivotTime, engineBullishBrokenPivotPrice, engineBearishOb, engineBearishObSourceTime, engineBearishObTop, engineBearishObBottom, engineBearishBrokenPivotTime, engineBearishBrokenPivotPrice, engineBullishFvg, engineBullishFvgTop, engineBullishFvgBottom, engineBearishFvg, engineBearishFvgTop, engineBearishFvgBottom] = canonicalDailyZoneEngine()
+    [engineTime[1], engineClose[1], engineHigh[1], engineLow[1], engineBullishOb[1], engineBullishObSourceTime[1], engineBullishObTop[1], engineBullishObBottom[1], engineBullishBrokenPivotTime[1], engineBullishBrokenPivotPrice[1], engineBearishOb[1], engineBearishObSourceTime[1], engineBearishObTop[1], engineBearishObBottom[1], engineBearishBrokenPivotTime[1], engineBearishBrokenPivotPrice[1], engineBullishFvg[1], engineBullishFvgTop[1], engineBullishFvgBottom[1], engineBearishFvg[1], engineBearishFvgTop[1], engineBearishFvgBottom[1]]
+
+removeDailyZone(_index) =>
+    zoneBox = array.get(dailyZoneBoxes, _index)
+    zoneMidline = array.get(dailyZoneMidlines, _index)
+    if not na(zoneBox)
+        box.delete(zoneBox)
+    if not na(zoneMidline)
+        line.delete(zoneMidline)
+    array.remove(dailyZoneBoxes, _index)
+    array.remove(dailyZoneMidlines, _index)
+    array.remove(dailyZoneTypes, _index)
+    array.remove(dailyZoneDirs, _index)
+    array.remove(dailyZoneMids, _index)
+    array.remove(dailyZoneActive, _index)
+    array.remove(dailyZoneSourceTimes, _index)
+    array.remove(dailyZoneTops, _index)
+    array.remove(dailyZoneBottoms, _index)
+    true
+
+trimDailyZoneType(_zoneType) =>
+    typeCount = 0
+    if array.size(dailyZoneTypes) > 0
+        for i = 0 to array.size(dailyZoneTypes) - 1
+            if array.get(dailyZoneTypes, i) == _zoneType
+                typeCount += 1
+    while typeCount > maxDailyZonesPerType
+        removeIndex = -1
+        if array.size(dailyZoneTypes) > 0
+            for i = 0 to array.size(dailyZoneTypes) - 1
+                if removeIndex < 0 and array.get(dailyZoneTypes, i) == _zoneType
+                    removeIndex := i
+        if removeIndex >= 0
+            removeDailyZone(removeIndex)
+            typeCount -= 1
+        else
+            typeCount := 0
+    true
+
+dailyObExists(_dir, _sourceTime) =>
+    exists = false
+    if array.size(dailyZoneTypes) > 0
+        for i = 0 to array.size(dailyZoneTypes) - 1
+            if array.get(dailyZoneTypes, i) == "OB" and array.get(dailyZoneDirs, i) == _dir and array.get(dailyZoneSourceTimes, i) == _sourceTime
+                exists := true
+    exists
+
+addDailyObBosLine(_dir, _brokenPivotTime, _brokenPivotPrice, _bosTime, _bosHigh, _bosLow) =>
+    if showDailyObBosLine
+        labelColor = _dir == 1 ? dailyBullObBorder : dailyBearObBorder
+        bosLabelPrice = _dir == 1 ? _bosHigh : _bosLow
+        bosLine = line.new(_brokenPivotTime, _brokenPivotPrice, _bosTime, _brokenPivotPrice, xloc=xloc.bar_time, extend=extend.none, color=dailyObBosLineColor, style=line.style_solid, width=2)
+        bosLabel = label.new(_bosTime, bosLabelPrice, _dir == 1 ? "BOS ↑" : "BOS ↓", xloc=xloc.bar_time, yloc=yloc.price, style=_dir == 1 ? label.style_label_down : label.style_label_up, color=color.new(labelColor, 15), textcolor=color.white, size=size.tiny)
+        array.push(dailyObBosLines, bosLine)
+        array.push(dailyObBosLabels, bosLabel)
+        while array.size(dailyObBosLines) > maxDailyZonesPerType
+            line.delete(array.shift(dailyObBosLines))
+        while array.size(dailyObBosLabels) > maxDailyZonesPerType
+            label.delete(array.shift(dailyObBosLabels))
+    true
+
+addDailyZone(_zoneType, _dir, _leftTime, _sourceTime, _top, _bottom) =>
+    zoneMid = (_top + _bottom) * 0.5
+    isOb = _zoneType == "OB"
+    shouldDraw = isOb ? showDailyOb : showDailyFvg
+    fillColor = isOb ? (_dir == 1 ? dailyBullObColor : dailyBearObColor) : (_dir == 1 ? dailyBullFvgColor : dailyBearFvgColor)
+    borderColor = isOb ? (_dir == 1 ? dailyBullObBorder : dailyBearObBorder) : (_dir == 1 ? dailyBullFvgBorder : dailyBearFvgBorder)
+    zoneText = isOb ? "D OB" : "D FVG"
+    zoneExtend = stableDailyZoneExtension ? extend.right : extend.none
+    box zoneBox = na
+    line zoneMidline = na
+    if shouldDraw
+        zoneBox := box.new(_leftTime, _top, time, _bottom, xloc=xloc.bar_time, extend=zoneExtend, bgcolor=fillColor, border_color=borderColor, text=zoneText, text_color=borderColor, text_size=size.tiny)
+        if showDailyMidline
+            zoneMidline := line.new(_leftTime, zoneMid, time, zoneMid, xloc=xloc.bar_time, extend=zoneExtend, color=dailyMidlineColor, style=isOb ? line.style_dashed : line.style_dotted, width=1)
+    array.push(dailyZoneBoxes, zoneBox)
+    array.push(dailyZoneMidlines, zoneMidline)
+    array.push(dailyZoneTypes, _zoneType)
+    array.push(dailyZoneDirs, _dir)
+    array.push(dailyZoneMids, zoneMid)
+    array.push(dailyZoneActive, true)
+    array.push(dailyZoneSourceTimes, _sourceTime)
+    array.push(dailyZoneTops, _top)
+    array.push(dailyZoneBottoms, _bottom)
+    trimDailyZoneType(_zoneType)
+    true
+
+invalidateDailyZones(_completedDailyClose, _endTime) =>
+    if array.size(dailyZoneTypes) > 0
+        for i = array.size(dailyZoneTypes) - 1 to 0
+            if array.get(dailyZoneActive, i)
+                dir = array.get(dailyZoneDirs, i)
+                top = array.get(dailyZoneTops, i)
+                bottom = array.get(dailyZoneBottoms, i)
+                mid = array.get(dailyZoneMids, i)
+                isOb = array.get(dailyZoneTypes, i) == "OB"
+                broken = isOb ? (dir == 1 ? _completedDailyClose < bottom : _completedDailyClose > top) : (dir == 1 ? _completedDailyClose < mid : _completedDailyClose > mid)
+                if broken
+                    array.set(dailyZoneActive, i, false)
+                    zoneBox = array.get(dailyZoneBoxes, i)
+                    zoneMidline = array.get(dailyZoneMidlines, i)
+                    if not na(zoneBox)
+                        box.set_extend(zoneBox, extend.none)
+                        box.set_right(zoneBox, _endTime)
+                    if not na(zoneMidline)
+                        line.set_extend(zoneMidline, extend.none)
+                        line.set_x2(zoneMidline, _endTime)
+    true
+
+canonicalEthTickerId = ticker.modify(syminfo.tickerid, session.extended)
+chartSessionIsEth = not timeframe.isintraday or syminfo.session == session.extended
+
+[canonicalWeeklyTime, weeklyStructureBias, weeklyStructureHigh, weeklyStructureLow, weeklyBullFlips, weeklyBearFlips, canonicalWeeklyBullishFlip, canonicalWeeklyBearishFlip] = request.security(canonicalEthTickerId, "W", confirmedWeeklyBiasSnapshot(), lookahead=barmerge.lookahead_on, calc_bars_count=maxHistoryWeeks)
+
+newCanonicalWeeklySnapshot = not na(canonicalWeeklyTime) and (na(lastCanonicalWeeklyTime) or canonicalWeeklyTime != lastCanonicalWeeklyTime)
+weeklyBullBiasFlip = newCanonicalWeeklySnapshot and canonicalWeeklyBullishFlip
+weeklyBearBiasFlip = newCanonicalWeeklySnapshot and canonicalWeeklyBearishFlip
+if newCanonicalWeeklySnapshot
+    lastCanonicalWeeklyTime := canonicalWeeklyTime
+
+chartSeconds = timeframe.in_seconds(timeframe.period)
+dailySeconds = timeframe.in_seconds("D")
+canBuildDailyZones = chartSeconds <= dailySeconds
+
+[canonicalDailyTime, canonicalDailyClose, canonicalDailyHigh, canonicalDailyLow, canonicalBullishOb, canonicalBullishObSourceTime, canonicalBullishObTop, canonicalBullishObBottom, canonicalBullishBrokenPivotTime, canonicalBullishBrokenPivotPrice, canonicalBearishOb, canonicalBearishObSourceTime, canonicalBearishObTop, canonicalBearishObBottom, canonicalBearishBrokenPivotTime, canonicalBearishBrokenPivotPrice, canonicalBullishFvg, canonicalBullishFvgTop, canonicalBullishFvgBottom, canonicalBearishFvg, canonicalBearishFvgTop, canonicalBearishFvgBottom] = request.security(canonicalEthTickerId, "D", confirmedDailyZoneSnapshot(), lookahead=barmerge.lookahead_on, calc_bars_count=maxHistoryDays)
+
+newCanonicalDailySnapshot = canBuildDailyZones and not na(canonicalDailyTime) and (na(lastCanonicalDailyTime) or canonicalDailyTime != lastCanonicalDailyTime)
+if newCanonicalDailySnapshot
+    invalidateDailyZones(canonicalDailyClose, time)
+    if canonicalBullishOb and not dailyObExists(1, canonicalBullishObSourceTime)
+        addDailyZone("OB", 1, canonicalBullishObSourceTime, canonicalBullishObSourceTime, canonicalBullishObTop, canonicalBullishObBottom)
+        addDailyObBosLine(1, canonicalBullishBrokenPivotTime, canonicalBullishBrokenPivotPrice, canonicalDailyTime, canonicalDailyHigh, canonicalDailyLow)
+    if canonicalBearishOb and not dailyObExists(-1, canonicalBearishObSourceTime)
+        addDailyZone("OB", -1, canonicalBearishObSourceTime, canonicalBearishObSourceTime, canonicalBearishObTop, canonicalBearishObBottom)
+        addDailyObBosLine(-1, canonicalBearishBrokenPivotTime, canonicalBearishBrokenPivotPrice, canonicalDailyTime, canonicalDailyHigh, canonicalDailyLow)
+    if canonicalBullishFvg
+        addDailyZone("FVG", 1, canonicalDailyTime, canonicalDailyTime, canonicalBullishFvgTop, canonicalBullishFvgBottom)
+    if canonicalBearishFvg
+        addDailyZone("FVG", -1, canonicalDailyTime, canonicalDailyTime, canonicalBearishFvgTop, canonicalBearishFvgBottom)
+    lastCanonicalDailyTime := canonicalDailyTime
+
+plot(showWeeklyStructureBias and showWeeklyBiasLevels ? weeklyStructureHigh : na, "W Bias confirmed swing high", color=color.new(color.orange, 15), linewidth=2, style=plot.style_stepline)
+plot(showWeeklyStructureBias and showWeeklyBiasLevels ? weeklyStructureLow : na, "W Bias confirmed swing low", color=color.new(color.aqua, 15), linewidth=2, style=plot.style_stepline)
+plotshape(showWeeklyStructureBias and showWeeklyBiasMarkers and weeklyBullBiasFlip, title="Weekly Bullish Bias flip", style=shape.labelup, location=location.belowbar, color=weeklyBullBiasColor, text="W BULL", textcolor=color.white, size=size.tiny)
+plotshape(showWeeklyStructureBias and showWeeklyBiasMarkers and weeklyBearBiasFlip, title="Weekly Bearish Bias flip", style=shape.labeldown, location=location.abovebar, color=weeklyBearBiasColor, text="W BEAR", textcolor=color.white, size=size.tiny)
+
+weeklyBiasBackground = weeklyStructureBias == 1 ? color.new(weeklyBullBiasColor, 95) : weeklyStructureBias == -1 ? color.new(weeklyBearBiasColor, 95) : na
+bgcolor(showWeeklyStructureBias and showWeeklyBiasBackground ? weeklyBiasBackground : na, title="Weekly Bias background")
+
+if barstate.islast
+    table.clear(buildTable, 0, 0, 1, 7)
+    weeklyBiasText = weeklyStructureBias == 1 ? "週多 BULLISH" : weeklyStructureBias == -1 ? "週空 BEARISH" : "中性 NEUTRAL"
+    weeklyBiasColor = weeklyStructureBias == 1 ? weeklyBullBiasColor : weeklyStructureBias == -1 ? weeklyBearBiasColor : weeklyNeutralBiasColor
+    table.cell(buildTable, 0, 0, "BUILD", text_color=color.silver, bgcolor=color.new(color.navy, 15))
+    table.cell(buildTable, 1, 0, "V10-DZONE-09", text_color=color.white, bgcolor=color.new(color.navy, 15))
+    table.cell(buildTable, 0, 1, "W BIAS", text_color=color.white, bgcolor=color.new(color.navy, 15))
+    table.cell(buildTable, 1, 1, weeklyBiasText, text_color=color.white, bgcolor=weeklyBiasColor)
+    table.cell(buildTable, 0, 2, "W SWING HIGH", text_color=color.silver)
+    table.cell(buildTable, 1, 2, na(weeklyStructureHigh) ? "-" : str.tostring(weeklyStructureHigh, format.mintick), text_color=color.white)
+    table.cell(buildTable, 0, 3, "W SWING LOW", text_color=color.silver)
+    table.cell(buildTable, 1, 3, na(weeklyStructureLow) ? "-" : str.tostring(weeklyStructureLow, format.mintick), text_color=color.white)
+    table.cell(buildTable, 0, 4, "W FLIPS B / S", text_color=color.silver)
+    table.cell(buildTable, 1, 4, str.tostring(weeklyBullFlips) + " / " + str.tostring(weeklyBearFlips), text_color=color.white)
+    table.cell(buildTable, 0, 5, "PHASE", text_color=color.silver)
+    table.cell(buildTable, 1, 5, "W BIAS + D ZONES", text_color=color.white)
+    table.cell(buildTable, 0, 6, "D ZONES", text_color=color.silver)
+    table.cell(buildTable, 1, 6, canBuildDailyZones ? "ACTIVE" : "USE D / INTRADAY", text_color=canBuildDailyZones ? color.lime : color.orange)
+    sessionText = timeframe.isintraday ? (chartSessionIsEth ? "ETH" : "USE ETH (" + str.upper(syminfo.session) + ")") : "SOURCE ETH"
+    table.cell(buildTable, 0, 7, "SESSION", text_color=color.silver)
+    table.cell(buildTable, 1, 7, sessionText, text_color=chartSessionIsEth ? color.lime : color.orange)
+    for buildRow = 0 to 7
+        table.cell_set_text_size(buildTable, 0, buildRow, size.tiny)
+        table.cell_set_text_size(buildTable, 1, buildRow, size.tiny)
+    table.cell_set_text_size(buildTable, 0, 1, size.small)
+    table.cell_set_text_size(buildTable, 1, 1, size.small)

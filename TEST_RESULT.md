@@ -1,5 +1,118 @@
 # Test Results
 
+## 2026-07-18 V10-DZONE-09 canonical ETH session（待 TradingView 驗證）
+
+- 2105／2023-12-21 的 Daily 最高與收盤均為 47.90；使用者實圖確認 H1 RTH 看不到 47.90，而 [H1 ETH 實圖](docs/images/v10-eth-session-2026-07-18/2105-h1-eth-dzone08-47.90.png)可見觸及 47.90 的 K 棒。差異定位為 chart session，不是除權息或 OB/BOS source 錯誤。
+- 這張收尾截圖右下明確顯示 `ETH`，但右上 BUILD 仍是 `V10-DZONE-08`，且尚無 DZONE-09 新增的 SESSION row。因此它只通過「2105 原生 ETH H1 含 47.90」與「後續統一 ETH 的決策依據」，不代表 `V10-DZONE-09` 已 compile 或視覺通過。
+- Weekly／Daily canonical requests 改用同一 `ticker.modify(syminfo.tickerid, session.extended)`；DZONE-08 的 pivot、BOS、extreme opposing source、OB/FVG geometry、失效與 no-execution 均不修改。
+- 右上表新增 SESSION：intraday ETH 顯示 `ETH`；非 ETH 顯示 `USE ETH (...)`；Daily 以上顯示 `SOURCE ETH`。此列只診斷原生 chart bars，不能替使用者切換 TradingView session。
+- Repository 靜態檢查通過：build ID、兩個 ETH canonical requests、無直接 `request.security(syminfo.tickerid, ...)`、8-row table、SESSION 狀態文字、no-execution、Markdown 相對連結與 `git diff --check` 均符合。仍須 TradingView compile，並用 DZONE-09 在 2105 RTH／ETH、2324、2634 Daily/H4/H1 回歸；未完成前不標記為通過。
+
+## 2026-07-18 V10-DZONE-08 pivot-to-BOS extreme opposing source（待 TradingView 驗證）
+
+- 本輪只修改 V10 Daily OB source K：搜尋區間固定為被突破 confirmed pivot K 之後、BOS K 之前，不包含左右端點，也不再受 8 根 searchback 限制。
+- Bullish BOS 只比較區間內 bearish K，以最低 `low` 的 K 作為 OB source；Bearish BOS 只比較 bullish K，以最高 `high` 的 K 作為 source。Doji 排除；同低／同高時取時間較晚、較靠近 BOS 的候選。
+- Candidate 在 confirmed pivot 發布時以 pivot 後已完成的確認區間初始化，之後逐根更新，BOS K 本身不進入候選。若區間沒有反向 K，該次 BOS 不建立 OB。
+- DZONE-07 已驗證的 BOS line 左端、structure price、右端與 label 保持不變；OB Full Range、ATR/BOS gate、full-edge close invalidation、FVG、canonical Weekly/Daily feed 與 no-execution 亦不修改。
+- Repository 靜態檢查通過：build ID、兩個 canonical requests、22 個 Daily confirmed outputs、固定 searchback 移除、反向 K 方向、Bullish 最低 low／Bearish 最高 high、左右端點排除、同價較晚者、無候選不建 OB、BOS line 不變、Full Range、失效分流及 no-execution 均符合；Markdown 相對連結與 `git diff --check` 通過。TradingView compile/runtime、新舊 OB source 差異及 Daily/H4/H1 exact reconciliation 仍待驗證。
+
+## 2026-07-18 V10-DZONE-07 OB BOS structure line（Daily 視覺通過）
+
+- 本輪修正 DZONE-06 的診斷線端點：不再連接 OB source K，而是將形成 OB 的 BOS K 水平連回被突破的 confirmed pivot K。
+- Canonical Daily OB event 新增 Bullish／Bearish broken-pivot time 與 price。Bullish line 固定在被突破 swing high；Bearish line 固定在被突破 swing low；左端為 pivot K，右端為 BOS K，顏色預設紅色，BOS K 保留 `BOS ↑／BOS ↓` label。
+- `Show Daily OB BOS structure line` 預設開啟；line／label 各最多 40 個。此顯示只在 OB 實際成立時建立，不修改 pivot、BOS、ATR displacement、OB source searchback、Full Range、失效或 canonical feed。
+- Repository 靜態檢查通過：build ID、兩個 canonical requests、22 個 Daily confirmed outputs、broken pivot 在新 pivot 發布前保存、水平線雙端共用 structure price、紅色預設、舊 source trace 移除、BOS labels、40 組物件上限、OB searchback／Full Range／失效分流保留及 no-execution 均符合；Markdown 相對連結與 `git diff --check` 通過。
+- 使用者提供 2324 與 2634／Daily 實圖，兩者均正常顯示 `V10-DZONE-07`、紅色水平 BOS line 與 `BOS ↑／BOS ↓` labels，並明確回覆圖形符合需求。Daily 視覺通過；H4/H1 exact endpoints 未由本組截圖證明。
+
+## 2026-07-18 V10-DZONE-06 OB BOS-to-source trace（需求不符合）
+
+- 本輪只增加 Daily OB 診斷顯示，不修改 pivot、BOS、ATR displacement、來源 K 搜尋、Full Range、失效或 canonical Daily/Weekly feed。
+- 每次 OB 實際建立時，Bullish 由 BOS K 的 low 以左箭頭連到來源 bearish K 的 high；Bearish 由 BOS K 的 high 連到來源 bullish K 的 low。BOS K 分別標示 `BOS ↑`／`BOS ↓`，箭頭左端即本次最多 8 根回找實際停止的來源 K。
+- `Show Daily OB BOS-to-source trace` 預設開啟；trace line 與 BOS label 各自最多保留 40 個。Weekly chart 不建立 Daily trace，Daily/H4/H1 使用 canonical completed-Daily time、high、low 與 source time，因此座標來源相同。
+- Repository 靜態檢查通過；使用者提供 2324／Daily 實圖，確認 `V10-DZONE-06` 可執行並顯示 BOS label 與斜向來源箭頭。但需求實際是「BOS K 水平回畫至被突破 pivot K」，不是連到 OB source K，因此本版判定需求不符合，由 `V10-DZONE-07` 取代。
+
+## 2026-07-18 V10-DZONE-05 canonical completed-Weekly Bias（跨時框表格通過）
+
+- 本輪只修正 Weekly Bias 資料源一致性：Weekly confirmed pivots、prior-pivot breakout、Bias、Bull/Bear flip counts 與 flip events 全部在單一 Weekly request context 計算。
+- Confirmed Weekly snapshot 的 time、Bias、swing high／low、Bull/Bear flips 與兩個 flip events 共 8 個 scalar outputs 全部使用 `[1]`，外層固定 `lookahead_on`；chart context 已無 `currentWeek*`、Weekly OHLC arrays 或 chart-local Bias state。
+- `V10-DZONE-04` 的 canonical Daily request、OB/FVG geometry、失效分流與 zone arrays 保留；全程仍無 execution。
+- Repository 靜態檢查通過：兩個 canonical requests、8 個 Weekly／16 個 Daily confirmed offsets、chart-driven Weekly/Daily state 移除、Weekly prior-pivot ordering、Bias／flip counts、marker one-shot gate、Daily OB/FVG engine、失效分流、九組 zone 平行 arrays 與 no-execution 均符合；Markdown 相對連結及 `git diff --check` 通過。
+- 使用者提供 2324 同一 Replay 位置的 Weekly、Daily、H4、H1 實圖；四個時框右上表均顯示 build `V10-DZONE-05`，且 W BIAS 為 `週多 BULLISH`、W SWING HIGH 為 `47.75`、W SWING LOW 為 `27.50`、W FLIPS B/S 為 `8 / 7`。
+- Weekly chart 正確顯示 `D ZONES USE D / INTRADAY`；Daily、H4、H1 正確顯示 `D ZONES ACTIVE`，既有 Daily OB/FVG 仍可見，畫面未出現 compile/runtime 或 memory error。
+- 結論：canonical completed-Weekly feed 的四個 table 欄位已通過 Weekly／Daily／H4／H1 跨時框一致性驗證，且 canonical Daily zones 第一輪視覺回歸未受影響。單一 flip marker 是否永遠只發布一次、切換／reload 後狀態，以及 zones 的 source time／精確邊界／失效日／Replay 更新仍待逐項驗證。
+
+## 2026-07-17 V10-DZONE-04 canonical Daily OB/FVG feed（第一輪跨時框視覺通過）
+
+- 本輪只修正 Daily/H1 zone 資料源一致性：Daily ATR、confirmed OB pivot、一次性 BOS、來源 K、OB geometry 與 FVG event 全部在單一 Daily request context 計算。
+- Confirmed snapshot 對 16 個 scalar outputs 全部使用 `[1]`，外層固定 `lookahead_on`；chart context 已無 `currentDay*`、Daily OHLC arrays、手動 ATR seed/count 或 chart-local Daily pivot state。
+- Daily/H1 只在 canonical Daily time 改變時消費一次相同 snapshot；OB full-edge／FVG midpoint invalidation 分流、OB/FVG geometry、九組 zone 平行 arrays 與 no-execution 保留。
+- Repository 靜態 assertions 與 `git diff --check` 通過。
+- 使用者提供 2324／Daily、H4、H1 實圖，三個時框均清楚顯示 `V10-DZONE-04`、`D ZONES ACTIVE`，沒有 compile/runtime 或 memory error 畫面。
+- `V10-DZONE-03` 在 H1 缺少的約 21.45～21.75、22.65～22.85 Bullish OB 已在 Daily、H4、H1 同時出現；共通可見區間的約 20.65～20.90 Bullish OB、24.00～24.30 Bearish OB及三組主要 FVG 上下界亦第一輪視覺一致。
+- 結論：canonical Daily feed 修正通過 2324 Daily/H4/H1 第一輪 zone 顯示回歸。精確 source timestamp／top／bottom 數值、逐區失效日、重新載入與 Replay 逐日更新仍待第二輪核對，不由本次截圖擴大宣稱。
+- Weekly Bias 尚未 canonicalize：Daily 顯示 Bearish／flips `20/20`，H4 顯示 Bullish／`16/15`，H1 顯示 Bullish／`10/10`。這不影響本次 zone 通過，但在加入 execution 前仍須修正。
+
+## 2026-07-17 V10-DZONE-03 traditional Daily OB candidate（跨時框驗證失敗）
+
+- 本輪只修改 V10 Daily OB：confirmed pivot length 4、每個 pivot 只接受一次的首次 close BOS、順向 Daily ATR(14) × 1.0 displacement、被突破 pivot 後最近反向來源 K、Full Range 與完成 Daily close full-edge invalidation。
+- V10 Daily FVG 保留原三 K geometry、middle-candle displacement、range 與 midpoint invalidation；Weekly Bias、右上永久表及 no-execution state 未修改。
+- Repository 靜態檢查已通過：build ID、pivot length 4、rolling lookback 移除、首次 BOS crossing、每 pivot 一次性消耗、方向／ATR gate、來源時間範圍、Full Range、prior-pivot ordering、OB full-edge／FVG midpoint 分流失效、FVG geometry 保留、九組 zone 平行 arrays 生命週期與 no-execution 均符合；Markdown 相對連結及 `git diff --check` 通過。
+- 初次交付時尚未執行 TradingView Pine Editor compile、runtime 或實圖驗證；後續使用者回報如下，本版最終判定為跨時框失敗。
+- 使用者隨後提供 2324 實圖：Daily 在約 21.45～21.75 與 22.65～22.85 顯示 Bullish OB，H1 同期間沒有這兩個 OB，只保留 FVG；compile/runtime 可執行，但 Daily/H1 zone reconciliation 失敗。
+- 同組畫面中 Weekly Bias 為 Daily Bearish、H1 Bullish，flip counts 為 Daily `20/20`、H1 `10/10`。這是兩個圖表時框從不同歷史起點重建高週期 state 的直接證據；OB 並非在 H1 被 full-edge invalidation 刪除，因失效 box 只停止延伸而不會消失。
+
+## 2026-07-16 V10-DZONE-02 integrate Weekly Bias into right table（視覺通過）
+
+- 本輪只調整 table 位置與 row ordering；Daily Zone Engine 與 Weekly Bias 計算未修改。
+- Repository 靜態檢查與 `git diff --check` 通過；確認程式只有一個 2×7 右上 table、BUILD 第一列、Weekly Bias 在 phase 之前、左側 table 已移除，Daily engine 與 no-execution state 保留。
+- 使用者提供 2105 實圖：[Weekly](docs/images/v10-daily-zones-2026-07-16/2105-weekly-dzone02-right-table.png)、[Daily](docs/images/v10-daily-zones-2026-07-16/2105-daily-dzone02-right-table.png)、[H1](docs/images/v10-daily-zones-2026-07-16/2105-h1-dzone02-right-table.png)。
+- 三個時框均清楚顯示 `V10-DZONE-02`，左側 Weekly Bias table 已消失；右上固定順序為 BUILD、W BIAS、W SWING HIGH／LOW、W FLIPS、PHASE、D ZONES。
+- 三個時框目前方向均為 `週空 BEARISH`，confirmed swing high／low均為 35.30／29.05。Weekly 與 Daily flips 為 28／29，H1 為 12／13；差異來自可用歷史深度，不影響目前 Bias 與 levels 一致性。
+- Weekly 正確顯示 `D ZONES USE D / INTRADAY`；Daily 與 H1 顯示 `ACTIVE`，Daily OB/FVG 在兩個支援時框均可見，第一輪跨時框位置視覺一致。
+- Pine Editor compile、runtime、永久版本表、Weekly Bias 整合及 Daily zone 第一輪顯示驗證通過。逐一核對所有歷史 zone 的 midpoint 失效終點仍不在本輪驗收範圍。
+
+## 2026-07-16 V10-DZONE-01 Daily OB/FVG and permanent build table（第一輪視覺通過）
+
+- Repository 靜態檢查與 `git diff --check` 通過；build table、Weekly/Daily 聚合、Daily ATR/OB/FVG、完成 Daily close invalidation、midline default off、無 execution 及 zone 平行 arrays 生命週期均已核對。
+- V1 SHA-256 保持 `951AC72372FF6AB75D1830A17C445CA0D57DB85A61F47C31F34AE107ED955B31`；V4 tracked file 未修改。
+- 使用者提供 2376 實圖：[Weekly](docs/images/v10-daily-zones-2026-07-16/2376-weekly-dzone01.png)、[Daily](docs/images/v10-daily-zones-2026-07-16/2376-daily-dzone01.png)、[H1](docs/images/v10-daily-zones-2026-07-16/2376-h1-dzone01.png)。
+- 三個時框均成功顯示 `V10-DZONE-01`；Weekly 正確顯示 `USE D / INTRADAY`，Daily/H1 顯示 `ACTIVE`。
+- Daily OB/FVG 已在 Daily 與 H1 顯示，代表 compile/runtime 與第一輪跨時框視覺通過；逐區 midpoint 失效終點仍待後續精查。
+- 本版沒有 execution；畫面出現 SETUP／ARMED／ENTRY 或交易統計即視為錯誤。
+
+## 2026-07-16 V10-WBIAS-04 remove Weekly zones and legacy execution（視覺通過）
+
+- V10 已由約千行的 V1 複製核心重建為 122 行 Weekly Structure Bias-only indicator。
+- Repository 靜態檢查與 `git diff --check` 通過；確認固定 Weekly data、Bias core、背景及 swing default off 保留，且程式已無 OB/FVG、zone objects、SETUP／ARMED／ENTRY 或 legacy table。
+- 使用者提供 2376/Weekly 實圖：[clean baseline，缺少版本表](docs/images/v10-weekly-bias-2026-07-16/2376-weekly-wbias04-clean-no-version-table.png)。
+- Weekly OB/FVG 與 legacy table 已消失，週方向表／背景／markers 正常；使用者確認後要求加入 Daily OB/FVG。
+- 畫面缺少可辨識 build ID，無法直接與 Codex 對答案；此發現建立「最右上永久版本識別表」固定規則，從 `V10-DZONE-01` 起強制執行。
+
+## 2026-07-16 V10-WBIAS-03 simplified default display（視覺通過）
+
+- 只將 `Show Weekly Bias swing levels` 預設改為 false；背景維持預設開啟，Weekly Bias 計算未修改。
+- Repository 靜態檢查與 `git diff --check` 通過；確認 build ID、swing default off、background default on、Bias core 與 legacy gate 均符合預期。
+- 使用者提供 2376/Weekly 實圖：[移除 Weekly zones 前基準](docs/images/v10-weekly-bias-2026-07-16/2376-weekly-wbias03-before-zone-removal.png)。
+- `V10-WBIAS-03` compile/runtime 正常，swing levels 預設未顯示，背景與目前方向表正常；使用者下一步要求刪除 Weekly OB/FVG。
+
+## 2026-07-16 V10-WBIAS-02 visible Weekly direction（視覺通過，預設顯示待簡化）
+
+- Repository 靜態檢查與 `git diff --check` 通過；確認中左側方向表、週多／週空文字、兩條 swing steplines、兩種 flip markers、背景開關均存在，且 legacy SETUP gate 未改。
+- 使用者提供 2376/Weekly 實圖：[目前週方向與紅綠背景](docs/images/v10-weekly-bias-2026-07-16/2376-weekly-wbias02-visible-direction.png)。
+- V10 成功顯示 `週多 BULLISH`，方向表不再被商品資訊遮住；紅綠背景清楚、簡單且獲使用者接受。
+- Swing steplines 與歷史 flip markers 疊加在 OB/FVG 上造成畫面混亂；本輪只依使用者要求將 swing levels 預設關閉，markers 保留開關與原預設。
+- 核心 Bias 判定未修改；本輪只改善可見性與人工核對能力。
+
+## 2026-07-16 V10-WBIAS-01 independent Weekly Structure Bias（compile/runtime 通過，方向列顯示失敗）
+
+- 新增獨立 V10 Pine 檔；V1／V4 穩定檔未修改。
+- Repository 靜態檢查與 `git diff --check` 通過；確認 Weekly Bias 先判斷舊 confirmed pivot、再發布新 pivot，且尚未進入舊 SETUP touch gate。
+- 使用者提供 2376 實圖：[Weekly](docs/images/v10-weekly-bias-2026-07-16/2376-weekly-wbias01.png)、[H1](docs/images/v10-weekly-bias-2026-07-16/2376-h1-wbias01.png)。
+- V10 在兩個時框均成功執行；confirmed swing high／low同為 402.0／318.5，證明最新 Weekly structure levels 跨時框一致。
+- Weekly 的 Bias flips 為 25/25，H1 為 12/12；這符合兩時框可用歷史深度可能不同，flip 累計不可用來判斷目前方向。
+- 目前 Bias 所在的表格第一列被 TradingView 左上商品資訊遮住，因此 `V10-WBIAS-01` 的方向顯示驗收失敗，升版 `V10-WBIAS-02` 修正。
+- `V10-WBIAS-01` 的 Weekly Bias 尚未接入 SETUP gate；現有交易表為 `LEGACY EXEC`，其 SETUP／ARMED／Total 不代表新架構結果。
+
 ## 2026-07-16 V4-LONG-01 Taiwan equity Long-only execution sync（通過）
 
 - V1 驗證通過後，相同 `dir == 1` bullish SETUP touch gate 已同步至 V4 PRIMARY。

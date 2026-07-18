@@ -2,6 +2,8 @@
 
 ## Pine Script
 
+- V10 的跨週期 `request.security()`／`request.security_lower_tf()`一律使用以 `ticker.modify(syminfo.tickerid, session.extended)`建立的 ETH ticker，不直接使用會繼承圖表 session 的 symbol。
+- Pine 無法替使用者切換原生 chart session；intraday session 不為 ETH 時必須顯示警告，TradingView 視覺驗收也必須先切到 ETH。
 - 維持 Pine Script v5，除非另有升級任務。
 - 新功能先更新 `SMC_SPEC.md`，確認 timeframe、觸發條件、失效條件與視覺規則後再改程式。
 - 僅使用完成的高週期 candle 產生確認訊號，避免 lookahead 或 repainting 路徑。
@@ -30,6 +32,16 @@
 - 修改流程固定為先完成 V1、由使用者在 TradingView 驗證，再把相同核心移植到 V4；不得在 V1 未通過時同時猜測性修改兩支程式。
 - Window 起點、touch state 初始化與 event counting 必須明確採用同一規則。現行規則是不做 Window 前 warm-up，第一根 Window H1 的有效重疊可計為第一筆 touch。
 - 優先保持簡單規則與少量核心統計，不增加逐筆診斷、龐大測試矩陣或大量參數；只有實際錯誤定位需要時才加入暫時 diagnostic，驗證後移除或隱藏。
+
+## 永久版本識別表
+
+- V10 及後續新架構候選 Pine 必須在 `position.top_right` 永久保留版本識別表。
+- 即使目前沒有交易統計，仍必須顯示精確 build ID、目前 phase 與 timeframe／資料支援狀態。
+- 版本表不得提供隱藏開關，也不得因 compact mode、關閉統計、非支援 timeframe 或尚無訊號而消失。
+- 右上表固定以 BUILD 為第一列，接著顯示 Weekly Bias、Weekly confirmed swing high／low與 flip 資訊；未來新增統計只能附加在這個固定頂部區塊下方。
+- 不另外建立左側 Weekly Bias table，避免相同狀態分散在兩個位置。
+- TradingView 截圖若沒有清楚顯示 build ID，不得用於版本核對、問題定位或驗收通過。
+- 每次升版必須同步修改 indicator title、右上版本表、`CHANGELOG.md`、`TEST_RESULT.md` 與 `TODO.md` 的 build ID。
 
 ## 策略微調與決策
 

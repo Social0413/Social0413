@@ -2,6 +2,43 @@
 
 > 狀態說明：V1 `V1-LONG-01`／V4 `V4-LONG-01` 已在 2105、2324/H1 完成 Long-only TradingView 共通統計對齊。Bearish zone／Daily structure 繼續顯示，midpoint invalidation 不變。
 
+## V10 新架構：Weekly Structure Bias + Daily OB/FVG
+
+- V10 必須使用獨立 Pine 檔，不得覆蓋或改寫穩定版 V1／V4。
+- V10 檔案為 `smc-weekly-ob-fvg/assets/smc_weekly_structure_bias_v10.pine`；目前候選 build 為 `V10-DZONE-09`。Canonical Weekly table、第一輪 Daily zones 與 DZONE-07 Daily BOS line 視覺均已通過；DZONE-08 的 extreme opposing OB source 與 DZONE-09 的 ETH 統一仍待 TradingView 完整驗證。
+- Weekly 的新核心職責是提供方向，不以 Weekly OB/FVG 的生成、存在、重疊或 touch 限制交易區域。
+- V10 不再包含 Weekly OB/FVG inputs、arrays、boxes、midlines、invalidation、touch、traded state 或任何依賴 Weekly zones 的 execution。
+- Bias 固定使用完成的 Weekly candles 與獨立 confirmed pivot，第一版 swing length 預設 2。
+- Weekly Bias Engine 固定在 `request.security(..., "W", confirmedWeeklyBiasSnapshot(), lookahead=barmerge.lookahead_on)` 的 Weekly context 計算，並以一根歷史位移只發布上一根已完成 Weekly snapshot。Daily、H4、H1 不再各自聚合 Weekly OHLC 或維護各自的 pivot／Bias／flip state。
+- 相同 symbol 與 Replay 位置下，Daily、H4、H1 的 W BIAS、W SWING HIGH、W SWING LOW 與 W FLIPS B/S 必須完全一致；任一欄不同即視為 canonical Weekly 驗證失敗。
+- 完成 Weekly close 高於先前已確認的 Weekly swing high 時，Bias 更新為 Bullish；完成 Weekly close 低於先前已確認的 Weekly swing low 時，Bias 更新為 Bearish；未突破時維持原方向。
+- 每根完成 Weekly candle 必須先對先前 confirmed pivot 判斷 Bias，再發布由本 candle 新確認的 pivot，避免 breakout target 被同 candle 新 pivot 回溯移動。
+- Weekly Bias 不使用 ATR、單根 body displacement、Weekly OB/FVG touch 或 zone invalidation。
+- `V10-WBIAS-04` 顯示目前 `週多 BULLISH／週空 BEARISH／中性 NEUTRAL`、confirmed swing high／low、Bias flip 次數、可選結構水平線、方向切換標記及可關閉的淡色背景。
+- `Show Weekly Bias swing levels` 預設關閉；背景預設開啟。顯示開關不得改變 Weekly Bias state。
+- Weekly Bias 不使用獨立左側表格；目前與 BUILD、confirmed levels、flips、phase、Daily zone 狀態整合在右上永久表。
+- `V10-DZONE-09` 在 canonical Weekly Structure Bias 上顯示 canonical Daily OB/FVG 與 OB BOS structure line，但仍不包含 SETUP／ARMED／ENTRY、Trade Plan 或績效統計。
+- Daily 與 H1 必須使用完全相同的 OB/FVG event、source time、top、bottom 與失效日，這是後續 H1 execution 的必要前提；任一 zone 只在其中一個時框出現即視為失敗。
+- V10 的唯一 session 基準為 ETH。Canonical Weekly／Daily feed 必須使用 `ticker.modify(syminfo.tickerid, session.extended)`；TradingView 的 Daily、H4、H1 Replay 與未來 execution 驗收也必須把原生 intraday 圖表切到 ETH。RTH 圖表可能排除日終／延伸時段成交，不能用來否定 canonical Daily BOS、OB 或 FVG。
+- Pine 無法切換原生圖表的 RTH／ETH。Intraday 圖表不是 ETH 時，右上 SESSION 必須顯示 `USE ETH (...)`；該警告只表示圖表 K 棒與 canonical feed 的 session 不同，不改變 canonical zone 計算。
+- Daily Zone Engine 固定在 `request.security(..., "D", confirmedDailyZoneSnapshot(), lookahead=barmerge.lookahead_on)` 的 Daily context 計算，並以一根歷史位移只發布上一根已完成 Daily snapshot。Daily ATR、confirmed pivot、BOS、來源 K 搜尋與 FVG geometry 不再由 chart bars 各自重建。
+- Daily 與 intraday chart 都只在 canonical Daily time 改變時消費一次 snapshot：先以完成 Daily close 失效既有 zones，再建立該完成日新確認的 OB/FVG。Box/line objects 仍在 chart context 建立，不放進 `request.security()`。
+- Daily OB 使用獨立 confirmed pivot，`Daily OB swing length` 預設 4。每根完成 Daily candle 必須先對進入該 candle 前已確認的 swing high／low 判斷 BOS，再發布由該 candle 新確認的 pivot。
+- 每個 confirmed swing 只接受第一次完成 close 穿越作為 BOS；該次突破即消耗此 pivot，不因價格回到結構內後再次穿越而重複判斷。Bullish Daily OB 只在前一個完成 Daily close 尚未高於 confirmed swing high、目前完成 close 首次收在其上方、突破 K 為 bullish，且 body 至少為 Daily Wilder ATR(14) × 1.0 時成立；Bearish Daily OB 對稱使用 confirmed swing low、bearish candle 與相同 ATR 門檻。首次 BOS 若未通過方向／ATR displacement，不建立 OB，也不以同一 pivot 的後續 re-cross 補建。
+- Daily OB source 的搜尋區間是開區間：嚴格位於被突破 confirmed pivot K 之後、形成 BOS 的突破 K 之前；左右端點都不納入，也不使用固定根數 searchback。
+- Bullish BOS 只在該區間的 bearish Daily candles 中選擇 `low` 最低者；Bearish BOS 只在 bullish Daily candles 中選擇 `high` 最高者。Doji 不作為來源；同低／同高時選擇時間較晚、較靠近 BOS 的反向 K。區間內沒有合格反向 K 時，該次 BOS 不建立 OB。
+- `Show Daily OB BOS structure line` 預設開啟。Bullish 在被突破 confirmed swing high 價格，從該 pivot K 水平畫至 BOS K；Bearish 對稱使用被突破 confirmed swing low。BOS K 顯示方向標籤。此功能解釋 OB 所依據的 structure break，不參與 OB 成立、來源搜尋、上下界或失效判斷。
+- Daily OB range 使用來源 K 的 Full Range `low → high`；同方向同一來源 Daily candle 最多一個 OB。Hybrid Range 不再用於 V10 Daily OB，V1／V4 舊架構不受影響。
+- Daily FVG 使用三根完成 Daily candles 的標準 wick-to-wick gap，不設最小 gap 寬度；中間 candle 必須同方向且 body 至少為 Daily Wilder ATR(14) × 1.0。
+- Bullish Daily OB/FVG 使用綠／黃；Bearish Daily OB/FVG 使用兩階淺紅；box 文字固定為 `D OB`／`D FVG`。
+- Daily OB 只由完成 Daily close 穿越遠端失效：Bullish close 嚴格低於 bottom，Bearish close 嚴格高於 top；影線、未完成 intraday close 或收盤剛好等於邊界不使 OB 失效。Daily FVG 仍維持完成 Daily close 穿越 midpoint 失效；Midline 顯示預設關閉。
+- Daily OB 與 FVG 每類最多保留 40 個；顯示開關不得停止底層 zone state 建立與失效。
+- Daily zones 支援 Daily 與 intraday charts；高於 Daily 的 chart 只顯示 Weekly Bias，右上版本表標記 `USE D / INTRADAY`。
+- 下一階段目標架構為 `Weekly Structure Bias → Daily OB/FVG + Daily MSS → H1 SETUP / ARMED / ENTRY`；本版不產生任何交易候選。
+- V10 及後續新架構 build 必須在圖表最右上保留永久版本識別表。即使尚無統計，仍須顯示精確 build ID、目前 phase 與支援狀態；不得提供隱藏此表的開關。
+- Weekly Bias 不再使用左側獨立表格。右上永久表的固定頂部順序為：BUILD、W BIAS、W SWING HIGH、W SWING LOW、W FLIPS；phase、timeframe 狀態與未來統計只能接在其下方。
+- V4 保持舊架構穩定核對層，不同步 V10 的獨立 Weekly Bias。待 V10 的 Daily zones 與新 execution 完成視覺驗證後，再建立同一 V10 架構的獨立數值核對版本，不覆蓋 V4。
+
 ## V4 Top-down Model Research Engine（開發版）
 
 - V4 必須是獨立 Pine 檔，不覆蓋 V3；V3 保留作為同一 Weekly context 下的 H4/H1/M30 比較基準。

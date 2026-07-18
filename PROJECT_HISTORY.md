@@ -1,5 +1,67 @@
 # TradingView SMC Replay Toolkit - Development History
 
+## 2026-07-18 - V10 統一 ETH session
+
+2105／2023-12-21 出現 Daily canonical 結構價 47.90、H1 RTH 無任何 K 棒觸及的疑問。使用者移除指標後比對 Daily 與 H1，確認 H1 切到 ETH 即出現觸及 47.90 的 K；正新該年度除息日在 2023-06-01，因此排除除權息。決策是 V10 的 Weekly／Daily canonical requests、Replay 驗收與未來 H1 execution 全部統一 ETH。`V10-DZONE-09` 以 session-specific ticker 固定內部 request，並在右上表警告非 ETH intraday chart；Pine 不能切換原生圖表 session，這項使用者設定仍是驗收前置條件。收尾截圖仍顯示 DZONE-08，故只證明 ETH 原生 H1 的 47.90，DZONE-09 compile／SESSION row 仍保留為下一輪第一個安全測試點。
+
+## 2026-07-18 - V10 OB source 改為 pivot-to-BOS 極值反向 K
+
+使用者以 2324、2634／Daily 實圖確認 `V10-DZONE-07` 的 broken-pivot-to-BOS 水平線符合需求，並要求三個 BOS line 座標保持不變，只修改 OB source。`V10-DZONE-08` 將來源範圍固定為 pivot K 與 BOS K 之間：Bullish 取 `low` 最低的 bearish K，Bearish 取 `high` 最高的 bullish K；端點與 Doji 排除，同價取較靠近 BOS 者，區間無反向 K 則不建立 OB。原固定 8 根與最近反向 K 規則從 V10 移除。
+
+## 2026-07-18 - V10 BOS structure line correction
+
+`V10-DZONE-06` 將 BOS K 斜向連到 OB source K；使用者實圖確認功能可執行，但澄清真正需求是將「突破形成 BOS 的 K」水平回畫到「被突破的 confirmed pivot K」，價位固定為該 swing high／low，類似手動畫出的紅色結構線。`V10-DZONE-07` 因此新增 broken-pivot time／price outputs 並取代 source trace；OB source 搜尋與全部成立規則保持不變。
+
+## 2026-07-18 - V10 OB BOS-to-source visual audit
+
+使用者最初要求增加 OB 診斷線；當時理解為顯示「由 BOS K 往前最多 8 根尋找最近反向 K」的結果，因此 `V10-DZONE-06` 將 BOS K 連到來源反向 K。後續實圖澄清此理解錯誤，本版不再使用。
+
+## 2026-07-17 - V10 canonical completed-Weekly Bias
+
+`V10-DZONE-04` 已修正 Daily zones，但 2324 同一 Replay 位置的 Weekly table 仍為 Daily Bearish／`20/20`、H4 Bullish／`16/15`、H1 Bullish／`10/10`。這證明原 chart-driven Weekly 聚合與 Daily zones 先前問題相同：各時框載入歷史起點不同，造成 Bias 路徑與累計 flips 不一致。後續 H1 SETUP 需要可靠 Weekly 方向，因此不能只修 zones。
+
+`V10-DZONE-05` 將 Weekly pivot、prior-pivot break、Bias、flip counts 與 markers 移入單一 Weekly `request.security()` context。所有 outputs 位移一根 Weekly bar並搭配 `lookahead_on`，chart 端只在 canonical Weekly time 改變時發布一次 marker；table、背景與 levels 直接讀取同一 state。Daily canonical engine 完全保留；本版完成時的下一步是等待 2324 Daily/H4/H1 四個 Weekly table 欄位精確一致驗證。
+
+使用者後續提供 2324 同一 Replay 位置的 Weekly、Daily、H4、H1 四張 `V10-DZONE-05` 實圖。四個時框的永久表均為 `週多 BULLISH`、confirmed swing high `47.75`、swing low `27.50`、Bull/Bear flips `8 / 7`；Weekly chart 正確標示 Daily zones 僅供 Daily／intraday 使用，Daily、H4、H1 的既有 zones 仍可見。Canonical Weekly table reconciliation 因此通過；marker one-shot、切換／reload、Replay 與 Daily zone exact values 仍保留為下一輪 audit，不能由靜態截圖推定完成。
+
+## 2026-07-17 - V10 canonical Daily Zone Engine
+
+`V10-DZONE-03` 在 2324 實圖出現 Daily 有兩個 Bullish OB、H1 只剩 FVG的差異。畫面同時顯示 Daily/H1 Weekly flip counts 為 `20/20` 與 `10/10`，證明原本依各 chart bars 聚合 Daily/Weekly state 的架構會因載入歷史起點不同而走出不同 ATR、pivot 與 BOS 路徑。由於後續 H1 SETUP 必須讀取與 Daily 完全相同的 zones，這不是可接受的顯示差異。
+
+`V10-DZONE-04` 因此將 Daily ATR、confirmed pivot、一次性 BOS、OB source／geometry 與 FVG event 移入單一 Daily `request.security()` context。依 TradingView confirmed HTF 模式，engine outputs 全部位移一根 Daily bar並搭配 `lookahead_on`，Daily/H1 只在 canonical completed-Daily time 改變時消費同一 snapshot；box/line 仍由 chart context 建立。OB/FVG 規則本身不變，本版等待 2324 Daily/H1 exact-zone 回歸。
+
+使用者後續提供 2324 Daily、H4、H1 三張 `V10-DZONE-04` 實圖。三個時框均正常執行，`V10-DZONE-03` 在 H1 缺失的兩個 Bullish OB 已恢復；共同可見區間的主要 Bullish／Bearish OB 與 FVG 上下界第一輪視覺一致，canonical zone feed 可標記為第一輪通過。截圖同時確認 Weekly Bias 仍不一致：Daily Bearish `20/20`、H4 Bullish `16/15`、H1 Bullish `10/10`；因此 zone 通過不代表整個 Weekly→Daily state 已可接 execution。下一步仍需 exact values、失效日、reload／Replay audit，之後再處理 Weekly Bias canonicalization。
+
+## 2026-07-17 - V10 Daily OB 回歸 confirmed BOS 與 Full Range
+
+使用者認為 `V10-DZONE-02` 的 rolling 8-day high／low、只看絕對 body、任意 searchback 反向 K 與 Hybrid Range 不符合預期的傳統 SMC OB。新定義收斂為：獨立 confirmed Daily pivot length 4、完成 close 首次突破舊 pivot、突破 K 方向一致且 body 至少為 Daily ATR(14) × 1.0，再於被突破 pivot 之後回找最近反向非 Doji candle；zone 使用完整來源 K `low → high`。
+
+使用者同時決定 V10 Daily OB 不再由 midpoint 失效，而由完成 Daily close 穿越遠端才失效：Bullish 嚴格低於 bottom，Bearish 嚴格高於 top。這項修改不套用 Daily FVG，也不改 V1／V4 舊架構。Build 升為 `V10-DZONE-03`，在 TradingView compile/runtime 與 Daily／H1 實圖驗證完成前只視為候選。
+
+## 2026-07-16 - V10 新架構開始：Weekly 只負責方向
+
+使用者決定不再以 Weekly OB/FVG 的生成或 touch 作為新架構的交易區域限制。原因是 Weekly zone 生成慢、觸碰少，若仍要求 Weekly touch，加入 Daily 層也無法解除交易次數瓶頸。新目標架構改為 `Weekly Structure Bias → Daily OB/FVG + Daily MSS → H1 execution`：Weekly 管方向、Daily 管位置、H1 管進場。
+
+為避免破壞已驗證的 V1／V4，新增獨立 `smc_weekly_structure_bias_v10.pine`，build 從 `V10-WBIAS-01` 開始。第一階段只實作完成週 K 的 confirmed structure break Bias，尚未加入 Daily zones 或更換 execution gate。V10 暫時保留 V1 複製核心作圖形對照，交易表標示 `LEGACY EXEC`。
+
+Weekly Bias 不由 OB/FVG 推導；它使用 swing length 2，完成 Weekly close 高於先前 confirmed swing high 時轉 Bullish，低於先前 confirmed swing low 時轉 Bearish。每週先判斷舊 pivot、再發布新 pivot。此階段完成後必須先由使用者在 TradingView 驗證 Bias 切換位置，才進入 Daily OB/FVG 第二階段。
+
+`V10-WBIAS-01` 在 2376/Weekly 與 H1 成功執行，兩時框最新 confirmed swing high／low一致，但方向表第一列被 TradingView 左上商品資訊遮住，使用者無法直接辨識目前週多或週空。此問題不改 Bias 核心，升版 `V10-WBIAS-02` 將表格移至圖表中左側，放大目前方向，並增加 swing steplines、flip markers 與可選方向背景。Weekly/H1 的 flip 累計因歷史覆蓋不同不要求一致。
+
+使用者確認 `V10-WBIAS-02` 的紅綠背景與目前週方向表符合「乾淨、簡單、明顯」的需求，但長歷史 swing steplines 使畫面混亂，因此 `V10-WBIAS-03` 只把 swing levels 預設關閉，背景維持開啟。V4 不同步 V10 中間階段：V4 繼續作為 V1 舊架構的穩定核對層；等 V10 的 Daily zones 與新 execution 完成後，再建立獨立的新架構統計版本。
+
+加入 Daily OB/FVG 前，使用者要求先刪除 V10 的 Weekly OB/FVG。`V10-WBIAS-04` 因此不採用只隱藏 boxes 的做法，而是重建成 Weekly Structure Bias-only：刪除 Weekly zone engine、所有 zone arrays／objects／state，以及依賴 Weekly zones 的 legacy execution 與交易表。V1／V4 完整保留舊架構；V10 下一步從乾淨基底新增 Daily zones。
+
+`V10-WBIAS-04` 實圖確認 clean baseline 成功，但因右上沒有任何版本資訊，使用者無法從截圖確認正在測試哪個 build。此問題被定義為永久工作流程規則：V10 及後續新架構候選無論是否已有統計，都必須在最右上保留不可隱藏的 build table；沒有清楚 build ID 的截圖不得作為驗收證據。
+
+`V10-DZONE-01` 從 clean baseline 新增 Daily OB/FVG。Daily zones 使用完成 Daily candles、Daily ATR displacement、OB Hybrid Range、標準三 K FVG 與完成 Daily close midpoint invalidation；第一輪只驗證 zones，不加入 Daily MSS 或 execution。
+
+`V10-DZONE-01` 在 2376/Weekly、Daily、H1 成功執行並顯示永久 build table。使用者要求進一步收斂畫面：左側 Weekly Bias table 應整合到右上未來統計表的最上方。因此 `V10-DZONE-02` 移除左側表，右上固定保留 BUILD 與 Weekly Bias 結構區塊；未來統計只能追加在其下方。
+
+`V10-DZONE-02` 隨後在 2105／Weekly、Daily、H1 完成實圖驗證。三個時框都清楚顯示同一 build、`週空 BEARISH` 與 35.30／29.05 confirmed swing levels；Weekly／Daily flips 為 28／29，H1 因歷史覆蓋較短為 12／13。左側重複表已消失，Weekly 顯示 `USE D / INTRADAY`，Daily/H1 顯示 `ACTIVE`，Daily zones 第一輪跨時框位置一致。
+
+本段沒有策略 rollback。主要顯示問題依序是：左上第一列被商品資訊遮住、swing 線與 zones 疊加造成雜訊、刪除 legacy table 後失去 build ID、最後又出現左／右兩張狀態表分散資訊。最終可重用結論是：淡色 Weekly Bias 背景保留、swing levels 預設關閉、Weekly zones 不回到 V10、BUILD 與 Weekly Bias 永久整合在右上固定頂部區塊。下一步只加入 Daily MSS Bias，不混入 H1 execution。
+
 ## 2026-07-16 - ENTRY/TPSL、手機顯示與台股 Long-only 第一輪收斂
 
 本段對話先重新盤點完整 ENTRY／TPSL：ARMED 後回踩固定 break level 並收盤站回才 ENTRY，SL 使用 ARMED 當下的反方向 confirmed H1 pivot。使用者選定兩項簡單調整：ENTRY retest expiry 預設由不限期改為 15 根 H1；TP1 後剩餘部位 SL 移到 Entry。V1 `V1-ENTRYTPSL-01` 先驗證，2324 與 2609 均出現 TP1→BE，預設 50% 於 1R 出場時正確計為 +0.5R；再同步 V4。2609、2324 的 V1/V4 共通績效完成對齊，2376 的最終 current-build 回歸保留為後續安全基準。

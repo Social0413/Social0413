@@ -12,6 +12,18 @@
 
 - 2376 曾在較早的 ENTRYTPSL／MSS 階段完成多輪驗證，但尚未用最終 `LONG-01` current build 做一次 V1/V4 FULL 共通統計回歸。這不是目前阻斷問題，應作為下一輪 zone invalidation 前的基準。
 
+## V10 限制
+
+- TradingView 同一台股 symbol 的 Daily EOD 與 H1 RTH 可能不含相同成交。2105／2023-12-21 已確認 Daily 與 H1 ETH 到達 47.90，但 H1 RTH 看不到該價；這不是除權息，也不是 OB/BOS engine 錯誤。`V10-DZONE-09` 已把 canonical requests 固定為 ETH 並加入 SESSION 警告，但 Pine 無法替使用者切換原生圖表，RTH 截圖不得作為跨時框驗收依據。
+- `V10-DZONE-06` 的斜向 source trace 不得沿用。`V10-DZONE-07` 的 broken-pivot-to-BOS 水平線已通過 2324／2634 Daily 視覺確認；H4/H1 exact endpoints 仍待核對。
+- `V10-DZONE-08` 已把 Daily OB source 改成 pivot-to-BOS 開區間的極值反向 K，目前只有 Repository 靜態檢查；必須驗證最低 bearish／最高 bullish 選擇、同價 tie-break、無候選事件及跨時框一致性。
+- `V10-DZONE-03` 已在 2324 實圖確認跨時框失敗：Daily 顯示 Bullish OB，H1 在相同區段只剩 FVG；同時 Weekly flips 為 Daily `20/20`、H1 `10/10`，證明 chart-driven 高週期 state 會受載入歷史起點影響。此版不得作為後續 execution 基準。
+- `V10-DZONE-04` 已移除 chart-driven Daily OHLC／ATR／pivot 聚合，改用 canonical confirmed-Daily request；2324 Daily/H4/H1 compile/runtime 與第一輪 zone 位置視覺通過。
+- `V10-DZONE-05` 已將 Weekly pivot、Bias、flip counts 與 markers 改為 canonical confirmed-Weekly request；2324 Weekly／Daily／H4／H1 table 已共同顯示 Bullish、`47.75`、`27.50`、`8 / 7`，跨時框表格對齊通過。
+- Daily zones 只支援 Daily 與 intraday charts；Weekly 等較高時框只顯示 Weekly Bias，右上表標記 `USE D / INTRADAY`。
+- Canonical Daily zones 尚未證明「所有已載入歷史 zones」精確數值完全一致；必須以游標／Data Window 逐一核對 OB/FVG source time、top、bottom 與失效終點，並測試 reload／Replay。
+- `V10-DZONE-05` 尚未逐一證明歷史 W BULL／W BEAR marker 每個 canonical flip 永遠只發布一次，也尚未完成切換時框、reload 與 Replay 穩定性測試；在這些 audit 完成前仍不加入 H1 execution。
+
 ## V4 限制
 
 - PRIMARY 固定使用 H1；其他 timeframe 只顯示 `Use H1 chart`。
@@ -22,6 +34,6 @@
 
 - 本機沒有 Pine compiler；Repository 靜態檢查不能取代 TradingView compile 與實圖驗證。
 - TradingView Essential 的歷史資料、物件與執行限制可能影響長 Window 結果。
-- OB/FVG 目前使用圖表 bar close 穿越 midpoint 失效；正式入口固定 H1。Full-edge close invalidation 尚未實作。
+- 穩定版 V1／V4 Weekly OB/FVG 仍使用 H1 close 穿越 midpoint 失效；V10 Daily FVG 亦維持 midpoint。V10 Daily OB 已改為 completed Daily close 穿越 full edge 才失效。
 - ENTRY expiry 預設 15 根 H1；輸入設為 0 時仍可關閉。
 - 指標只做分析與模擬，不連接券商、不自動下單，也不保證績效。

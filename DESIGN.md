@@ -2,6 +2,35 @@
 
 > 目前狀態：V1 `V1-LONG-01`／V4 `V4-LONG-01` 已在 2105、2324/H1 完成 Long-only 共通統計對齊；midpoint invalidation 未修改。
 
+## V10 Weekly Structure Bias
+
+- V10 是新的策略架構分支，使用 `smc_weekly_structure_bias_v10.pine`，不覆蓋 V1 視覺基準或 V4 統計基準。
+- `V10-DZONE-09` 同時使用 canonical confirmed-Weekly Bias 與 canonical confirmed-Daily zones；不恢復 Weekly OB/FVG 或 legacy execution。
+- `canonicalEthTickerId = ticker.modify(syminfo.tickerid, session.extended)`是 V10 唯一高週期 request symbol。Weekly 與 Daily requests 都從此 ETH ticker 取得資料，不再繼承圖表當下的 RTH／ETH；因此使用者切換圖表 session 不會改變 canonical Bias、BOS、OB/FVG event 或 geometry。
+- 原生 chart bars 由 TradingView 控制，Pine 無法替使用者切換 session。`syminfo.session`只用於右上 SESSION 驗收列：intraday ETH 顯示 `ETH`，RTH／其他 session 顯示 `USE ETH (...)`；Daily 以上顯示 `SOURCE ETH`。
+- `canonicalWeeklyBiasEngine()` 在 Weekly request context 依序判斷進入本週前已確認的 swing high／low突破、更新 Bias／flip counts，再發布本週新確認的 pivot；規則順序與 `V10-DZONE-04` 前相同。
+- `confirmedWeeklyBiasSnapshot()` 對 time、Bias、swing high／low、Bull/Bear flips 與兩個 flip events 全部使用 `[1]`；外層 `lookahead_on` 只發布上一根已完成 Weekly snapshot。
+- Daily／H4／H1 不再保存 chart-local Weekly OHLC arrays 或 Bias state。W BULL／W BEAR marker 只在 canonical Weekly time 改變後的第一根 chart bar顯示一次；背景、steplines 與右上表直接讀取相同 canonical state。
+- `V10-WBIAS-02` 曾將獨立方向表放在 `position.middle_left` 避開商品資訊；`V10-DZONE-02` 已取消這張表，方向與結構數值統一放入 `position.top_right` 永久表。
+- confirmed swing high／low以 stepline 顯示；Bias 真正改變時在確認可用的第一根圖表 bar 顯示 `W BULL／W BEAR`，並可選擇顯示極淡的方向背景。
+- Swing steplines 因長歷史畫面容易與 OB/FVG 重疊，從 `V10-WBIAS-03` 起預設關閉；使用者需要驗證結構門檻時仍可手動開啟。背景維持預設開啟。
+- Weekly/H1 因載入歷史深度不同，累計 Bias flip 次數可以不同；目前方向與最新 confirmed swing levels 才是跨時框一致性的主要驗收項目。
+- High timeframe 不是 `W` 時，V10 Bias 表顯示 `USE W SOURCE`，不把其他來源時框誤標為 Weekly Bias。
+- `canonicalDailyZoneEngine()` 在 Daily request context 逐根計算 Wilder ATR、confirmed OB pivot、一次性 BOS、來源 K 與 FVG；`confirmedDailyZoneSnapshot()` 對全部輸出使用 `[1]`，外層以 `lookahead_on` 取得上一根已確認 Daily event，避免 developing Daily values 與 historical/realtime 差異。
+- Daily/H1 chart 不再維護各自的 Daily OHLC、ATR 或 pivot arrays；兩者只在 `canonicalDailyTime` 改變時消費一次相同 snapshot。處理順序固定為：完成 Daily close 失效既有 zones → 建立 snapshot 的 OB → 建立 snapshot 的 FVG。
+- Canonical request 只傳回 scalar event／geometry，不傳回 box、line 或大型 collections；繪圖與 zone 平行 arrays 留在 chart context，以控制 request memory 與 Replay object lifecycle。
+- Daily OB 使用獨立 pivot length 4，並以 broken-pivot time 記錄每個 confirmed swing 已被消耗；Bullish／Bearish BOS 分別要求前一日 close 尚在結構內、目前完成 close 首次穿越尚未消耗的 confirmed swing。只有該首次 BOS 的突破 K 方向一致且 body 至少為 Daily ATR(14) × 1.0 才建立 OB；弱突破不建立，也不允許同 pivot re-cross 補建。
+- OB source candidate 嚴格追蹤 pivot K 與 BOS K 之間的反向 K。新 pivot 發布時，先掃描 pivot 後至確認當日的固定 pivot-confirmation 區間初始化候選；後續完成 Daily candle 再逐根更新。Bullish 保存 `low` 最低的 bearish K，Bearish 保存 `high` 最高的 bullish K；比較使用 `<=`／`>=`，因此同價由較晚 candle 取代。BOS 判斷與 source 讀取先於本 candle candidate 更新，確保 BOS K 不會進入候選。Zone 使用選中來源 K 的完整 `low → high`。
+- OB 建立後可選擇建立 chart-context BOS structure line：canonical snapshot 提供 completed Daily BOS time／high／low，以及當次被突破 confirmed pivot 的 time／price；line 固定在 pivot price，從 pivot K 水平畫至 BOS K，並在 BOS K 建立方向 label。Objects 獨立限量，不回寫 canonical engine，也不影響 OB source 或 zone active／invalidation state。
+- Daily OB 由完成 Daily close 穿越遠端 top／bottom 失效；Daily FVG 保留 midpoint invalidation。兩者都不因影線或未完成 intraday candle 失效。
+- Daily zones 使用單一平行 arrays 保存 box、midline、type、direction、midpoint、active、source time、top、bottom；每類超過上限時刪除最舊同類物件與 state。
+- Daily zone 顯示開關只決定是否建立 box／midline handle；OB/FVG state 仍照常建立，避免未來 execution 被顯示設定改變。
+- V10 沒有 execution 或績效欄位；右上永久表整合 build、Weekly Bias、confirmed swing high／low、flip 次數、phase、Daily zone 支援狀態與 chart session 狀態。
+- V4 不接收 V10 中間階段修改。V4 繼續代表已驗證的 V1 舊架構；新架構的數值核對層必須在 V10 execution 規格完成後另建，避免同一 V4 混入兩套策略。
+- 後續先新增獨立 Daily MSS Bias，再將 SETUP gate 定義為 `Weekly bullish Bias + Daily bullish Bias + bullish Daily zone touch`；V10 不再恢復 Weekly OB/FVG。
+- 所有 V10 後續 build 的右上版本識別表是驗收介面，不是一般顯示選項。任何 TradingView 截圖若未清楚顯示 build ID，不可用來做版本對答案或通過結論。
+- 右上表未來加入統計時，BUILD 與 Weekly Bias 區塊固定保留在最上方；不得另外建立左側 Weekly Bias table，也不得讓統計欄位把版本或方向推離表格頂部。
+
 ## 目標
 
 本專案把高週期 SMC 區域與 Daily 結構事件呈現在 TradingView Daily、H4、M15 等圖表，並優先維持 Bar Replay 的可見性與穩定性。
