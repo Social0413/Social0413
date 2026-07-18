@@ -1,4 +1,6 @@
 *.png
+!docs/images/
+!docs/images/**/*.png
 *.jpg
 *.jpeg
 *.gif
@@ -6,3 +8,4 @@
 *.zip
 *.log
 desktop-tradingview.png
+outputs/

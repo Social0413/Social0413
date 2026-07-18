@@ -1,12 +1,13 @@
 //@version=5
-indicator("CODEX SMC Weekly OB FVG v1", overlay=true, max_boxes_count=500, max_lines_count=500, max_labels_count=200)
+indicator("CODEX SMC Weekly OB FVG V1-LONG-01", overlay=true, max_boxes_count=500, max_lines_count=500, max_labels_count=200)
 
 htf = input.timeframe("W", "High timeframe")
-useWicks = input.bool(true, "Use full candle wick for OB range")
 maxZones = input.int(40, "Maximum zones per type", minval=10, maxval=120)
 structureLookback = input.int(8, "OB structure lookback", minval=3, maxval=30)
 obSearchBack = input.int(8, "OB candle searchback", minval=1, maxval=30)
-minFvgPct = input.float(3.0, "Minimum FVG size (%)", minval=0.0, step=0.25)
+const int zoneAtrLen = 14
+const float obBodyAtrMult = 1.0
+const float fvgBodyAtrMult = 1.0
 showOb = input.bool(true, "Show weekly OB")
 showFvg = input.bool(true, "Show weekly FVG")
 showMidline = input.bool(true, "Show zone midpoint")
@@ -14,32 +15,33 @@ stableReplayExtend = input.bool(true, "Stable replay extension")
 showChoch = input.bool(true, "Show D CHOCH")
 showMss = input.bool(true, "Show D MSS")
 chochSwingLen = input.int(2, "D CHOCH swing length", minval=1, maxval=10)
-mssSwingLen = input.int(5, "D MSS swing length", minval=2, maxval=20)
-mssAtrLen = input.int(14, "D MSS ATR length", minval=1, maxval=100)
-mssBodyAtrMult = input.float(1.0, "D MSS body ATR multiplier", minval=0.0, step=0.1)
+mssSwingLen = input.int(4, "D MSS swing length", minval=2, maxval=20)
 maxStructureLines = input.int(120, "Maximum CHOCH/MSS lines", minval=20, maxval=300)
 showSetup = input.bool(true, "Show SETUP")
 maxSetupLabels = input.int(40, "Maximum SETUP labels", minval=5, maxval=40)
 showArmed = input.bool(true, "Show ARMED")
 armedSwingLen = input.int(3, "ARMED swing length", minval=1, maxval=10)
-armedAtrLen = input.int(14, "ARMED ATR length", minval=1, maxval=100)
-armedBodyAtrMult = input.float(1.0, "ARMED body ATR multiplier", minval=0.0, step=0.1)
-armedExpiryBars = input.int(20, "ARMED expiry bars", minval=1, maxval=200)
+setupExpiryBars = input.int(15, "SETUP expiry H1 bars", minval=1, maxval=100)
+perZoneDiagnostic = input.string("FULL", "Per-zone engine diagnostic", options=["OFF", "TOUCH", "FULL"])
 maxArmedLabels = input.int(40, "Maximum ARMED labels", minval=5, maxval=40)
 showEntry = input.bool(true, "Show ENTRY")
-entryExpiryBars = input.int(0, "ENTRY retest expiry bars (0 = off)", minval=0, maxval=100)
+entryExpiryBars = input.int(15, "ENTRY retest expiry bars (0 = off)", minval=0, maxval=100)
 maxEntryLabels = input.int(40, "Maximum ENTRY labels", minval=5, maxval=40)
 showTradePlans = input.bool(true, "Show SL/TP trade plans")
 tradeTp1R = input.float(1.0, "Trade plan TP1 (R)", minval=0.25, step=0.25)
 tradeTp2R = input.float(2.0, "Trade plan TP2 (R)", minval=0.5, step=0.25)
+tradeTp1ExitPct = input.float(50.0, "TP1 exit size (%)", minval=0.0, maxval=100.0, step=5.0)
 maxTradePlans = input.int(20, "Maximum trade plans", minval=1, maxval=20)
+showTradeStats = input.bool(true, "Show trade statistics")
+showSignalFunnelStats = input.bool(true, "Show SETUP/ARMED/ENTRY statistics")
+const int statsLookbackDays = 1095
 
 bullObColor = input.color(color.new(color.lime, 90), "Bullish OB fill")
 bullObBorder = input.color(color.new(color.lime, 20), "Bullish OB border")
-bearObColor = input.color(color.new(color.red, 90), "Bearish OB fill")
-bearObBorder = input.color(color.new(color.red, 20), "Bearish OB border")
+bearObColor = input.color(color.new(color.rgb(255, 128, 128), 88), "Bearish OB fill")
+bearObBorder = input.color(color.new(color.rgb(255, 128, 128), 25), "Bearish OB border")
 bullFvgColor = input.color(color.new(color.yellow, 82), "Bullish FVG fill")
-bearFvgColor = input.color(color.new(color.olive, 90), "Bearish FVG fill")
+bearFvgColor = input.color(color.new(color.rgb(255, 176, 176), 88), "Bearish FVG fill")
 midColor = input.color(color.new(color.white, 15), "Zone midpoint color")
 bullChochColor = input.color(color.rgb(0, 105, 60), "Bullish CHOCH line")
 bearChochColor = input.color(color.rgb(120, 35, 35), "Bearish CHOCH line")
@@ -76,6 +78,8 @@ var int[] obSourceDirs = array.new_int()
 var float[] obTops = array.new_float()
 var float[] obBottoms = array.new_float()
 var string[] obKeys = array.new_string()
+var bool[] obTouchedPrev = array.new_bool()
+var bool[] obTraded = array.new_bool()
 var box[] fvgBoxes = array.new_box()
 var line[] fvgMidLines = array.new_line()
 var int[] fvgDirs = array.new_int()
@@ -84,6 +88,8 @@ var bool[] fvgActive = array.new_bool()
 var float[] fvgTops = array.new_float()
 var float[] fvgBottoms = array.new_float()
 var string[] fvgKeys = array.new_string()
+var bool[] fvgTouchedPrev = array.new_bool()
+var bool[] fvgTraded = array.new_bool()
 var line[] structureLines = array.new_line()
 var box[] structureTextBoxes = array.new_box()
 var float[] structureLevels = array.new_float()
@@ -99,7 +105,6 @@ var float mssLow = na
 var int mssHighTime = na
 var int mssLowTime = na
 var int mssTrend = 0
-var float dCurO = na
 var float dCurH = na
 var float dCurL = na
 var float dCurC = na
@@ -117,8 +122,6 @@ var int aggMssTrend = 0
 var int[] dayTimes = array.new_int()
 var float[] dayHighs = array.new_float()
 var float[] dayLows = array.new_float()
-var float[] dayCloses = array.new_float()
-var float[] dayTrs = array.new_float()
 var int completedWeeks = 0
 var int[] weekTimes = array.new_int()
 var float[] weekOpens = array.new_float()
@@ -126,21 +129,22 @@ var float[] weekHighs = array.new_float()
 var float[] weekLows = array.new_float()
 var float[] weekCloses = array.new_float()
 var int setupBias = 0
+var float setupBiasInvalidation = na
 var label[] setupLabels = array.new_label()
 var string[] setupLabelKeys = array.new_string()
 var label[] armedLabels = array.new_label()
+var string[] armedLabelKeys = array.new_string()
 var label[] entryLabels = array.new_label()
-var int activeSetupDir = 0
-var int activeSetupBar = na
-var string activeSetupZoneKey = ""
-var float activeSetupBreakLevel = na
 var float lastArmedPivotHigh = na
 var float lastArmedPivotLow = na
-var int activeArmedDir = 0
-var int activeArmedBar = na
-var string activeArmedZoneKey = ""
-var float activeArmedRetestLevel = na
-var float activeArmedProtectLevel = na
+var string[] flowKeys = array.new_string()
+var int[] flowDirs = array.new_int()
+var int[] flowStages = array.new_int()
+var int[] flowSetupBars = array.new_int()
+var float[] flowBreakLevels = array.new_float()
+var int[] flowArmedBars = array.new_int()
+var float[] flowRetestLevels = array.new_float()
+var float[] flowProtectLevels = array.new_float()
 var line[] tradeSlLines = array.new_line()
 var line[] tradeTp1Lines = array.new_line()
 var line[] tradeTp2Lines = array.new_line()
@@ -152,9 +156,40 @@ var float[] tradeTp1s = array.new_float()
 var float[] tradeTp2s = array.new_float()
 var int[] tradeStartBars = array.new_int()
 var int[] tradeStatuses = array.new_int()
+var int statsTotal = 0
+var int statsTp2Wins = 0
+var int statsTp1Breakevens = 0
+var int statsDirectLosses = 0
+var float statsGrossWinR = 0.0
+var float statsGrossLossR = 0.0
+var float statsNetR = 0.0
+var int funnelSetups = 0
+var int funnelArmed = 0
+var int funnelEntries = 0
+var int funnelInvalidPlans = 0
+var int funnelSetupExpired = 0
+var int funnelSetupOppositeBias = 0
+var int funnelSetupZoneInvalid = 0
+var int funnelArmedExpired = 0
+var int funnelArmedOppositeBias = 0
+var int funnelArmedZoneInvalid = 0
+var int funnelArmedProtectBroken = 0
+var int funnelSetupReplaced = 0
+var int funnelArmedReplaced = 0
+var int funnelSameZoneSetups = 0
+var int funnelChangedZoneSetups = 0
+var int funnelObSetups = 0
+var int funnelFvgSetups = 0
+var string funnelLastSetupZoneKey = ""
+var table tradeStatsTable = table.new(position.top_right, 2, 30, bgcolor=color.new(color.black, 15), frame_color=color.new(color.gray, 50), frame_width=1)
 
 barMs = math.max(1, nz(time - time[1], 24 * 60 * 60 * 1000))
 dayMs = 24 * 60 * 60 * 1000
+chartTimeframeSeconds = timeframe.in_seconds(timeframe.period)
+entryTimeframeMatches = chartTimeframeSeconds == 3600
+entryTimeframeName = entryTimeframeMatches ? "H1" : "UNSUPPORTED"
+statsWindowStartTime = last_bar_time - statsLookbackDays * dayMs
+inStatsWindow = time >= statsWindowStartTime
 
 arrayPivotHigh(_values, _center, _len) =>
     _ok = true
@@ -172,15 +207,6 @@ arrayPivotLow(_values, _center, _len) =>
             _ok := false
     _ok
 
-arrayAverageLast(_values, _len) =>
-    _size = array.size(_values)
-    _count = math.min(_len, _size)
-    _sum = 0.0
-    if _count > 0
-        for j = 0 to _count - 1
-            _sum += array.get(_values, _size - 1 - j)
-    _count > 0 ? _sum / _count : na
-
 trimZones() =>
     while array.size(obBoxes) > maxZones
         box.delete(array.shift(obBoxes))
@@ -193,6 +219,8 @@ trimZones() =>
         array.shift(obTops)
         array.shift(obBottoms)
         array.shift(obKeys)
+        array.shift(obTouchedPrev)
+        array.shift(obTraded)
     while array.size(fvgBoxes) > maxZones
         box.delete(array.shift(fvgBoxes))
         line.delete(array.shift(fvgMidLines))
@@ -202,6 +230,8 @@ trimZones() =>
         array.shift(fvgTops)
         array.shift(fvgBottoms)
         array.shift(fvgKeys)
+        array.shift(fvgTouchedPrev)
+        array.shift(fvgTraded)
 
 trimStructureLines() =>
     while array.size(structureLines) > maxStructureLines
@@ -243,24 +273,35 @@ zoneIsActive(_zoneKey) =>
                     _active := array.get(fvgActive, i)
     _active
 
+markZoneTraded(_zoneKey) =>
+    if _zoneKey != ""
+        if array.size(obKeys) > 0
+            for i = 0 to array.size(obKeys) - 1
+                if array.get(obKeys, i) == _zoneKey
+                    array.set(obTraded, i, true)
+        if array.size(fvgKeys) > 0
+            for i = 0 to array.size(fvgKeys) - 1
+                if array.get(fvgKeys, i) == _zoneKey
+                    array.set(fvgTraded, i, true)
+    true
+
 addSetupLabel(_dir, _zoneKey) =>
     _isBull = _dir == 1
     _key = _zoneKey == "" ? "UNKNOWN:" + str.tostring(_dir) + ":" + str.tostring(bar_index) : _zoneKey
-    _oldIndex = -1
     if array.size(setupLabelKeys) > 0
-        for i = 0 to array.size(setupLabelKeys) - 1
-            if array.get(setupLabelKeys, i) == _key
-                _oldIndex := i
-                break
-    if _oldIndex >= 0
-        label.delete(array.remove(setupLabels, _oldIndex))
-        array.remove(setupLabelKeys, _oldIndex)
+        for i = array.size(setupLabelKeys) - 1 to 0
+            _storedKey = array.get(setupLabelKeys, i)
+            _sameZone = _storedKey == _key or str.startswith(_storedKey, "ARCHIVED:" + _key + ":")
+            if _sameZone
+                label.delete(array.remove(setupLabels, i))
+                array.remove(setupLabelKeys, i)
     _label = label.new(bar_index, _isBull ? low : high, _isBull ? "B SETUP" : "S SETUP", style=_isBull ? label.style_label_up : label.style_label_down, color=color.new(_isBull ? color.green : color.red, 20), textcolor=color.white, size=size.tiny)
     array.push(setupLabels, _label)
     array.push(setupLabelKeys, _key)
     while array.size(setupLabels) > maxSetupLabels
         label.delete(array.shift(setupLabels))
         array.shift(setupLabelKeys)
+    _label
 
 dimAndArchiveSetupLabel(_dir, _zoneKey) =>
     if _zoneKey != "" and array.size(setupLabelKeys) > 0
@@ -277,8 +318,48 @@ addArmedLabel(_dir) =>
     _isBull = _dir == 1
     _label = label.new(bar_index, _isBull ? low : high, _isBull ? "B ARMED" : "S ARMED", style=_isBull ? label.style_label_up : label.style_label_down, color=color.new(_isBull ? color.lime : color.red, 5), textcolor=_isBull ? color.black : color.white, size=size.tiny)
     array.push(armedLabels, _label)
+    array.push(armedLabelKeys, "")
     while array.size(armedLabels) > maxArmedLabels
         label.delete(array.shift(armedLabels))
+        array.shift(armedLabelKeys)
+    _label
+
+setLatestArmedLabelKey(_zoneKey) =>
+    if array.size(armedLabelKeys) > 0
+        array.set(armedLabelKeys, array.size(armedLabelKeys) - 1, _zoneKey)
+
+deleteArmedLabelForZone(_zoneKey) =>
+    if array.size(armedLabelKeys) > 0
+        for i = array.size(armedLabelKeys) - 1 to 0
+            if array.get(armedLabelKeys, i) == _zoneKey
+                label.delete(array.remove(armedLabels, i))
+                array.remove(armedLabelKeys, i)
+
+archiveArmedLabelForZone(_zoneKey) =>
+    if array.size(armedLabelKeys) > 0
+        for i = 0 to array.size(armedLabelKeys) - 1
+            if array.get(armedLabelKeys, i) == _zoneKey
+                array.set(armedLabelKeys, i, "ARCHIVED:" + _zoneKey + ":" + str.tostring(bar_index))
+                break
+
+flowIndex(_zoneKey) =>
+    _found = -1
+    if array.size(flowKeys) > 0
+        for i = 0 to array.size(flowKeys) - 1
+            if array.get(flowKeys, i) == _zoneKey
+                _found := i
+                break
+    _found
+
+removeFlow(_index) =>
+    array.remove(flowKeys, _index)
+    array.remove(flowDirs, _index)
+    array.remove(flowStages, _index)
+    array.remove(flowSetupBars, _index)
+    array.remove(flowBreakLevels, _index)
+    array.remove(flowArmedBars, _index)
+    array.remove(flowRetestLevels, _index)
+    array.remove(flowProtectLevels, _index)
 
 addEntryLabel(_dir) =>
     _isBull = _dir == 1
@@ -309,11 +390,16 @@ addTradePlan(_dir, _entry, _stop) =>
         _tp1 = _dir == 1 ? _entry + _risk * tradeTp1R : _entry - _risk * tradeTp1R
         _effectiveTp2R = math.max(tradeTp2R, tradeTp1R)
         _tp2 = _dir == 1 ? _entry + _risk * _effectiveTp2R : _entry - _risk * _effectiveTp2R
-        _slLine = line.new(bar_index, _stop, bar_index + 1, _stop, color=color.new(color.red, 10), style=line.style_dashed, width=1)
-        _tp1Line = line.new(bar_index, _tp1, bar_index + 1, _tp1, color=color.new(color.aqua, 15), style=line.style_dotted, width=1)
-        _tp2Line = line.new(bar_index, _tp2, bar_index + 1, _tp2, color=color.new(color.blue, 10), style=line.style_dotted, width=1)
-        _text = (_dir == 1 ? "B PLAN" : "S PLAN") + "\nEntry " + str.tostring(_entry, format.mintick) + "\nSL " + str.tostring(_stop, format.mintick) + "\nTP1 " + str.tostring(_tp1, format.mintick) + "\nTP2 " + str.tostring(_tp2, format.mintick)
-        _planLabel = label.new(bar_index, _entry, _text, style=label.style_label_left, color=color.new(color.navy, 20), textcolor=color.white, size=size.tiny)
+        line _slLine = na
+        line _tp1Line = na
+        line _tp2Line = na
+        label _planLabel = na
+        if showTradePlans
+            _slLine := line.new(bar_index, _stop, bar_index + 1, _stop, color=color.new(color.red, 10), style=line.style_dashed, width=1)
+            _tp1Line := line.new(bar_index, _tp1, bar_index + 1, _tp1, color=color.new(color.aqua, 15), style=line.style_dotted, width=1)
+            _tp2Line := line.new(bar_index, _tp2, bar_index + 1, _tp2, color=color.new(color.blue, 10), style=line.style_dotted, width=1)
+            _text = (_dir == 1 ? "B PLAN" : "S PLAN") + "\nEntry " + str.tostring(_entry, format.mintick) + "\nSL " + str.tostring(_stop, format.mintick) + "\nTP1 " + str.tostring(_tp1, format.mintick) + "\nTP2 " + str.tostring(_tp2, format.mintick)
+            _planLabel := label.new(bar_index, _entry, _text, style=label.style_label_left, color=color.new(color.navy, 20), textcolor=color.white, size=size.tiny)
         array.push(tradeSlLines, _slLine)
         array.push(tradeTp1Lines, _tp1Line)
         array.push(tradeTp2Lines, _tp2Line)
@@ -326,6 +412,7 @@ addTradePlan(_dir, _entry, _stop) =>
         array.push(tradeStartBars, bar_index)
         array.push(tradeStatuses, 0)
         trimTradePlans()
+    _valid
 
 addStructureLine(_dir, _text, _level, _lineColor, _leftTime, _rightTime) =>
     _pad = math.max(syminfo.mintick * 20.0, _level * 0.0005)
@@ -360,6 +447,8 @@ addOb(_dir, _leftTime, _top, _bottom) =>
     array.push(obTops, _top)
     array.push(obBottoms, _bottom)
     array.push(obKeys, "OB:" + str.tostring(_dir) + ":" + str.tostring(_leftTime))
+    array.push(obTouchedPrev, false)
+    array.push(obTraded, false)
     trimZones()
 
 obExists(_dir, _sourceTime) =>
@@ -370,10 +459,29 @@ obExists(_dir, _sourceTime) =>
                 exists := true
     exists
 
+completedContextAtr(_highs, _lows, _closes, _length) =>
+    float atr = na
+    float seedSum = 0.0
+    int trCount = 0
+    if array.size(_highs) > 1
+        for i = 1 to array.size(_highs) - 1
+            currentHigh = array.get(_highs, i)
+            currentLow = array.get(_lows, i)
+            previousClose = array.get(_closes, i - 1)
+            trueRange = math.max(currentHigh - currentLow, math.max(math.abs(currentHigh - previousClose), math.abs(currentLow - previousClose)))
+            if trCount < _length
+                seedSum += trueRange
+                trCount += 1
+                if trCount == _length
+                    atr := seedSum / _length
+            else
+                atr := (atr * (_length - 1) + trueRange) / _length
+    atr
+
 addFvg(_dir, _leftTime, _top, _bottom) =>
     _mid = (_top + _bottom) / 2.0
     _fill = _dir == 1 ? bullFvgColor : bearFvgColor
-    _border = _dir == 1 ? color.new(color.yellow, 10) : color.new(color.olive, 30)
+    _border = _dir == 1 ? color.new(color.yellow, 10) : color.new(color.rgb(255, 176, 176), 30)
     _extend = stableReplayExtend ? extend.right : extend.none
     _box = box.new(_leftTime, _top, time, _bottom, xloc=xloc.bar_time, extend=_extend, bgcolor=_fill, border_color=_border, text="FVG", text_color=_border, text_size=size.tiny)
     _line = line.new(_leftTime, _mid, time, _mid, xloc=xloc.bar_time, extend=_extend, color=showMidline ? midColor : color.new(midColor, 100), style=line.style_dotted, width=1)
@@ -385,6 +493,8 @@ addFvg(_dir, _leftTime, _top, _bottom) =>
     array.push(fvgTops, _top)
     array.push(fvgBottoms, _bottom)
     array.push(fvgKeys, "FVG:" + str.tostring(_dir) + ":" + str.tostring(_leftTime))
+    array.push(fvgTouchedPrev, false)
+    array.push(fvgTraded, false)
     trimZones()
 
 if array.size(obBoxes) > 0
@@ -448,6 +558,49 @@ chochPivotLow = ta.pivotlow(low, chochSwingLen, chochSwingLen)
 mssPivotHigh = ta.pivothigh(high, mssSwingLen, mssSwingLen)
 mssPivotLow = ta.pivotlow(low, mssSwingLen, mssSwingLen)
 
+bullChoch = false
+bearChoch = false
+if timeframe.isdaily and not na(chochHigh) and close > chochHigh
+    bullChoch := chochTrend == -1
+    chochTrend := 1
+if timeframe.isdaily and not na(chochLow) and close < chochLow
+    bearChoch := chochTrend == 1
+    chochTrend := -1
+
+bullMss = false
+bearMss = false
+if timeframe.isdaily and not na(mssHigh) and close > mssHigh
+    bullMss := mssTrend == -1
+    mssTrend := 1
+if timeframe.isdaily and not na(mssLow) and close < mssLow
+    bearMss := mssTrend == 1
+    mssTrend := -1
+
+if showChoch and bullChoch
+    addStructureLine(1, "CHOCH", chochHigh, bullChochColor, chochHighTime, time)
+if showChoch and bearChoch
+    addStructureLine(-1, "CHOCH", chochLow, bearChochColor, chochLowTime, time)
+if showMss and bullMss
+    addStructureLine(1, "MSS", mssHigh, bullMssColor, mssHighTime, time)
+if showMss and bearMss
+    addStructureLine(-1, "MSS", mssLow, bearMssColor, mssLowTime, time)
+
+if timeframe.isdaily and setupBias == 1 and not na(setupBiasInvalidation) and close < setupBiasInvalidation
+    setupBias := 0
+    setupBiasInvalidation := na
+if timeframe.isdaily and setupBias == -1 and not na(setupBiasInvalidation) and close > setupBiasInvalidation
+    setupBias := 0
+    setupBiasInvalidation := na
+if bullMss
+    setupBias := 1
+    setupBiasInvalidation := mssLow
+if bearMss
+    setupBias := -1
+    setupBiasInvalidation := mssHigh
+
+// A completed Daily candle must break the pivot that was already confirmed
+// before this candle. Pivots confirmed on this candle are available only to
+// later Daily candles, so they cannot move the breakout target retroactively.
 if timeframe.isdaily
     if not na(chochPivotHigh)
         chochHigh := chochPivotHigh
@@ -462,41 +615,6 @@ if timeframe.isdaily
         mssLow := mssPivotLow
         mssLowTime := time[mssSwingLen]
 
-bullChoch = false
-bearChoch = false
-if timeframe.isdaily and not na(chochHigh) and close > chochHigh
-    bullChoch := chochTrend == -1
-    chochTrend := 1
-if timeframe.isdaily and not na(chochLow) and close < chochLow
-    bearChoch := chochTrend == 1
-    chochTrend := -1
-
-mssBody = math.abs(close - open)
-mssAtr = ta.atr(mssAtrLen)
-mssDisplacement = mssBodyAtrMult == 0.0 or mssBody >= mssAtr * mssBodyAtrMult
-bullMss = false
-bearMss = false
-if timeframe.isdaily and not na(mssHigh) and close > mssHigh and mssDisplacement
-    bullMss := mssTrend == -1
-    mssTrend := 1
-if timeframe.isdaily and not na(mssLow) and close < mssLow and mssDisplacement
-    bearMss := mssTrend == 1
-    mssTrend := -1
-
-if showChoch and bullChoch
-    addStructureLine(1, "CHOCH", chochHigh, bullChochColor, chochHighTime, time)
-if showChoch and bearChoch
-    addStructureLine(-1, "CHOCH", chochLow, bearChochColor, chochLowTime, time)
-if showMss and bullMss
-    addStructureLine(1, "MSS", mssHigh, bullMssColor, mssHighTime, time)
-if showMss and bearMss
-    addStructureLine(-1, "MSS", mssLow, bearMssColor, mssLowTime, time)
-
-if bullMss
-    setupBias := 1
-if bearMss
-    setupBias := -1
-
 canBuildDaily = timeframe.in_seconds(timeframe.period) < timeframe.in_seconds("D")
 dayKey = time("D")
 newDay = ta.change(dayKey) != 0
@@ -504,19 +622,47 @@ newDay = ta.change(dayKey) != 0
 if canBuildDaily
     if na(dCurT)
         dCurT := dayKey
-        dCurO := open
         dCurH := high
         dCurL := low
         dCurC := close
     else if newDay
-        prevClose = array.size(dayCloses) > 0 ? array.get(dayCloses, array.size(dayCloses) - 1) : dCurC
-        dTr = math.max(dCurH - dCurL, math.max(math.abs(dCurH - prevClose), math.abs(dCurL - prevClose)))
         array.push(dayTimes, dCurT)
         array.push(dayHighs, dCurH)
         array.push(dayLows, dCurL)
-        array.push(dayCloses, dCurC)
-        array.push(dayTrs, dTr)
 
+        aggBullChoch = false
+        aggBearChoch = false
+        if not na(aggChochHigh) and dCurC > aggChochHigh
+            aggBullChoch := aggChochTrend == -1
+            aggChochTrend := 1
+        if not na(aggChochLow) and dCurC < aggChochLow
+            aggBearChoch := aggChochTrend == 1
+            aggChochTrend := -1
+
+        aggBullMss = false
+        aggBearMss = false
+        if not na(aggMssHigh) and dCurC > aggMssHigh
+            aggBullMss := aggMssTrend == -1
+            aggMssTrend := 1
+        if not na(aggMssLow) and dCurC < aggMssLow
+            aggBearMss := aggMssTrend == 1
+            aggMssTrend := -1
+
+        if setupBias == 1 and not na(setupBiasInvalidation) and dCurC < setupBiasInvalidation
+            setupBias := 0
+            setupBiasInvalidation := na
+        if setupBias == -1 and not na(setupBiasInvalidation) and dCurC > setupBiasInvalidation
+            setupBias := 0
+            setupBiasInvalidation := na
+        if aggBullMss
+            setupBias := 1
+            setupBiasInvalidation := aggMssLow
+        if aggBearMss
+            setupBias := -1
+            setupBiasInvalidation := aggMssHigh
+
+        // Match the direct Daily path: evaluate the completed candle against
+        // previously confirmed pivots, then publish pivots confirmed today.
         dayCount = array.size(dayTimes)
         chochCenter = dayCount - 1 - chochSwingLen
         if dayCount >= chochSwingLen * 2 + 1
@@ -536,43 +682,7 @@ if canBuildDaily
                 aggMssLow := array.get(dayLows, mssCenter)
                 aggMssLowTime := array.get(dayTimes, mssCenter)
 
-        aggBullChoch = false
-        aggBearChoch = false
-        if not na(aggChochHigh) and dCurC > aggChochHigh
-            aggBullChoch := aggChochTrend == -1
-            aggChochTrend := 1
-        if not na(aggChochLow) and dCurC < aggChochLow
-            aggBearChoch := aggChochTrend == 1
-            aggChochTrend := -1
-
-        aggMssBody = math.abs(dCurC - dCurO)
-        aggMssAtr = arrayAverageLast(dayTrs, mssAtrLen)
-        aggMssDisplacement = mssBodyAtrMult == 0.0 or (not na(aggMssAtr) and aggMssBody >= aggMssAtr * mssBodyAtrMult)
-        aggBullMss = false
-        aggBearMss = false
-        if not na(aggMssHigh) and dCurC > aggMssHigh and aggMssDisplacement
-            aggBullMss := aggMssTrend == -1
-            aggMssTrend := 1
-        if not na(aggMssLow) and dCurC < aggMssLow and aggMssDisplacement
-            aggBearMss := aggMssTrend == 1
-            aggMssTrend := -1
-
-        if showChoch and aggBullChoch
-            addStructureLine(1, "CHOCH", aggChochHigh, bullChochColor, aggChochHighTime, time)
-        if showChoch and aggBearChoch
-            addStructureLine(-1, "CHOCH", aggChochLow, bearChochColor, aggChochLowTime, time)
-        if showMss and aggBullMss
-            addStructureLine(1, "MSS", aggMssHigh, bullMssColor, aggMssHighTime, time)
-        if showMss and aggBearMss
-            addStructureLine(-1, "MSS", aggMssLow, bearMssColor, aggMssLowTime, time)
-
-        if aggBullMss
-            setupBias := 1
-        if aggBearMss
-            setupBias := -1
-
         dCurT := dayKey
-        dCurO := open
         dCurH := high
         dCurL := low
         dCurC := close
@@ -581,105 +691,118 @@ if canBuildDaily
         dCurL := math.min(dCurL, low)
         dCurC := close
 
-bullTouchedZoneKey = findTouchedZoneKey(1)
-bearTouchedZoneKey = findTouchedZoneKey(-1)
-bullSetupActive = setupBias == 1 and bullTouchedZoneKey != ""
-bearSetupActive = setupBias == -1 and bearTouchedZoneKey != ""
-bullSetupEvent = bullSetupActive and (not bullSetupActive[1] or bullTouchedZoneKey != bullTouchedZoneKey[1])
-bearSetupEvent = bearSetupActive and (not bearSetupActive[1] or bearTouchedZoneKey != bearTouchedZoneKey[1])
-
-if bullSetupEvent
-    if showSetup
-        addSetupLabel(1, bullTouchedZoneKey)
-    activeSetupDir := 1
-    activeSetupBar := bar_index
-    activeSetupZoneKey := bullTouchedZoneKey
-    activeSetupBreakLevel := lastArmedPivotHigh
-    activeArmedDir := 0
-    activeArmedBar := na
-    activeArmedZoneKey := ""
-    activeArmedRetestLevel := na
-    activeArmedProtectLevel := na
-if bearSetupEvent
-    if showSetup
-        addSetupLabel(-1, bearTouchedZoneKey)
-    activeSetupDir := -1
-    activeSetupBar := bar_index
-    activeSetupZoneKey := bearTouchedZoneKey
-    activeSetupBreakLevel := lastArmedPivotLow
-    activeArmedDir := 0
-    activeArmedBar := na
-    activeArmedZoneKey := ""
-    activeArmedRetestLevel := na
-    activeArmedProtectLevel := na
-
+if perZoneDiagnostic != "OFF" and entryTimeframeMatches and inStatsWindow
+    zoneCount = array.size(obKeys) + array.size(fvgKeys)
+    if zoneCount > 0
+        for z = 0 to zoneCount - 1
+            isOb = z < array.size(obKeys)
+            zi = isOb ? z : z - array.size(obKeys)
+            zoneKey = isOb ? array.get(obKeys, zi) : array.get(fvgKeys, zi)
+            zoneDir = isOb ? array.get(obDirs, zi) : array.get(fvgDirs, zi)
+            active = isOb ? array.get(obActive, zi) : array.get(fvgActive, zi)
+            traded = isOb ? array.get(obTraded, zi) : array.get(fvgTraded, zi)
+            top = isOb ? array.get(obTops, zi) : array.get(fvgTops, zi)
+            bottom = isOb ? array.get(obBottoms, zi) : array.get(fvgBottoms, zi)
+            // Taiwan equity execution is fixed Long-only. Bearish zones remain
+            // visible and bearish Daily structure can still block/cancel longs,
+            // but only bullish zones can create an execution flow.
+            touched = zoneDir == 1 and active and not traded and setupBias == 1 and high >= bottom and low <= top
+            priorTouched = isOb ? array.get(obTouchedPrev, zi) : array.get(fvgTouchedPrev, zi)
+            if isOb
+                array.set(obTouchedPrev, zi, touched)
+            else
+                array.set(fvgTouchedPrev, zi, touched)
+            if touched and not priorTouched
+                fi = flowIndex(zoneKey)
+                canStartFlow = fi < 0
+                if fi >= 0
+                    canStartFlow := array.get(flowStages, fi) == 1
+                if canStartFlow
+                    funnelSetups += 1
+                    if isOb
+                        funnelObSetups += 1
+                    else
+                        funnelFvgSetups += 1
+                    if fi >= 0
+                        funnelSetupReplaced += 1
+                        removeFlow(fi)
+                    if funnelLastSetupZoneKey == zoneKey
+                        funnelSameZoneSetups += 1
+                    else
+                        funnelChangedZoneSetups += 1
+                    funnelLastSetupZoneKey := zoneKey
+                    if showSetup
+                        addSetupLabel(zoneDir, zoneKey)
+                    array.push(flowKeys, zoneKey)
+                    array.push(flowDirs, zoneDir)
+                    array.push(flowStages, 1)
+                    array.push(flowSetupBars, bar_index)
+                    array.push(flowBreakLevels, zoneDir == 1 ? lastArmedPivotHigh : lastArmedPivotLow)
+                    array.push(flowArmedBars, int(na))
+                    array.push(flowRetestLevels, float(na))
+                    array.push(flowProtectLevels, float(na))
 armedPivotHigh = ta.pivothigh(high, armedSwingLen, armedSwingLen)
 armedPivotLow = ta.pivotlow(low, armedSwingLen, armedSwingLen)
 if not na(armedPivotHigh)
     lastArmedPivotHigh := armedPivotHigh
-    if activeSetupDir == 1
-        activeSetupBreakLevel := armedPivotHigh
 if not na(armedPivotLow)
     lastArmedPivotLow := armedPivotLow
-    if activeSetupDir == -1
-        activeSetupBreakLevel := armedPivotLow
+if perZoneDiagnostic == "FULL" and array.size(flowKeys) > 0
+    for i = array.size(flowKeys) - 1 to 0
+        zoneKey = array.get(flowKeys, i)
+        dir = array.get(flowDirs, i)
+        stage = array.get(flowStages, i)
+        zoneInvalid = not zoneIsActive(zoneKey)
+        biasInvalid = setupBias != dir
+        if stage == 1
+            expired = bar_index - array.get(flowSetupBars, i) > setupExpiryBars
+            if zoneInvalid or biasInvalid or expired
+                funnelSetupZoneInvalid += zoneInvalid ? 1 : 0
+                funnelSetupOppositeBias += biasInvalid ? 1 : 0
+                funnelSetupExpired += expired ? 1 : 0
+                removeFlow(i)
+            else
+                breakLevel = array.get(flowBreakLevels, i)
+                armedEvent = dir == 1 ? (bar_index > array.get(flowSetupBars, i) and not na(breakLevel) and close > breakLevel and close[1] <= breakLevel) : (bar_index > array.get(flowSetupBars, i) and not na(breakLevel) and close < breakLevel and close[1] >= breakLevel)
+                if armedEvent
+                    funnelArmed += 1
+                    dimAndArchiveSetupLabel(dir, zoneKey)
+                    if showArmed
+                        addArmedLabel(dir)
+                        setLatestArmedLabelKey(zoneKey)
+                    array.set(flowStages, i, 2)
+                    array.set(flowArmedBars, i, bar_index)
+                    array.set(flowRetestLevels, i, breakLevel)
+                    array.set(flowProtectLevels, i, dir == 1 ? lastArmedPivotLow : lastArmedPivotHigh)
+        else
+            protect = array.get(flowProtectLevels, i)
+            expired = entryExpiryBars > 0 and bar_index - array.get(flowArmedBars, i) > entryExpiryBars
+            protectBroken = dir == 1 ? (not na(protect) and close < protect) : (not na(protect) and close > protect)
+            if zoneInvalid or biasInvalid or expired or protectBroken
+                funnelArmedZoneInvalid += zoneInvalid ? 1 : 0
+                funnelArmedOppositeBias += biasInvalid ? 1 : 0
+                funnelArmedExpired += expired ? 1 : 0
+                funnelArmedProtectBroken += protectBroken ? 1 : 0
+                deleteArmedLabelForZone(zoneKey)
+                removeFlow(i)
+            else
+                retest = array.get(flowRetestLevels, i)
+                entryEvent = dir == 1 ? (bar_index > array.get(flowArmedBars, i) and low <= retest and close > retest) : (bar_index > array.get(flowArmedBars, i) and high >= retest and close < retest)
+                if entryEvent
+                    if showEntry
+                        addEntryLabel(dir)
+                    tradePlanAdded = addTradePlan(dir, close, protect)
+                    if tradePlanAdded
+                        funnelEntries += 1
+                        statsTotal += 1
+                        markZoneTraded(zoneKey)
+                    else
+                        funnelInvalidPlans += 1
+                    archiveArmedLabelForZone(zoneKey)
+                    removeFlow(i)
 
-setupExpired = activeSetupDir != 0 and bar_index - activeSetupBar > armedExpiryBars
-setupOppositeBias = activeSetupDir != 0 and setupBias != activeSetupDir
-setupZoneInvalid = activeSetupDir != 0 and not zoneIsActive(activeSetupZoneKey)
-if setupExpired or setupOppositeBias or setupZoneInvalid
-    activeSetupDir := 0
-    activeSetupBar := na
-    activeSetupZoneKey := ""
-    activeSetupBreakLevel := na
-
-armedBody = math.abs(close - open)
-armedAtr = ta.atr(armedAtrLen)
-armedDisplacement = armedBodyAtrMult == 0.0 or armedBody >= armedAtr * armedBodyAtrMult
-bullArmedEvent = activeSetupDir == 1 and bar_index > activeSetupBar and not na(activeSetupBreakLevel) and close > activeSetupBreakLevel and close[1] <= activeSetupBreakLevel and armedDisplacement
-bearArmedEvent = activeSetupDir == -1 and bar_index > activeSetupBar and not na(activeSetupBreakLevel) and close < activeSetupBreakLevel and close[1] >= activeSetupBreakLevel and armedDisplacement
-if bullArmedEvent or bearArmedEvent
-    dimAndArchiveSetupLabel(activeSetupDir, activeSetupZoneKey)
-    if showArmed
-        addArmedLabel(activeSetupDir)
-    activeArmedDir := activeSetupDir
-    activeArmedBar := bar_index
-    activeArmedZoneKey := activeSetupZoneKey
-    activeArmedRetestLevel := activeSetupBreakLevel
-    activeArmedProtectLevel := activeSetupDir == 1 ? lastArmedPivotLow : lastArmedPivotHigh
-    activeSetupDir := 0
-    activeSetupBar := na
-    activeSetupZoneKey := ""
-    activeSetupBreakLevel := na
-
-entryExpired = activeArmedDir != 0 and entryExpiryBars > 0 and bar_index - activeArmedBar > entryExpiryBars
-entryOppositeBias = activeArmedDir != 0 and setupBias != activeArmedDir
-entryZoneInvalid = activeArmedDir != 0 and not zoneIsActive(activeArmedZoneKey)
-entryProtectBroken = activeArmedDir == 1 ? (not na(activeArmedProtectLevel) and close < activeArmedProtectLevel) : activeArmedDir == -1 ? (not na(activeArmedProtectLevel) and close > activeArmedProtectLevel) : false
-if entryExpired or entryOppositeBias or entryZoneInvalid or entryProtectBroken
-    activeArmedDir := 0
-    activeArmedBar := na
-    activeArmedZoneKey := ""
-    activeArmedRetestLevel := na
-    activeArmedProtectLevel := na
-
-bullEntryEvent = activeArmedDir == 1 and bar_index > activeArmedBar and low <= activeArmedRetestLevel and close > activeArmedRetestLevel
-bearEntryEvent = activeArmedDir == -1 and bar_index > activeArmedBar and high >= activeArmedRetestLevel and close < activeArmedRetestLevel
-if bullEntryEvent or bearEntryEvent
-    completedEntryDir = activeArmedDir
-    completedEntryStop = activeArmedProtectLevel
-    if showEntry
-        addEntryLabel(completedEntryDir)
-    if showTradePlans
-        addTradePlan(completedEntryDir, close, completedEntryStop)
-    activeArmedDir := 0
-    activeArmedBar := na
-    activeArmedZoneKey := ""
-    activeArmedRetestLevel := na
-    activeArmedProtectLevel := na
-
-if array.size(tradeLabels) > 0
-    for i = 0 to array.size(tradeLabels) - 1
+if array.size(tradeStatuses) > 0
+    for i = 0 to array.size(tradeStatuses) - 1
         tradeStatus = array.get(tradeStatuses, i)
         if tradeStatus == 0 or tradeStatus == 1
             tradeDir = array.get(tradeDirs, i)
@@ -689,26 +812,128 @@ if array.size(tradeLabels) > 0
             tradeTp2 = array.get(tradeTp2s, i)
             tradeStartBar = array.get(tradeStartBars, i)
             tradeLabel = array.get(tradeLabels, i)
-            line.set_x2(array.get(tradeSlLines, i), bar_index)
-            line.set_x2(array.get(tradeTp1Lines, i), bar_index)
-            line.set_x2(array.get(tradeTp2Lines, i), bar_index)
+            if showTradePlans
+                line.set_x2(array.get(tradeSlLines, i), bar_index)
+                line.set_x2(array.get(tradeTp1Lines, i), bar_index)
+                line.set_x2(array.get(tradeTp2Lines, i), bar_index)
             if bar_index > tradeStartBar
                 stopHit = tradeDir == 1 ? low <= tradeStop : high >= tradeStop
                 tp1Hit = tradeDir == 1 ? high >= tradeTp1 : low <= tradeTp1
                 tp2Hit = tradeDir == 1 ? high >= tradeTp2 : low <= tradeTp2
                 tradeText = (tradeDir == 1 ? "B PLAN" : "S PLAN") + "\nEntry " + str.tostring(tradeEntry, format.mintick) + "\nSL " + str.tostring(tradeStop, format.mintick) + "\nTP1 " + str.tostring(tradeTp1, format.mintick) + "\nTP2 " + str.tostring(tradeTp2, format.mintick)
                 if stopHit
-                    label.set_text(tradeLabel, tradeText + (tradeStatus == 1 ? "\nTP1 → LOSS" : "\nLOSS"))
-                    label.set_color(tradeLabel, color.new(color.red, 10))
+                    if showTradePlans
+                        label.set_text(tradeLabel, tradeText + (tradeStatus == 1 ? "\nTP1 -> BE" : "\nLOSS"))
+                        label.set_color(tradeLabel, color.new(tradeStatus == 1 ? color.aqua : color.red, 10))
                     array.set(tradeStatuses, i, -1)
+                    tp1Fraction = tradeTp1ExitPct / 100.0
+                    exitR = tradeStatus == 1 ? tp1Fraction * tradeTp1R : -1.0
+                    if tradeStatus == 1
+                        statsTp1Breakevens += 1
+                    else
+                        statsDirectLosses += 1
+                    statsNetR += exitR
+                    if exitR >= 0.0
+                        statsGrossWinR += exitR
+                    else
+                        statsGrossLossR += math.abs(exitR)
                 else if tp2Hit
-                    label.set_text(tradeLabel, tradeText + "\nWIN TP2")
-                    label.set_color(tradeLabel, color.new(color.green, 10))
+                    if showTradePlans
+                        label.set_text(tradeLabel, tradeText + "\nWIN TP2")
+                        label.set_color(tradeLabel, color.new(color.green, 10))
                     array.set(tradeStatuses, i, 2)
+                    tp1Fraction = tradeTp1ExitPct / 100.0
+                    winR = tp1Fraction * tradeTp1R + (1.0 - tp1Fraction) * tradeTp2R
+                    statsTp2Wins += 1
+                    statsNetR += winR
+                    statsGrossWinR += winR
                 else if tp1Hit and tradeStatus == 0
-                    label.set_text(tradeLabel, tradeText + "\nTP1 HIT")
-                    label.set_color(tradeLabel, color.new(color.teal, 10))
+                    array.set(tradeStops, i, tradeEntry)
+                    if showTradePlans
+                        line.set_y1(array.get(tradeSlLines, i), tradeEntry)
+                        line.set_y2(array.get(tradeSlLines, i), tradeEntry)
+                        beTradeText = (tradeDir == 1 ? "B PLAN" : "S PLAN") + "\nEntry " + str.tostring(tradeEntry, format.mintick) + "\nSL " + str.tostring(tradeEntry, format.mintick) + "\nTP1 " + str.tostring(tradeTp1, format.mintick) + "\nTP2 " + str.tostring(tradeTp2, format.mintick)
+                        label.set_text(tradeLabel, beTradeText + "\nTP1 HIT\nSL -> BE")
+                        label.set_color(tradeLabel, color.new(color.teal, 10))
                     array.set(tradeStatuses, i, 1)
+
+statsClosed = statsTp2Wins + statsTp1Breakevens + statsDirectLosses
+statsOpen = statsTotal - statsClosed
+statsTp1Rate = statsClosed > 0 ? (statsTp2Wins + statsTp1Breakevens) * 100.0 / statsClosed : na
+statsTp2Rate = statsClosed > 0 ? statsTp2Wins * 100.0 / statsClosed : na
+statsAvgR = statsClosed > 0 ? statsNetR / statsClosed : na
+statsProfitFactor = statsGrossLossR > 0.0 ? statsGrossWinR / statsGrossLossR : na
+
+if barstate.islast
+    if showTradeStats
+        table.clear(tradeStatsTable, 0, 0, 1, 29)
+        table.cell(tradeStatsTable, 0, 0, "V1-LONG-01 | SMC " + entryTimeframeName, text_color=color.white, bgcolor=entryTimeframeMatches ? color.new(color.navy, 15) : color.new(color.orange, 15))
+        table.cell(tradeStatsTable, 1, 0, entryTimeframeMatches ? (showSignalFunnelStats ? "PZ " + perZoneDiagnostic : "COMPACT") : "Use H1 chart", text_color=entryTimeframeMatches ? color.silver : color.white, bgcolor=entryTimeframeMatches ? color.new(color.navy, 15) : color.new(color.orange, 15))
+        table.cell(tradeStatsTable, 0, 1, "Total", text_color=color.silver)
+        table.cell(tradeStatsTable, 1, 1, str.tostring(statsTotal), text_color=color.white)
+        table.cell(tradeStatsTable, 0, 2, "Open", text_color=color.silver)
+        table.cell(tradeStatsTable, 1, 2, str.tostring(statsOpen), text_color=color.white)
+        table.cell(tradeStatsTable, 0, 3, "Win TP2", text_color=color.silver)
+        table.cell(tradeStatsTable, 1, 3, str.tostring(statsTp2Wins), text_color=color.lime)
+        table.cell(tradeStatsTable, 0, 4, "TP1 -> BE", text_color=color.silver)
+        table.cell(tradeStatsTable, 1, 4, str.tostring(statsTp1Breakevens), text_color=color.aqua)
+        table.cell(tradeStatsTable, 0, 5, "Direct Loss", text_color=color.silver)
+        table.cell(tradeStatsTable, 1, 5, str.tostring(statsDirectLosses), text_color=color.red)
+        table.cell(tradeStatsTable, 0, 6, "TP1 Rate", text_color=color.silver)
+        table.cell(tradeStatsTable, 1, 6, na(statsTp1Rate) ? "-" : str.tostring(statsTp1Rate, "#.0") + "%", text_color=color.white)
+        table.cell(tradeStatsTable, 0, 7, "TP2 Rate", text_color=color.silver)
+        table.cell(tradeStatsTable, 1, 7, na(statsTp2Rate) ? "-" : str.tostring(statsTp2Rate, "#.0") + "%", text_color=color.white)
+        table.cell(tradeStatsTable, 0, 8, "Net R", text_color=color.silver)
+        table.cell(tradeStatsTable, 1, 8, str.tostring(statsNetR, "#.##") + "R", text_color=statsNetR >= 0.0 ? color.lime : color.red)
+        table.cell(tradeStatsTable, 0, 9, "Avg R", text_color=color.silver)
+        table.cell(tradeStatsTable, 1, 9, na(statsAvgR) ? "-" : str.tostring(statsAvgR, "#.##") + "R", text_color=color.white)
+        table.cell(tradeStatsTable, 0, 10, "Profit Factor", text_color=color.silver)
+        table.cell(tradeStatsTable, 1, 10, na(statsProfitFactor) ? "-" : str.tostring(statsProfitFactor, "#.##"), text_color=color.white)
+        if showSignalFunnelStats
+            table.cell(tradeStatsTable, 0, 11, "SIGNAL FUNNEL", text_color=color.white, bgcolor=color.new(color.gray, 55))
+            table.cell(tradeStatsTable, 1, 11, "Count", text_color=color.silver, bgcolor=color.new(color.gray, 55))
+            table.cell(tradeStatsTable, 0, 12, "SETUP", text_color=color.silver)
+            table.cell(tradeStatsTable, 1, 12, str.tostring(funnelSetups), text_color=color.white)
+            table.cell(tradeStatsTable, 0, 13, "ARMED", text_color=color.silver)
+            table.cell(tradeStatsTable, 1, 13, str.tostring(funnelArmed), text_color=color.white)
+            table.cell(tradeStatsTable, 0, 14, "Valid ENTRY", text_color=color.silver)
+            table.cell(tradeStatsTable, 1, 14, str.tostring(funnelEntries), text_color=color.white)
+            table.cell(tradeStatsTable, 0, 15, "Invalid plan", text_color=color.silver)
+            table.cell(tradeStatsTable, 1, 15, str.tostring(funnelInvalidPlans), text_color=color.orange)
+            table.cell(tradeStatsTable, 0, 16, "SETUP expired", text_color=color.silver)
+            table.cell(tradeStatsTable, 1, 16, str.tostring(funnelSetupExpired), text_color=color.orange)
+            table.cell(tradeStatsTable, 0, 17, "SETUP bias flip", text_color=color.silver)
+            table.cell(tradeStatsTable, 1, 17, str.tostring(funnelSetupOppositeBias), text_color=color.orange)
+            table.cell(tradeStatsTable, 0, 18, "SETUP zone invalid", text_color=color.silver)
+            table.cell(tradeStatsTable, 1, 18, str.tostring(funnelSetupZoneInvalid), text_color=color.orange)
+            table.cell(tradeStatsTable, 0, 19, "ARMED expired", text_color=color.silver)
+            table.cell(tradeStatsTable, 1, 19, str.tostring(funnelArmedExpired), text_color=color.orange)
+            table.cell(tradeStatsTable, 0, 20, "ARMED bias flip", text_color=color.silver)
+            table.cell(tradeStatsTable, 1, 20, str.tostring(funnelArmedOppositeBias), text_color=color.orange)
+            table.cell(tradeStatsTable, 0, 21, "ARMED zone invalid", text_color=color.silver)
+            table.cell(tradeStatsTable, 1, 21, str.tostring(funnelArmedZoneInvalid), text_color=color.orange)
+            table.cell(tradeStatsTable, 0, 22, "ARMED protect break", text_color=color.silver)
+            table.cell(tradeStatsTable, 1, 22, str.tostring(funnelArmedProtectBroken), text_color=color.orange)
+            table.cell(tradeStatsTable, 0, 23, "SETUP replaced", text_color=color.silver)
+            table.cell(tradeStatsTable, 1, 23, str.tostring(funnelSetupReplaced), text_color=color.orange)
+            table.cell(tradeStatsTable, 0, 24, "ARMED replaced", text_color=color.silver)
+            table.cell(tradeStatsTable, 1, 24, str.tostring(funnelArmedReplaced), text_color=color.orange)
+            table.cell(tradeStatsTable, 0, 25, "Same-zone SETUP", text_color=color.silver)
+            table.cell(tradeStatsTable, 1, 25, str.tostring(funnelSameZoneSetups), text_color=color.white)
+            table.cell(tradeStatsTable, 0, 26, "Changed-zone SETUP", text_color=color.silver)
+            table.cell(tradeStatsTable, 1, 26, str.tostring(funnelChangedZoneSetups), text_color=color.white)
+            table.cell(tradeStatsTable, 0, 27, "OB SETUP", text_color=color.silver)
+            table.cell(tradeStatsTable, 1, 27, str.tostring(funnelObSetups), text_color=color.white)
+            table.cell(tradeStatsTable, 0, 28, "FVG SETUP", text_color=color.silver)
+            table.cell(tradeStatsTable, 1, 28, str.tostring(funnelFvgSetups), text_color=color.white)
+            table.cell(tradeStatsTable, 0, 29, "Window", text_color=color.silver, bgcolor=color.new(color.gray, 75))
+            table.cell(tradeStatsTable, 1, 29, str.tostring(statsLookbackDays) + "D", text_color=color.white, bgcolor=color.new(color.gray, 75))
+        lastStatsRow = showSignalFunnelStats ? 29 : 10
+        for statsCol = 0 to 1
+            for statsRow = 0 to lastStatsRow
+                table.cell_set_text_size(tradeStatsTable, statsCol, statsRow, size.tiny)
+    else
+        table.clear(tradeStatsTable, 0, 0, 1, 29)
 
 weekKey = time(htf)
 newWeek = ta.change(weekKey) != 0
@@ -748,6 +973,7 @@ else if newWeek
         array.shift(weekCloses)
 
     ready = not na(w1C) and not na(w2C) and not na(w3H)
+    weeklyAtr = completedContextAtr(weekHighs, weekLows, weekCloses, zoneAtrLen)
     if ready and showOb
         lastIdx = array.size(weekTimes) - 1
         enoughStructure = lastIdx > structureLookback
@@ -761,14 +987,15 @@ else if newWeek
                 recentHigh := na(recentHigh) ? h : math.max(recentHigh, h)
                 recentLow := na(recentLow) ? l : math.min(recentLow, l)
 
-        bullishOb = enoughStructure and w1C > recentHigh
-        bearishOb = enoughStructure and w1C < recentLow
+        obDisplacement = not na(weeklyAtr) and math.abs(w1C - w1O) >= weeklyAtr * obBodyAtrMult
+        bullishOb = enoughStructure and obDisplacement and w1C > recentHigh
+        bearishOb = enoughStructure and obDisplacement and w1C < recentLow
         if bullishOb
             for offset = 1 to obSearchBack
                 idx = lastIdx - offset
                 if idx >= 0 and array.get(weekCloses, idx) < array.get(weekOpens, idx)
-                    top = useWicks ? array.get(weekHighs, idx) : array.get(weekOpens, idx)
-                    bottom = useWicks ? array.get(weekLows, idx) : array.get(weekCloses, idx)
+                    top = array.get(weekOpens, idx)
+                    bottom = array.get(weekLows, idx)
                     sourceTime = array.get(weekTimes, idx)
                     if not obExists(1, sourceTime)
                         addOb(1, sourceTime, top, bottom)
@@ -777,8 +1004,8 @@ else if newWeek
             for offset = 1 to obSearchBack
                 idx = lastIdx - offset
                 if idx >= 0 and array.get(weekCloses, idx) > array.get(weekOpens, idx)
-                    top = useWicks ? array.get(weekHighs, idx) : array.get(weekCloses, idx)
-                    bottom = useWicks ? array.get(weekLows, idx) : array.get(weekOpens, idx)
+                    top = array.get(weekHighs, idx)
+                    bottom = array.get(weekOpens, idx)
                     sourceTime = array.get(weekTimes, idx)
                     if not obExists(-1, sourceTime)
                         addOb(-1, sourceTime, top, bottom)
@@ -789,11 +1016,12 @@ else if newWeek
         bullBottom = w3H
         bearTop = w3L
         bearBottom = w1H
-        bullPct = math.abs(bullTop - bullBottom) / ((bullTop + bullBottom) / 2.0) * 100.0
-        bearPct = math.abs(bearTop - bearBottom) / ((bearTop + bearBottom) / 2.0) * 100.0
-        if bullTop > bullBottom and bullPct >= minFvgPct
+        middleBody = math.abs(w2C - w2O)
+        bullMiddleDisplacement = not na(weeklyAtr) and w2C > w2O and middleBody >= weeklyAtr * fvgBodyAtrMult
+        bearMiddleDisplacement = not na(weeklyAtr) and w2C < w2O and middleBody >= weeklyAtr * fvgBodyAtrMult
+        if bullTop > bullBottom and bullMiddleDisplacement
             addFvg(1, w1T, bullTop, bullBottom)
-        if bearTop > bearBottom and bearPct >= minFvgPct
+        if bearTop > bearBottom and bearMiddleDisplacement
             addFvg(-1, w1T, bearTop, bearBottom)
 
     curT := weekKey

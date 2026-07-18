@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="900" viewBox="0 0 1500 900" role="img" aria-labelledby="title desc">
+  <title id="title">SMC V4 Top-down Models Architecture</title>
+  <desc id="desc">Three independent models: Weekly-Daily-H4, Daily-H4-H1, and H4-H1-M30.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07111f"/><stop offset="1" stop-color="#14233a"/>
+    </linearGradient>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L9,3 z" fill="#93bde5"/>
+    </marker>
+    <style>
+      .title{font:700 34px 'Segoe UI','Microsoft JhengHei',sans-serif;fill:#f5f8ff}
+      .sub{font:400 18px 'Segoe UI','Microsoft JhengHei',sans-serif;fill:#aec2d8}
+      .head{font:700 23px 'Segoe UI','Microsoft JhengHei',sans-serif;fill:#fff}
+      .label{font:700 17px 'Segoe UI','Microsoft JhengHei',sans-serif;fill:#eaf3ff}
+      .text{font:400 16px 'Segoe UI','Microsoft JhengHei',sans-serif;fill:#c9d8e8}
+      .small{font:400 14px 'Segoe UI','Microsoft JhengHei',sans-serif;fill:#9fb4ca}
+      .card{stroke-width:2}
+      .flow{fill:none;stroke:#93bde5;stroke-width:3;marker-end:url(#arrow)}
+    </style>
+  </defs>
+  <rect width="1500" height="900" fill="url(#bg)"/>
+  <text x="70" y="62" class="title">SMC V4 Top-down Models</text>
+  <text x="70" y="94" class="sub">Each model owns independent Zone, Bias, SETUP, ARMED, ENTRY and Trade state.</text>
+
+  <g transform="translate(70 145)">
+    <rect width="420" height="590" rx="20" fill="#10352f" stroke="#48c4a8" class="card"/>
+    <text x="28" y="48" class="head">SWING W-D-H4</text>
+    <text x="28" y="78" class="small">V1 drawing and statistics reference</text>
+    <rect x="35" y="115" width="350" height="82" rx="13" fill="#174b42" stroke="#48c4a8"/>
+    <text x="210" y="148" text-anchor="middle" class="label">Weekly Zone</text>
+    <text x="210" y="176" text-anchor="middle" class="text">Weekly OB / FVG arrays</text>
+    <path d="M210 197 V238" class="flow"/>
+    <rect x="35" y="242" width="350" height="82" rx="13" fill="#174b42" stroke="#48c4a8"/>
+    <text x="210" y="275" text-anchor="middle" class="label">Daily Bias</text>
+    <text x="210" y="303" text-anchor="middle" class="text">Daily Pivot / MSS / ATR</text>
+    <path d="M210 324 V365" class="flow"/>
+    <rect x="35" y="369" width="350" height="132" rx="13" fill="#174b42" stroke="#48c4a8"/>
+    <text x="210" y="405" text-anchor="middle" class="label">H4 Execution</text>
+    <text x="210" y="435" text-anchor="middle" class="text">SETUP → ARMED → ENTRY</text>
+    <text x="210" y="465" text-anchor="middle" class="text">Trade result and funnel</text>
+    <text x="210" y="548" text-anchor="middle" class="small">Validated against V1: 2105 / 1504 / 2324</text>
+  </g>
+
+  <g transform="translate(540 145)">
+    <rect width="420" height="590" rx="20" fill="#2e2443" stroke="#bc9bea" class="card"/>
+    <text x="28" y="48" class="head">INTRADAY D-H4-H1</text>
+    <text x="28" y="78" class="small">Independent intraday model</text>
+    <rect x="35" y="115" width="350" height="82" rx="13" fill="#463461" stroke="#bc9bea"/>
+    <text x="210" y="148" text-anchor="middle" class="label">Daily Zone</text>
+    <text x="210" y="176" text-anchor="middle" class="text">Daily OB / FVG arrays</text>
+    <path d="M210 197 V238" class="flow"/>
+    <rect x="35" y="242" width="350" height="82" rx="13" fill="#463461" stroke="#bc9bea"/>
+    <text x="210" y="275" text-anchor="middle" class="label">H4 Bias</text>
+    <text x="210" y="303" text-anchor="middle" class="text">H4 Pivot / MSS / ATR</text>
+    <path d="M210 324 V365" class="flow"/>
+    <rect x="35" y="369" width="350" height="132" rx="13" fill="#463461" stroke="#bc9bea"/>
+    <text x="210" y="405" text-anchor="middle" class="label">H1 Execution</text>
+    <text x="210" y="435" text-anchor="middle" class="text">SETUP → ARMED → ENTRY</text>
+    <text x="210" y="465" text-anchor="middle" class="text">H1 lower-timeframe arrays</text>
+    <text x="210" y="548" text-anchor="middle" class="small">Awaiting full drawing reference</text>
+  </g>
+
+  <g transform="translate(1010 145)">
+    <rect width="420" height="590" rx="20" fill="#402d14" stroke="#e7b355" class="card"/>
+    <text x="28" y="48" class="head">FAST H4-H1-M30</text>
+    <text x="28" y="78" class="small">Independent fast model</text>
+    <rect x="35" y="115" width="350" height="82" rx="13" fill="#5b411d" stroke="#e7b355"/>
+    <text x="210" y="148" text-anchor="middle" class="label">H4 Zone</text>
+    <text x="210" y="176" text-anchor="middle" class="text">H4 OB / FVG arrays</text>
+    <path d="M210 197 V238" class="flow"/>
+    <rect x="35" y="242" width="350" height="82" rx="13" fill="#5b411d" stroke="#e7b355"/>
+    <text x="210" y="275" text-anchor="middle" class="label">H1 Bias</text>
+    <text x="210" y="303" text-anchor="middle" class="text">H1 Pivot / MSS / ATR</text>
+    <path d="M210 324 V365" class="flow"/>
+    <rect x="35" y="369" width="350" height="132" rx="13" fill="#5b411d" stroke="#e7b355"/>
+    <text x="210" y="405" text-anchor="middle" class="label">M30 Execution</text>
+    <text x="210" y="435" text-anchor="middle" class="text">SETUP → ARMED → ENTRY</text>
+    <text x="210" y="465" text-anchor="middle" class="text">M30 lower-timeframe arrays</text>
+    <text x="210" y="548" text-anchor="middle" class="small">Awaiting full drawing reference</text>
+  </g>
+
+  <rect x="70" y="785" width="1360" height="66" rx="14" fill="#0b1727" stroke="#426080"/>
+  <text x="750" y="813" text-anchor="middle" class="label">Fixed research window: 1095D · Run V4 on H4 chart</text>
+  <text x="750" y="839" text-anchor="middle" class="small">Tune one stage at a time: Zone → MSS → SETUP → ARMED → ENTRY; SL / TP is deferred.</text>
+</svg>
